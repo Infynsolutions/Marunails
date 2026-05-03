@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>INFYN — Ordenamos tu negocio para que crezca sin caos</title>
+<title>INFYN — Diseñamos el camino de tu negocio hacia un futuro más grande</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 
@@ -139,7 +139,7 @@
     text-decoration: none;
   }
 
-  .logo svg { width: 30px; height: 19px; }
+  .logo svg { width: 32px; height: 23px; }
 
   .logo-wordmark {
     font-size: 17px;
@@ -1270,9 +1270,10 @@
     .phone-frame { display: none; }
     .kpi-row { grid-template-columns: 1fr 1fr; }
     .charts-row { grid-template-columns: 1fr; }
-    .app-window { height: auto; }
+    .app-window { height: auto; grid-template-columns: 1fr; } /* sidebar oculto, no reservar columna */
     .app-sidebar { display: none; }
     .donut-card { display: none; }
+    .app-header-right > *:not(.live-badge) { display: none; } /* simplificar header */
   }
 
   /* ─── RESULTADOS ─── */
@@ -1517,6 +1518,32 @@
     .metodo-header { margin-bottom: 32px; }
   }
 
+  @media (max-width: 520px) {
+    /* Dashboard mockup — mobile fix */
+    .app-window { height: auto; overflow: visible; }
+    .app-main { overflow: visible; }
+    .app-body { overflow: visible; padding: 10px; }
+
+    /* Header simplificado — ocultar fecha y botón naranja */
+    .app-header-right > *:not(.live-badge) { display: none; }
+    .app-header { padding: 8px 10px; flex-wrap: wrap; gap: 6px; }
+
+    /* KPIs en 2 filas de 2 */
+    .kpi-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .kpi-value { font-size: 12px; }
+    .kpi-label { font-size: 7px; }
+    .kpi-delta { font-size: 8px; }
+    .kpi-card { padding: 10px; }
+
+    /* Charts apilados */
+    .charts-row { grid-template-columns: 1fr; }
+    .donut-card { display: none; }
+
+    /* Producto section */
+    .producto { padding: 56px 16px; }
+    .producto-pills { flex-wrap: wrap; gap: 6px; }
+  }
+
 </style>
 </head>
 <body>
@@ -1524,18 +1551,15 @@
 <!-- ─── NAV ─── -->
 <nav>
   <a href="#" class="logo">
-    <svg viewBox="0 0 48 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M17 15C17 10.3 20.2 7 24.5 7C29 7 31.5 10 33.5 13.5L35 15C36.5 17.5 39.5 21 43 21C46.5 21 48 18.5 48 15C48 11.5 46.5 9 43 9C39.5 9 36.5 12.5 35 15" stroke="#2ED47A" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M31 15C29.5 17.5 27 21 22.5 21C18 21 15.5 18.5 13.5 15.5L12 14C10.5 11.5 7.5 9 5 9C2.5 9 0 11.5 0 15C0 18.5 2.5 21 5 21C8.5 21 11.5 17.5 13 15" stroke="#0F7B53" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M39.5 5L47 12L39.5 19" stroke="#2ED47A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <img src="/Logo Infyn.png" alt="INFYN" style="height:36px;width:auto;">
     <span class="logo-wordmark">INFYN</span>
   </a>
   <ul class="nav-links">
     <li><a href="#metodo">Cómo trabajamos</a></li>
     <li><a href="#resultados">Resultados</a></li>
+    <li><a href="/ejemplos">Ejemplos</a></li>
     <li><a href="#contacto">Contacto</a></li>
-    <li><a href="#contacto" class="nav-cta">Agendar diagnóstico</a></li>
+    <li><a href="/diagnostico" class="nav-cta">Agendar diagnóstico</a></li>
   </ul>
 </nav>
 
@@ -1545,13 +1569,13 @@
   <div class="hero-content">
     <div class="hero-tag">Consultoría estratégica para PyMEs</div>
     <h1 class="hero-headline">
-      Ordenamos tu negocio<br>
-      para que crezca<br>
-      <span class="acento">sin caos.</span>
+      Diseñamos el camino<br>
+      de tu negocio hacia<br>
+      <span class="acento">un futuro más grande.</span>
     </h1>
     <p class="hero-sub">Estrategia + procesos + implementación real.</p>
     <div class="hero-actions">
-      <a href="#contacto" class="btn-primary">Agendar diagnóstico</a>
+      <a href="/diagnostico" class="btn-primary">Agendar diagnóstico</a>
       <a href="#metodo" class="btn-secondary">Cómo trabajamos</a>
     </div>
   </div>
@@ -2009,8 +2033,7 @@
     Primera conversación sin costo. En 30 minutos te decimos si podemos ayudarte y cómo.
   </p>
   <div class="cta-form">
-    <input class="cta-input" type="email" placeholder="tu@empresa.com">
-    <button class="cta-btn">Agendar diagnóstico</button>
+    <a href="/diagnostico" class="cta-btn" style="text-decoration:none;display:inline-flex;align-items:center;">Agendar diagnóstico</a>
   </div>
   <p class="cta-nota">Sin spam. Sin vendedores. Una conversación directa.</p>
 </section>
@@ -2019,11 +2042,7 @@
 <!-- ─── FOOTER ─── -->
 <footer>
   <a href="#" class="logo">
-    <svg viewBox="0 0 48 30" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:26px;height:16px;">
-      <path d="M17 15C17 10.3 20.2 7 24.5 7C29 7 31.5 10 33.5 13.5L35 15C36.5 17.5 39.5 21 43 21C46.5 21 48 18.5 48 15C48 11.5 46.5 9 43 9C39.5 9 36.5 12.5 35 15" stroke="#2ED47A" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M31 15C29.5 17.5 27 21 22.5 21C18 21 15.5 18.5 13.5 15.5L12 14C10.5 11.5 7.5 9 5 9C2.5 9 0 11.5 0 15C0 18.5 2.5 21 5 21C8.5 21 11.5 17.5 13 15" stroke="#0F7B53" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M39.5 5L47 12L39.5 19" stroke="#2ED47A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <img src="/Logo Infyn.png" alt="INFYN" style="height:28px;width:auto;">
     <span class="logo-wordmark" style="font-size:15px;">INFYN</span>
   </a>
   <ul class="footer-nav">

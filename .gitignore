@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit
+.env
+*.env
+*.pem
+*.key
+service-account.json
+google-credentials.json
+
+# Claude / gstack internal
+.claude/
+
+# Vercel (project IDs son account-specific — se regeneran en la cuenta nueva)
+.vercel/
+
+# Assets grandes sin uso en deploy
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.docx
+*.pdf
