@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/diagnostico", "destination": "/diagnostico.html" },
+    { "source": "/ejemplos",    "destination": "/ejemplos.html" }
+  ]
+}

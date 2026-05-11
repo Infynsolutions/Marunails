@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ejemplos de sistemas — INFYN</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+
+  :root {
+    --verde:        #0F7B53;
+    --verde-oscuro: #0A3F2C;
+    --verde-acento: #2ED47A;
+    --gris-claro:   #F5F7F6;
+    --gris-medio:   #E8ECEB;
+    --gris-texto:   #6B7B76;
+    --gris-suave:   #9EADA8;
+    --oscuro:       #060D09;
+    --blanco:       #FFFFFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--oscuro);
+    color: var(--blanco);
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── AURORA ─── */
+  .aurora-bg { background: var(--oscuro); position: relative; overflow: hidden; }
+  .aurora-bg::after {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 65% 75% at 72% 65%, rgba(26,138,74,0.60) 0%, rgba(10,63,44,0.30) 35%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 30% 20%, rgba(10,63,44,0.20) 0%, transparent 60%);
+    filter: blur(50px);
+    pointer-events: none; z-index: 0;
+  }
+  .aurora-subtle::after {
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgba(15,123,83,0.25) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 40% at 20% 80%, rgba(10,63,44,0.15) 0%, transparent 60%);
+    filter: blur(60px);
+  }
+  .aurora-bg > * { position: relative; z-index: 1; }
+
+  .grid-bg::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+    background-size: 56px 56px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 0 60px; height: 68px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(6,13,9,0.90);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .logo svg { width: 32px; height: 23px; }
+  .logo-wordmark { font-size: 17px; font-weight: 700; color: var(--blanco); letter-spacing: 3px; }
+  .nav-links { display: flex; align-items: center; gap: 36px; list-style: none; }
+  .nav-links a {
+    font-size: 14px; font-weight: 500; letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--blanco); }
+  .nav-links a.active { color: var(--verde-acento); }
+  .nav-cta {
+    background: var(--verde-acento) !important; color: var(--oscuro) !important;
+    padding: 9px 22px; border-radius: 6px; font-weight: 700 !important;
+    font-size: 14px !important; letter-spacing: 0.3px !important; transition: opacity 0.2s !important;
+  }
+  .nav-cta:hover { opacity: 0.85; }
+
+  /* ─── SECTION EYEBROW ─── */
+  .section-eyebrow {
+    font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--verde-acento); margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-eyebrow::before {
+    content: ''; width: 18px; height: 2px; background: currentColor;
+    display: inline-block; flex-shrink: 0;
+  }
+
+  /* ─── HERO ─── */
+  .ej-hero { padding: 148px 60px 72px; }
+  .ej-hero-inner { max-width: 1080px; margin: 0 auto; }
+  .ej-hero h1 {
+    font-size: clamp(36px, 5vw, 60px);
+    font-weight: 800; color: var(--blanco);
+    line-height: 1.06; letter-spacing: -1.5px;
+    max-width: 820px; margin-bottom: 22px;
+  }
+  .ej-hero h1 .acento { color: var(--verde-acento); }
+  .ej-hero p {
+    font-size: 18px; color: rgba(255,255,255,0.42);
+    line-height: 1.65; max-width: 600px;
+  }
+
+  /* ─── SISTEMAS ─── */
+  .ej-sistemas { padding: 0 60px 100px; }
+  .ej-sistemas-inner { max-width: 1080px; margin: 0 auto; position: relative; z-index: 1; }
+
+  /* Tabs */
+  .ej-tabs {
+    display: flex; border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 36px; overflow-x: auto;
+  }
+  .ej-tab {
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; padding: 18px 22px;
+    color: rgba(255,255,255,0.45); font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    white-space: nowrap; transition: color 0.2s, border-color 0.2s;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ej-tab:hover { color: rgba(255,255,255,0.75); }
+  .ej-tab.active { color: var(--verde-acento); font-weight: 600; border-bottom-color: var(--verde-acento); }
+  .ej-tab-num { font-size: 10px; opacity: 0.45; font-variant-numeric: tabular-nums; }
+  .ej-tab.active .ej-tab-num { opacity: 0.65; }
+
+  /* Content grid */
+  .ej-content-grid { display: grid; grid-template-columns: 1fr 340px; gap: 36px; align-items: start; }
+
+  /* Browser */
+  .ej-browser {
+    border-radius: 12px; overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.07);
+    cursor: pointer; transition: transform 0.3s;
+  }
+  .ej-browser:hover { transform: translateY(-2px); }
+  .ej-browser-bar {
+    background: #0e1a14; padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .ej-browser-dots { display: flex; gap: 5px; }
+  .ej-browser-dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .ej-browser-url {
+    background: rgba(255,255,255,0.06); border-radius: 4px;
+    padding: 4px 10px; font-size: 11px; color: rgba(255,255,255,0.32);
+    flex: 1; text-align: center; font-family: monospace;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+
+  /* Mockup toggle */
+  .ej-mockup { display: none; }
+  .ej-mockup.active { display: block; }
+
+  /* Caption */
+  .ej-caption {
+    margin-top: 14px; display: flex;
+    justify-content: space-between; align-items: center;
+    font-size: 11px; color: rgba(255,255,255,0.28);
+  }
+  .ej-dots { display: flex; gap: 6px; }
+  .ej-dot {
+    width: 6px; height: 6px; border-radius: 99px;
+    background: rgba(255,255,255,0.2); border: none; cursor: pointer;
+    padding: 0; transition: all 0.3s;
+  }
+  .ej-dot.active { width: 20px; background: var(--verde-acento); }
+
+  /* Info panel */
+  .ej-info { display: none; flex-direction: column; }
+  .ej-info.active { display: flex; }
+  .ej-tag {
+    display: inline-block; padding: 4px 12px; border-radius: 99px;
+    background: rgba(46,212,122,0.12); color: var(--verde-acento);
+    font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; margin-bottom: 16px; align-self: flex-start;
+  }
+  .ej-info h3 { font-size: 22px; font-weight: 700; color: var(--blanco); line-height: 1.2; margin-bottom: 12px; }
+  .ej-info p { font-size: 14px; color: rgba(255,255,255,0.48); line-height: 1.65; margin-bottom: 20px; }
+  .ej-features { display: flex; flex-direction: column; gap: 9px; margin-bottom: 24px; }
+  .ej-feature { display: flex; align-items: center; gap: 10px; font-size: 13px; color: rgba(255,255,255,0.8); }
+  .ej-feature svg { flex-shrink: 0; }
+  .ej-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+  .ej-metric {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px; padding: 14px 12px;
+  }
+  .ej-metric-value {
+    font-size: 19px; font-weight: 800; color: var(--verde-acento);
+    letter-spacing: -0.5px; line-height: 1; margin-bottom: 5px;
+  }
+  .ej-metric-label { font-size: 10px; color: rgba(255,255,255,0.38); line-height: 1.3; }
+  .ej-info-btn {
+    background: var(--verde-acento); color: var(--oscuro); border: none;
+    padding: 13px 20px; border-radius: 8px; font-size: 13px; font-weight: 700;
+    cursor: pointer; width: 100%; font-family: 'Inter', sans-serif;
+    text-decoration: none; display: block; text-align: center; transition: opacity 0.2s;
+  }
+  .ej-info-btn:hover { opacity: 0.88; }
+
+  /* ─── ALL SYSTEMS ─── */
+  .ej-all { padding: 72px 60px; border-top: 1px solid rgba(255,255,255,0.06); }
+  .ej-all-inner { max-width: 1080px; margin: 0 auto; position: relative; z-index: 1; }
+  .ej-all-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; }
+  .ej-all-header h3 { font-size: 22px; font-weight: 700; }
+  .ej-all-header span { font-size: 12px; color: rgba(255,255,255,0.38); }
+  .ej-all-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .ej-all-card {
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px; padding: 20px 18px;
+    cursor: pointer; transition: all 0.25s;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .ej-all-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(46,212,122,0.2); transform: translateY(-1px); }
+  .ej-all-card.active { border-color: var(--verde-acento); background: rgba(46,212,122,0.04); }
+  .ej-all-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: rgba(46,212,122,0.1); border: 1px solid rgba(46,212,122,0.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .ej-all-info { flex: 1; }
+  .ej-all-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .ej-all-tag { font-size: 11px; color: rgba(255,255,255,0.38); }
+  .ej-all-arrow { font-size: 16px; color: var(--verde-acento); }
+
+  /* ─── CTA SECTION ─── */
+  .cta-section {
+    background: var(--gris-claro); padding: 100px 60px;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; gap: 26px;
+  }
+  .cta-titulo { font-size: clamp(26px, 4vw, 50px); font-weight: 800; color: var(--oscuro); letter-spacing: -1px; line-height: 1.1; max-width: 800px; }
+  .cta-titulo .acento { color: var(--verde); }
+  .cta-sub { font-size: 17px; color: var(--gris-texto); max-width: 400px; line-height: 1.75; }
+  .cta-btn {
+    background: var(--verde); color: var(--blanco); font-family: 'Inter', sans-serif;
+    font-size: 15px; font-weight: 700; padding: 15px 32px; border-radius: 7px;
+    text-decoration: none; transition: background 0.2s; display: inline-block;
+  }
+  .cta-btn:hover { background: var(--verde-oscuro); }
+  .cta-nota { font-size: 13px; color: var(--gris-suave); }
+
+  /* ─── FOOTER ─── */
+  footer {
+    background: var(--oscuro); padding: 44px 60px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .footer-nav { display: flex; gap: 28px; list-style: none; }
+  .footer-nav a { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.28); text-decoration: none; transition: color 0.2s; }
+  .footer-nav a:hover { color: var(--blanco); }
+  .footer-copy { font-size: 11px; color: rgba(255,255,255,0.18); letter-spacing: 0.5px; }
+
+  /* ═══════════════════════════════════════
+     MOCKUP INTERNOS — DASHBOARD WIDGETS
+  ═══════════════════════════════════════ */
+
+  .mk-wrap { display: flex; height: 520px; overflow: hidden; font-family: 'Inter', sans-serif; }
+
+  /* Sidebar */
+  .mk-sidebar {
+    width: 158px; flex-shrink: 0; background: #0A3F2C;
+    color: rgba(255,255,255,0.72); padding: 14px 0;
+    display: flex; flex-direction: column; gap: 1px; font-size: 11px;
+  }
+  .mk-sidebar-brand { padding: 0 14px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 6px; }
+  .mk-brand-name { font-weight: 800; font-size: 13px; letter-spacing: 0.5px; color: var(--verde-acento); }
+  .mk-brand-sub { font-size: 8px; opacity: 0.38; letter-spacing: 1.5px; text-transform: uppercase; margin-top: 2px; }
+  .mk-nav-section { padding: 8px 14px 3px; font-size: 8px; opacity: 0.32; letter-spacing: 1.5px; font-weight: 600; text-transform: uppercase; }
+  .mk-nav-item {
+    padding: 6px 14px; display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: rgba(255,255,255,0.5);
+    border-left: 2px solid transparent; position: relative;
+  }
+  .mk-nav-item.active {
+    background: rgba(46,212,122,0.1); color: var(--verde-acento);
+    border-left-color: var(--verde-acento);
+  }
+  .mk-nav-badge {
+    margin-left: auto; background: var(--verde-acento); color: var(--oscuro);
+    font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 99px;
+  }
+
+  /* Main areas */
+  .mk-main-dark { flex: 1; background: #060D09; color: rgba(255,255,255,0.9); padding: 16px; overflow: hidden; }
+  .mk-main-light { flex: 1; background: #F5F7F6; color: #1a2332; padding: 16px; overflow: hidden; }
+
+  /* Month pills */
+  .mk-months { display: flex; gap: 3px; font-size: 9px; margin-bottom: 11px; color: rgba(255,255,255,0.4); flex-wrap: wrap; }
+  .mk-month { padding: 2px 6px; border-radius: 99px; }
+  .mk-month.active { background: var(--verde-acento); color: #060D09; font-weight: 700; }
+
+  /* KPI row */
+  .mk-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; margin-bottom: 9px; }
+  .mk-kpi-row-2 { grid-template-columns: repeat(2,1fr); }
+  .mk-kpi-d { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 11px; }
+  .mk-kpi-l { background: #fff; border: 1px solid rgba(0,0,0,0.04); border-radius: 8px; padding: 10px 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .mk-kpi-label { font-size: 8px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
+  .mk-kpi-label-d { color: rgba(255,255,255,0.38); }
+  .mk-kpi-label-l { color: #9eada8; }
+  .mk-kpi-value { font-size: 15px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+  .mk-kpi-sub { font-size: 9px; opacity: 0.42; margin-top: 3px; }
+
+  /* Status row (finanzas) */
+  .mk-status-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: 9px; }
+  .mk-status {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; gap: 7px; font-size: 10px;
+  }
+  .mk-dot { width: 6px; height: 6px; border-radius: 99px; flex-shrink: 0; }
+
+  /* Progress block */
+  .mk-progress-block {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px; padding: 12px; margin-bottom: 9px;
+  }
+  .mk-progress-title { font-size: 10px; font-weight: 600; margin-bottom: 9px; }
+  .mk-bar-row { margin-bottom: 7px; }
+  .mk-bar-meta { display: flex; justify-content: space-between; font-size: 9px; opacity: 0.55; margin-bottom: 3px; }
+  .mk-track { height: 3px; background: rgba(255,255,255,0.07); border-radius: 99px; }
+  .mk-track-l { height: 3px; background: rgba(0,0,0,0.06); border-radius: 99px; }
+  .mk-fill { height: 100%; border-radius: 99px; }
+
+  /* Charts row */
+  .mk-charts-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+  .mk-chart-d { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px; }
+  .mk-chart-l { background: #fff; border: 1px solid rgba(0,0,0,0.04); border-radius: 8px; padding: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .mk-chart-title { font-size: 10px; font-weight: 600; margin-bottom: 8px; }
+
+  /* Alert rows */
+  .mk-alerts-label { font-size: 8px; letter-spacing: 1.5px; font-weight: 600; text-transform: uppercase; color: #9eada8; margin-bottom: 5px; }
+  .mk-alert { border-radius: 7px; padding: 7px 10px; margin-bottom: 4px; font-size: 10px; display: flex; gap: 7px; align-items: flex-start; }
+  .mk-alert-r { background: #fff1f0; border: 1px solid rgba(229,72,77,0.15); }
+  .mk-alert-y { background: #fffbeb; border: 1px solid rgba(245,158,11,0.15); }
+  .mk-alert-title-r { font-weight: 600; color: #c5343a; }
+  .mk-alert-title-y { font-weight: 600; color: #a16207; }
+  .mk-alert-sub { font-size: 9px; color: #9eada8; margin-top: 1px; }
+  .mk-alert-link { font-size: 9px; color: #9eada8; margin-left: auto; flex-shrink: 0; }
+
+  /* Ranking rows dark */
+  .mk-rank-d {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px; padding: 11px; margin-bottom: 7px;
+  }
+  .mk-rank-top { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+  .mk-rank-num {
+    width: 18px; height: 18px; border-radius: 99px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+  .mk-rank-num-1 { background: var(--verde-acento); color: #060D09; }
+  .mk-rank-num-n { background: rgba(255,255,255,0.1); color: #fff; }
+  .mk-rank-name { font-size: 12px; font-weight: 600; }
+  .mk-rank-badge { font-size: 8px; padding: 1px 6px; border-radius: 99px; background: rgba(46,212,122,0.14); color: var(--verde-acento); }
+  .mk-rank-bar-d { height: 3px; background: rgba(255,255,255,0.07); border-radius: 99px; margin-bottom: 8px; }
+  .mk-rank-data { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; font-size: 9px; }
+  .mk-rank-dl { opacity: 0.4; }
+  .mk-rank-dv { font-size: 11px; font-weight: 600; }
+
+  /* Ranking rows light */
+  .mk-rank-l {
+    background: #fff; border: 1px solid rgba(0,0,0,0.04);
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 5px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .mk-rank-l-inner { flex: 1; }
+  .mk-rank-l-header { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; color: #1a2332; }
+
+  /* Category tabs */
+  .mk-cat-tabs { display: flex; gap: 4px; margin-bottom: 11px; font-size: 10px; flex-wrap: wrap; }
+  .mk-cat-tab { padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.06); cursor: default; }
+  .mk-cat-tab.on { background: #0A3F2C; color: #fff; font-weight: 600; border-color: #0A3F2C; }
+  .mk-cat-tab.off { background: #fff; color: #1a2332; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 960px) {
+    nav { padding: 0 24px; }
+    .nav-links { display: none; }
+    .ej-hero { padding: 120px 24px 56px; }
+    .ej-sistemas { padding: 0 24px 72px; }
+    .ej-content-grid { grid-template-columns: 1fr; }
+    .ej-all { padding: 56px 24px; }
+    .cta-section { padding: 72px 24px; }
+    footer { flex-direction: column; gap: 20px; padding: 32px 24px; text-align: center; }
+    .footer-nav { flex-wrap: wrap; justify-content: center; }
+  }
+  @media (max-width: 640px) {
+    .ej-all-grid { grid-template-columns: 1fr; }
+    .ej-metrics { grid-template-columns: 1fr 1fr; }
+    .mk-kpi-row { grid-template-columns: 1fr 1fr; }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ─── NAV ─── -->
+<nav>
+  <a href="/" class="logo">
+    <img src="/Logo Infyn.png" alt="INFYN" style="height:36px;width:auto;">
+    <span class="logo-wordmark">INFYN</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/#metodo">Cómo trabajamos</a></li>
+    <li><a href="/#resultados">Resultados</a></li>
+    <li><a href="/ejemplos" class="active">Ejemplos</a></li>
+    <li><a href="/#contacto">Contacto</a></li>
+    <li><a href="/diagnostico" class="nav-cta">Agendar diagnóstico</a></li>
+  </ul>
+</nav>
+
+
+<!-- ─── HERO ─── -->
+<section class="ej-hero aurora-bg">
+  <div class="ej-hero-inner">
+    <div class="section-eyebrow">Ejemplos reales</div>
+    <h1>Esto es lo que <span class="acento">podés tener</span><br>funcionando en tu negocio.</h1>
+    <p>No vendemos plantillas. Cada sistema lo diseñamos a medida del flujo real de tu empresa. Estos son ejemplos de los que ya están funcionando — con datos genéricos para proteger a nuestros clientes.</p>
+  </div>
+</section>
+
+
+<!-- ─── SISTEMAS + TABS ─── -->
+<section class="ej-sistemas aurora-bg aurora-subtle grid-bg">
+  <div class="ej-sistemas-inner">
+
+    <!-- Tab bar -->
+    <div class="ej-tabs" id="ej-tabs">
+      <button class="ej-tab active" data-index="0"><span class="ej-tab-num">01</span>Finanzas</button>
+      <button class="ej-tab" data-index="1"><span class="ej-tab-num">02</span>Distribución</button>
+      <button class="ej-tab" data-index="2"><span class="ej-tab-num">03</span>Ventas</button>
+      <button class="ej-tab" data-index="3"><span class="ej-tab-num">04</span>Comercial</button>
+    </div>
+
+    <div class="ej-content-grid">
+
+      <!-- ─── MOCKUP COLUMN ─── -->
+      <div class="ej-mockup-col">
+
+        <!-- MOCKUP 0: Finanzas -->
+        <div id="mockup-0" class="ej-mockup active">
+          <div class="ej-browser">
+            <div class="ej-browser-bar">
+              <div class="ej-browser-dots">
+                <span style="background:#ff5f57"></span>
+                <span style="background:#febc2e"></span>
+                <span style="background:#28c840"></span>
+              </div>
+              <div class="ej-browser-url">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" style="opacity:0.5"><path d="M12 2 4 5v6c0 5 3.5 9.7 8 11 4.5-1.3 8-6 8-11V5l-8-3z" stroke="currentColor" stroke-width="2.2"/></svg>
+                tunegocio.app/panel/finanzas
+              </div>
+            </div>
+            <div class="mk-wrap">
+              <!-- sidebar -->
+              <div class="mk-sidebar">
+                <div class="mk-sidebar-brand">
+                  <div class="mk-brand-name">EMPRESA</div>
+                  <div class="mk-brand-sub">GESTIÓN</div>
+                </div>
+                <div class="mk-nav-item active"><span>▣</span> Panel</div>
+                <div class="mk-nav-item"><span>▤</span> Resumen</div>
+                <div class="mk-nav-item"><span>▦</span> Semana</div>
+                <div class="mk-nav-item"><span>✦</span> Asistente</div>
+                <div class="mk-nav-section">OPERACIÓN</div>
+                <div class="mk-nav-item"><span>◎</span> Objetivos <span class="mk-nav-badge">3</span></div>
+                <div class="mk-nav-item"><span>≡</span> Movimientos</div>
+                <div class="mk-nav-item"><span>♢</span> Ventas</div>
+                <div class="mk-nav-section">FINANZAS</div>
+                <div class="mk-nav-item"><span>▤</span> Cuentas</div>
+                <div class="mk-nav-item"><span>▤</span> Resultados</div>
+              </div>
+              <!-- main -->
+              <div class="mk-main-dark">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px">
+                  <div style="font-size:15px;font-weight:600">Estado Financiero</div>
+                  <div style="font-size:9px;opacity:0.35">martes, 28 abr 2026</div>
+                </div>
+                <!-- months -->
+                <div class="mk-months">
+                  <span class="mk-month">Ene</span><span class="mk-month">Feb</span><span class="mk-month">Mar</span><span class="mk-month active">Abr</span><span class="mk-month">May</span><span class="mk-month">Jun</span><span class="mk-month">Jul</span><span class="mk-month">Ago</span><span class="mk-month">Sep</span><span class="mk-month">Oct</span><span class="mk-month">Nov</span><span class="mk-month">Dic</span>
+                  <span class="mk-month" style="background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);margin-left:5px">2026</span>
+                </div>
+                <!-- KPIs -->
+                <div class="mk-kpi-row">
+                  <div class="mk-kpi-d">
+                    <div class="mk-kpi-label mk-kpi-label-d">Saldo de caja</div>
+                    <div class="mk-kpi-value" style="color:#2ED47A">$80,245</div>
+                    <div class="mk-kpi-sub">3.2 meses de runway ✓</div>
+                  </div>
+                  <div class="mk-kpi-d">
+                    <div class="mk-kpi-label mk-kpi-label-d">Ingresos del mes</div>
+                    <div class="mk-kpi-value" style="color:#2ED47A">$38,469</div>
+                    <div class="mk-kpi-sub">+52% vs Mar</div>
+                  </div>
+                  <div class="mk-kpi-d">
+                    <div class="mk-kpi-label mk-kpi-label-d">Egresos del mes</div>
+                    <div class="mk-kpi-value" style="color:#ef4444">$32,409</div>
+                    <div class="mk-kpi-sub">+28% vs Mar</div>
+                  </div>
+                  <div class="mk-kpi-d">
+                    <div class="mk-kpi-label mk-kpi-label-d">Cobros pendientes</div>
+                    <div class="mk-kpi-value" style="color:#f59e0b">$80,367</div>
+                    <div class="mk-kpi-sub">5 vencidos · 46 planif.</div>
+                  </div>
+                </div>
+                <!-- status -->
+                <div class="mk-status-row">
+                  <div class="mk-status"><span class="mk-dot" style="background:#ef4444"></span><div><div style="font-weight:600;font-size:10px">Runway</div><div class="mk-kpi-sub">53 días al burn rate</div></div></div>
+                  <div class="mk-status"><span class="mk-dot" style="background:#ef4444"></span><div><div style="font-weight:600;font-size:10px">Cobranzas</div><div class="mk-kpi-sub">5 cuotas vencidas</div></div></div>
+                  <div class="mk-status"><span class="mk-dot" style="background:#2ED47A"></span><div><div style="font-weight:600;font-size:10px">Flujo Neto</div><div class="mk-kpi-sub">Positivo en período</div></div></div>
+                </div>
+                <!-- progress -->
+                <div class="mk-progress-block">
+                  <div class="mk-progress-title">Progreso vs Objetivo — Abr 2026</div>
+                  <div class="mk-bar-row">
+                    <div class="mk-bar-meta"><span>Facturación</span><span>$77,621 / $108,333</span></div>
+                    <div class="mk-track"><div class="mk-fill" style="width:72%;background:#2ED47A"></div></div>
+                  </div>
+                  <div class="mk-bar-row">
+                    <div class="mk-bar-meta"><span>Cobrado (percibido)</span><span>$48,469 / $108,165</span></div>
+                    <div class="mk-track"><div class="mk-fill" style="width:50%;background:#2ED47A"></div></div>
+                  </div>
+                  <div class="mk-bar-row" style="margin-bottom:0">
+                    <div class="mk-bar-meta"><span>Saldo de caja</span><span>$80,245 / $99,000</span></div>
+                    <div class="mk-track"><div class="mk-fill" style="width:81%;background:#2ED47A"></div></div>
+                  </div>
+                </div>
+                <!-- charts -->
+                <div class="mk-charts-row">
+                  <div class="mk-chart-d">
+                    <div class="mk-chart-title">Flujo de Caja — Abr 2026</div>
+                    <svg width="100%" height="78" viewBox="0 0 380 78" preserveAspectRatio="none">
+                      <rect x="4" y="18" width="9" height="60" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="17" y="44" width="9" height="34" fill="#ef4444" opacity="0.75"/>
+                      <rect x="30" y="12" width="9" height="66" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="43" y="38" width="9" height="40" fill="#ef4444" opacity="0.75"/>
+                      <rect x="56" y="8"  width="9" height="70" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="69" y="32" width="9" height="46" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="82" y="54" width="9" height="24" fill="#ef4444" opacity="0.75"/>
+                      <rect x="95" y="18" width="9" height="60" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="108" y="28" width="9" height="50" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="121" y="50" width="9" height="28" fill="#ef4444" opacity="0.75"/>
+                      <rect x="134" y="14" width="9" height="64" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="147" y="36" width="9" height="42" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="160" y="58" width="9" height="20" fill="#ef4444" opacity="0.75"/>
+                      <rect x="173" y="22" width="9" height="56" fill="#2ED47A" opacity="0.85"/>
+                      <rect x="186" y="34" width="9" height="44" fill="#2ED47A" opacity="0.85"/>
+                    </svg>
+                  </div>
+                  <div class="mk-chart-d">
+                    <div class="mk-chart-title">Ventas — Abr 2026</div>
+                    <div style="display:flex;flex-direction:column;gap:7px">
+                      <div>
+                        <div style="display:flex;justify-content:space-between;font-size:9px;opacity:0.6;margin-bottom:2px"><span>PRODUCTO A</span><span style="color:#2ED47A;font-family:monospace">$64,899</span></div>
+                        <div class="mk-track"><div class="mk-fill" style="width:90%;background:#2ED47A"></div></div>
+                      </div>
+                      <div>
+                        <div style="display:flex;justify-content:space-between;font-size:9px;opacity:0.6;margin-bottom:2px"><span>PRODUCTO B</span><span style="color:#2ED47A;font-family:monospace">$9,600</span></div>
+                        <div class="mk-track"><div class="mk-fill" style="width:14%;background:#2ED47A"></div></div>
+                      </div>
+                      <div>
+                        <div style="display:flex;justify-content:space-between;font-size:9px;opacity:0.6;margin-bottom:2px"><span>Servicios</span><span style="color:#2ED47A;font-family:monospace">$2,511</span></div>
+                        <div class="mk-track"><div class="mk-fill" style="width:4%;background:#2ED47A"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOCKUP 1: Distribución -->
+        <div id="mockup-1" class="ej-mockup">
+          <div class="ej-browser">
+            <div class="ej-browser-bar">
+              <div class="ej-browser-dots">
+                <span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span>
+              </div>
+              <div class="ej-browser-url">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" style="opacity:0.5"><path d="M12 2 4 5v6c0 5 3.5 9.7 8 11 4.5-1.3 8-6 8-11V5l-8-3z" stroke="currentColor" stroke-width="2.2"/></svg>
+                tunegocio.app/panel/distribucion
+              </div>
+            </div>
+            <div class="mk-wrap">
+              <div class="mk-sidebar">
+                <div class="mk-sidebar-brand">
+                  <div class="mk-brand-name">EMPRESA</div>
+                  <div class="mk-brand-sub">GERENCIA</div>
+                </div>
+                <div class="mk-nav-item active"><span>▣</span> Panel</div>
+                <div class="mk-nav-item"><span>📋</span> Reporte del Día</div>
+                <div class="mk-nav-item"><span>👥</span> Clientes</div>
+                <div class="mk-nav-item"><span>👤</span> Vendedores</div>
+                <div class="mk-nav-item"><span>📦</span> Depósito</div>
+                <div class="mk-nav-item"><span>💰</span> Caja</div>
+                <div class="mk-nav-item"><span>🛠</span> Service</div>
+                <div class="mk-nav-item"><span>📦</span> Productos</div>
+              </div>
+              <div class="mk-main-light">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                  <div>
+                    <div style="font-size:15px;font-weight:700;color:#1a2332">Panel</div>
+                    <div style="font-size:10px;color:#9eada8">Vista gerencial</div>
+                  </div>
+                  <div style="display:flex;gap:3px;background:#0A3F2C;padding:3px;border-radius:6px;font-size:10px">
+                    <div style="padding:4px 10px;background:#fff;color:#0A3F2C;border-radius:4px;font-weight:600">Hoy</div>
+                    <div style="padding:4px 10px;color:rgba(255,255,255,.65)">Mes</div>
+                  </div>
+                </div>
+                <!-- KPIs -->
+                <div class="mk-kpi-row">
+                  <div class="mk-kpi-l">
+                    <div class="mk-kpi-label mk-kpi-label-l">VENDIDO</div>
+                    <div class="mk-kpi-value" style="color:#1a2332">$182,400</div>
+                    <div class="mk-kpi-sub" style="color:#9eada8">248.5 kg</div>
+                  </div>
+                  <div class="mk-kpi-l">
+                    <div class="mk-kpi-label mk-kpi-label-l">COBRADO</div>
+                    <div class="mk-kpi-value" style="color:#1a2332">$94,720</div>
+                    <div class="mk-kpi-sub" style="color:#9eada8">32 clientes</div>
+                  </div>
+                  <div class="mk-kpi-l">
+                    <div class="mk-kpi-label mk-kpi-label-l">DEUDA TOTAL</div>
+                    <div class="mk-kpi-value" style="color:#e5484d">$54.0M</div>
+                    <div class="mk-kpi-sub" style="color:#9eada8">118 de 180 deben</div>
+                  </div>
+                  <div class="mk-kpi-l">
+                    <div class="mk-kpi-label mk-kpi-label-l">STOCK</div>
+                    <div class="mk-kpi-value" style="color:#1a2332">1,957 kg</div>
+                    <div class="mk-kpi-sub" style="color:#9eada8">5/7 cerrados</div>
+                  </div>
+                </div>
+                <!-- alerts -->
+                <div class="mk-alerts-label">ALERTAS</div>
+                <div class="mk-alert mk-alert-r">
+                  <span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#e5484d;flex-shrink:0;margin-top:3px"></span>
+                  <div><div class="mk-alert-title-r">11 clientes sin pagar hace +30 días</div><div class="mk-alert-sub">CLIENTE A, CLIENTE B, CLIENTE C</div></div>
+                  <span class="mk-alert-link">ver →</span>
+                </div>
+                <div class="mk-alert mk-alert-r">
+                  <span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#e5484d;flex-shrink:0;margin-top:3px"></span>
+                  <div><div class="mk-alert-title-r">Stock crítico: 1,957 kg en depósito</div><div class="mk-alert-sub">Acción urgente</div></div>
+                  <span class="mk-alert-link">ver →</span>
+                </div>
+                <div class="mk-alert mk-alert-y">
+                  <span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#f59e0b;flex-shrink:0;margin-top:3px"></span>
+                  <div><div class="mk-alert-title-y">5 tickets de service abiertos</div><div class="mk-alert-sub">Clientes esperando reparación</div></div>
+                  <span class="mk-alert-link">ver →</span>
+                </div>
+                <div class="mk-alert mk-alert-y">
+                  <span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#f59e0b;flex-shrink:0;margin-top:3px"></span>
+                  <div><div class="mk-alert-title-y">6 vendedores sin carga hoy</div><div class="mk-alert-sub">Vendedor A, Vendedor B, Vendedor C</div></div>
+                  <span class="mk-alert-link">ver →</span>
+                </div>
+                <!-- chart -->
+                <div class="mk-chart-l" style="margin-top:10px">
+                  <div class="mk-chart-title" style="color:#1a2332">ÚLTIMOS 7 DÍAS</div>
+                  <svg width="100%" height="86" viewBox="0 0 500 86" preserveAspectRatio="none">
+                    <rect x="24"  y="16" width="20" height="70" fill="#0F7B53" opacity="0.85"/>
+                    <rect x="46"  y="36" width="20" height="50" fill="#2ED47A" opacity="0.85"/>
+                    <rect x="94"  y="38" width="20" height="48" fill="#0F7B53" opacity="0.85"/>
+                    <rect x="116" y="56" width="20" height="30" fill="#2ED47A" opacity="0.85"/>
+                    <rect x="164" y="28" width="20" height="58" fill="#0F7B53" opacity="0.85"/>
+                    <rect x="186" y="46" width="20" height="40" fill="#2ED47A" opacity="0.85"/>
+                    <rect x="234" y="2"  width="20" height="84" fill="#0F7B53" opacity="0.85"/>
+                    <rect x="256" y="6"  width="20" height="80" fill="#2ED47A" opacity="0.85"/>
+                    <rect x="304" y="10" width="20" height="76" fill="#0F7B53" opacity="0.85"/>
+                    <rect x="326" y="20" width="20" height="66" fill="#2ED47A" opacity="0.85"/>
+                    <text x="44"  y="82" font-size="9" fill="#6b7b76" text-anchor="middle">Vie</text>
+                    <text x="114" y="82" font-size="9" fill="#6b7b76" text-anchor="middle">Sáb</text>
+                    <text x="184" y="82" font-size="9" fill="#6b7b76" text-anchor="middle">Lun</text>
+                    <text x="254" y="82" font-size="9" fill="#6b7b76" text-anchor="middle">Mar</text>
+                    <text x="324" y="82" font-size="9" fill="#6b7b76" text-anchor="middle">Mié</text>
+                  </svg>
+                  <div style="display:flex;gap:12px;font-size:9px;color:#6b7b76;justify-content:center;margin-top:3px">
+                    <span><span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#0F7B53;margin-right:4px;vertical-align:middle"></span>Vendido</span>
+                    <span><span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#2ED47A;margin-right:4px;vertical-align:middle"></span>Cobrado</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOCKUP 2: Ventas / Ranking -->
+        <div id="mockup-2" class="ej-mockup">
+          <div class="ej-browser">
+            <div class="ej-browser-bar">
+              <div class="ej-browser-dots">
+                <span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span>
+              </div>
+              <div class="ej-browser-url">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" style="opacity:0.5"><path d="M12 2 4 5v6c0 5 3.5 9.7 8 11 4.5-1.3 8-6 8-11V5l-8-3z" stroke="currentColor" stroke-width="2.2"/></svg>
+                tunegocio.app/panel/ventas
+              </div>
+            </div>
+            <div class="mk-wrap">
+              <div class="mk-sidebar">
+                <div class="mk-sidebar-brand">
+                  <div class="mk-brand-name">EMPRESA</div>
+                  <div class="mk-brand-sub">VENTAS</div>
+                </div>
+                <div class="mk-nav-item"><span>▣</span> Panel</div>
+                <div class="mk-nav-item"><span>▤</span> Resumen</div>
+                <div class="mk-nav-item"><span>✦</span> Asistente</div>
+                <div class="mk-nav-section">OPERACIÓN</div>
+                <div class="mk-nav-item"><span>◎</span> Objetivos</div>
+                <div class="mk-nav-item active"><span>♢</span> Ventas</div>
+                <div class="mk-nav-item"><span>◈</span> Clientes</div>
+                <div class="mk-nav-item"><span>👤</span> Vendedores</div>
+                <div class="mk-nav-section">REPORTES</div>
+                <div class="mk-nav-item"><span>▤</span> Ranking</div>
+                <div class="mk-nav-item"><span>▤</span> Comisiones</div>
+              </div>
+              <div class="mk-main-dark">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                  <div>
+                    <div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:5px"><span style="color:#2ED47A">♢</span>Ventas</div>
+                    <div style="font-size:9px;opacity:0.4">Top vendedores y comisiones</div>
+                  </div>
+                  <button style="background:transparent;border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.65);padding:4px 10px;font-size:9px;border-radius:5px;font-family:Inter,sans-serif;cursor:default">⤓ Exportar</button>
+                </div>
+                <div style="display:flex;gap:12px;font-size:11px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.07);padding-bottom:5px">
+                  <span style="opacity:0.4">Lista</span>
+                  <span style="color:#2ED47A;font-weight:600;padding-bottom:3px;border-bottom:2px solid #2ED47A">Ranking</span>
+                  <span style="opacity:0.4">Cobranzas</span>
+                </div>
+                <div class="mk-months">
+                  <span class="mk-month">Ene</span><span class="mk-month">Feb</span><span class="mk-month">Mar</span><span class="mk-month active">Abr</span><span class="mk-month">May</span><span class="mk-month">Jun</span><span class="mk-month">Jul</span><span class="mk-month">Ago</span>
+                </div>
+                <div class="mk-kpi-row mk-kpi-row-2" style="margin-bottom:12px">
+                  <div class="mk-kpi-d">
+                    <div class="mk-kpi-label mk-kpi-label-d">TOTAL VENDIDO</div>
+                    <div class="mk-kpi-value" style="font-size:20px;color:#fff">$77,621</div>
+                  </div>
+                  <div class="mk-kpi-d">
+                    <div class="mk-kpi-label mk-kpi-label-d">TOTAL COBRADO</div>
+                    <div class="mk-kpi-value" style="font-size:20px;color:#2ED47A">$22,343</div>
+                  </div>
+                </div>
+                <div style="font-size:13px;font-weight:600;margin-bottom:8px">🏆 Ranking</div>
+                <div class="mk-rank-d">
+                  <div class="mk-rank-top">
+                    <span class="mk-rank-num mk-rank-num-1">1</span>
+                    <span class="mk-rank-name">Vendedor A</span>
+                    <span class="mk-rank-badge">jugador</span>
+                  </div>
+                  <div class="mk-rank-bar-d"><div class="mk-fill" style="width:95%;background:#2ED47A;height:100%;border-radius:99px"></div></div>
+                  <div class="mk-rank-data">
+                    <div><div class="mk-rank-dl">Vendido</div><div class="mk-rank-dv">$57,000</div></div>
+                    <div><div class="mk-rank-dl">Cobrado</div><div class="mk-rank-dv" style="color:#2ED47A">$10,000</div></div>
+                    <div><div class="mk-rank-dl">% cobro</div><div class="mk-rank-dv">18%</div></div>
+                    <div><div class="mk-rank-dl">Comisión</div><div class="mk-rank-dv" style="color:#f59e0b">$5,700</div></div>
+                  </div>
+                </div>
+                <div class="mk-rank-d">
+                  <div class="mk-rank-top">
+                    <span class="mk-rank-num mk-rank-num-n">2</span>
+                    <span class="mk-rank-name">Vendedor B</span>
+                  </div>
+                  <div class="mk-rank-bar-d"><div class="mk-fill" style="width:18%;background:rgba(46,212,122,.35);height:100%;border-radius:99px"></div></div>
+                  <div class="mk-rank-data">
+                    <div><div class="mk-rank-dl">Vendido</div><div class="mk-rank-dv">$9,400</div></div>
+                    <div><div class="mk-rank-dl">Cobrado</div><div class="mk-rank-dv" style="color:#2ED47A">$7,800</div></div>
+                    <div><div class="mk-rank-dl">% cobro</div><div class="mk-rank-dv">83%</div></div>
+                    <div><div class="mk-rank-dl">Comisión</div><div class="mk-rank-dv" style="color:#f59e0b">$940</div></div>
+                  </div>
+                </div>
+                <div class="mk-rank-d">
+                  <div class="mk-rank-top">
+                    <span class="mk-rank-num mk-rank-num-n">3</span>
+                    <span class="mk-rank-name">Vendedor C</span>
+                  </div>
+                  <div class="mk-rank-bar-d"><div class="mk-fill" style="width:10%;background:rgba(46,212,122,.2);height:100%;border-radius:99px"></div></div>
+                  <div class="mk-rank-data">
+                    <div><div class="mk-rank-dl">Vendido</div><div class="mk-rank-dv">$5,200</div></div>
+                    <div><div class="mk-rank-dl">Cobrado</div><div class="mk-rank-dv" style="color:#2ED47A">$3,400</div></div>
+                    <div><div class="mk-rank-dl">% cobro</div><div class="mk-rank-dv">65%</div></div>
+                    <div><div class="mk-rank-dl">Comisión</div><div class="mk-rank-dv" style="color:#f59e0b">$520</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOCKUP 3: Comercial -->
+        <div id="mockup-3" class="ej-mockup">
+          <div class="ej-browser">
+            <div class="ej-browser-bar">
+              <div class="ej-browser-dots">
+                <span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span>
+              </div>
+              <div class="ej-browser-url">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" style="opacity:0.5"><path d="M12 2 4 5v6c0 5 3.5 9.7 8 11 4.5-1.3 8-6 8-11V5l-8-3z" stroke="currentColor" stroke-width="2.2"/></svg>
+                tunegocio.app/panel/comercial
+              </div>
+            </div>
+            <div class="mk-wrap">
+              <div class="mk-sidebar">
+                <div class="mk-sidebar-brand">
+                  <div class="mk-brand-name">EMPRESA</div>
+                  <div class="mk-brand-sub">GERENCIA</div>
+                </div>
+                <div class="mk-nav-item"><span>▣</span> Panel</div>
+                <div class="mk-nav-item"><span>📋</span> Reporte del Día</div>
+                <div class="mk-nav-item"><span>👥</span> Clientes</div>
+                <div class="mk-nav-item active"><span>👤</span> Vendedores</div>
+                <div class="mk-nav-item"><span>📦</span> Depósito</div>
+                <div class="mk-nav-item"><span>💰</span> Caja</div>
+                <div class="mk-nav-item"><span>🛠</span> Service</div>
+              </div>
+              <div class="mk-main-light">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                  <div>
+                    <div style="font-size:15px;font-weight:700;color:#1a2332">Ranking Vendedores</div>
+                    <div style="font-size:10px;color:#9eada8">Mes actual vs anterior</div>
+                  </div>
+                  <div style="height:24px;background:#fff;border-radius:6px;font-size:10px;padding:0 8px;display:flex;align-items:center;color:#9eada8;border:1px solid rgba(0,0,0,.06)">🔍 Buscar vendedor...</div>
+                </div>
+                <div class="mk-cat-tabs">
+                  <div class="mk-cat-tab on">Venta ($)</div>
+                  <div class="mk-cat-tab off">Kilos</div>
+                  <div class="mk-cat-tab off">Cobranza ($)</div>
+                  <div class="mk-cat-tab off">Clientes</div>
+                </div>
+                <div class="mk-kpi-l" style="border-radius:10px;padding:12px;margin-bottom:10px">
+                  <div style="display:flex;justify-content:space-between">
+                    <div>
+                      <div style="font-size:8px;opacity:0.45;letter-spacing:1px;font-weight:600;text-transform:uppercase;color:#9eada8">TOTAL VENTA ($)</div>
+                      <div style="font-size:19px;font-weight:800;font-family:monospace;margin-top:3px;color:#1a2332">$81,031,000</div>
+                    </div>
+                    <div style="text-align:right">
+                      <div style="font-size:9px;color:#9eada8">Mes anterior</div>
+                      <div style="font-size:13px;font-weight:600;margin-top:3px;color:#1a2332">$42,150,000</div>
+                      <div style="font-size:9px;color:#0F7B53;margin-top:2px;font-weight:600">↑ 92%</div>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+                  <div class="mk-chart-l">
+                    <div class="mk-chart-title" style="color:#1a2332;font-size:8px;letter-spacing:0.5px;text-transform:uppercase;opacity:0.5">MES ACTUAL VS ANTERIOR</div>
+                    <svg width="100%" height="76" viewBox="0 0 220 76" preserveAspectRatio="none">
+                      <rect x="6"   y="14" width="26" height="62" fill="#0F7B53" opacity="0.85"/>
+                      <rect x="41"  y="26" width="26" height="50" fill="#0F7B53" opacity="0.85"/>
+                      <rect x="76"  y="42" width="26" height="34" fill="#0F7B53" opacity="0.65"/>
+                      <rect x="111" y="54" width="26" height="22" fill="#0F7B53" opacity="0.4"/>
+                    </svg>
+                  </div>
+                  <div class="mk-chart-l">
+                    <div class="mk-chart-title" style="color:#1a2332;font-size:8px;letter-spacing:0.5px;text-transform:uppercase;opacity:0.5">DISTRIBUCIÓN VENTA ($)</div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                      <svg width="64" height="64" viewBox="0 0 64 64">
+                        <circle cx="32" cy="32" r="22" fill="none" stroke="#0F7B53" stroke-width="10" stroke-dasharray="58 200"/>
+                        <circle cx="32" cy="32" r="22" fill="none" stroke="#2ED47A" stroke-width="10" stroke-dasharray="38 200" stroke-dashoffset="-58"/>
+                        <circle cx="32" cy="32" r="22" fill="none" stroke="#3b82f6" stroke-width="10" stroke-dasharray="25 200" stroke-dashoffset="-96"/>
+                        <circle cx="32" cy="32" r="22" fill="none" stroke="#e8eceb" stroke-width="10" stroke-dasharray="18 200" stroke-dashoffset="-121"/>
+                      </svg>
+                      <div style="font-size:9px;line-height:1.7;color:#6b7b76">
+                        <div><span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#0F7B53;margin-right:4px;vertical-align:middle"></span>Vend. A 42%</div>
+                        <div><span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#2ED47A;margin-right:4px;vertical-align:middle"></span>Vend. B 27%</div>
+                        <div><span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:#3b82f6;margin-right:4px;vertical-align:middle"></span>Vend. C 18%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- ranking rows -->
+                <div class="mk-rank-l">
+                  <span style="font-size:14px">🥇</span>
+                  <div class="mk-rank-l-inner">
+                    <div class="mk-rank-l-header">
+                      <span style="font-weight:600">Vendedor A <span style="color:#0F7B53;font-weight:400;margin-left:4px">42%</span></span>
+                      <span style="font-family:monospace;font-weight:700">$33,864,000</span>
+                    </div>
+                    <div class="mk-track-l"><div class="mk-fill" style="width:95%;background:#0F7B53"></div></div>
+                  </div>
+                  <span style="font-size:9px;padding:2px 7px;border-radius:4px;background:#F5F7F6;color:#6b7b76">↑ 100%</span>
+                </div>
+                <div class="mk-rank-l">
+                  <span style="font-size:14px">🥈</span>
+                  <div class="mk-rank-l-inner">
+                    <div class="mk-rank-l-header">
+                      <span style="font-weight:600">Vendedor B <span style="color:#2ED47A;font-weight:400;margin-left:4px">27%</span></span>
+                      <span style="font-family:monospace;font-weight:700">$22,096,000</span>
+                    </div>
+                    <div class="mk-track-l"><div class="mk-fill" style="width:60%;background:#2ED47A"></div></div>
+                  </div>
+                  <span style="font-size:9px;padding:2px 7px;border-radius:4px;background:#F5F7F6;color:#6b7b76">↑ 92%</span>
+                </div>
+                <div class="mk-rank-l">
+                  <span style="font-size:14px">🥉</span>
+                  <div class="mk-rank-l-inner">
+                    <div class="mk-rank-l-header">
+                      <span style="font-weight:600">Vendedor C <span style="color:#3b82f6;font-weight:400;margin-left:4px">18%</span></span>
+                      <span style="font-family:monospace;font-weight:700">$14,648,000</span>
+                    </div>
+                    <div class="mk-track-l"><div class="mk-fill" style="width:40%;background:#3b82f6"></div></div>
+                  </div>
+                  <span style="font-size:9px;padding:2px 7px;border-radius:4px;background:#F5F7F6;color:#6b7b76">↑ 78%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- caption + dots -->
+        <div class="ej-caption">
+          <span>Captura recreada · Datos genéricos por privacidad del cliente</span>
+          <div class="ej-dots" id="ej-dots">
+            <button class="ej-dot active" data-index="0"></button>
+            <button class="ej-dot" data-index="1"></button>
+            <button class="ej-dot" data-index="2"></button>
+            <button class="ej-dot" data-index="3"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── INFO PANELS ─── -->
+
+      <!-- Info 0: Finanzas -->
+      <div id="info-0" class="ej-info active">
+        <div class="ej-tag">ERP · Dashboard financiero</div>
+        <h3>Sistema de Gestión Financiera</h3>
+        <p>Visualización en tiempo real del estado financiero. Saldo de caja, runway, cobranzas, flujo proyectado y progreso vs objetivo — todo en una sola pantalla.</p>
+        <div class="ej-features">
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Estado financiero en vivo</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Proyección de flujo de caja</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Cobranzas y vencimientos</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Asistente IA integrado</div>
+        </div>
+        <div class="ej-metrics">
+          <div class="ej-metric"><div class="ej-metric-value">+32%</div><div class="ej-metric-label">visibilidad de caja</div></div>
+          <div class="ej-metric"><div class="ej-metric-value">−25%</div><div class="ej-metric-label">tiempo de cierre mensual</div></div>
+          <div class="ej-metric"><div class="ej-metric-value">+40%</div><div class="ej-metric-label">decisiones basadas en datos</div></div>
+        </div>
+        <a href="/diagnostico" class="ej-info-btn">Quiero algo así para mi negocio →</a>
+      </div>
+
+      <!-- Info 1: Distribución -->
+      <div id="info-1" class="ej-info">
+        <div class="ej-tag">Operaciones · Multi-rol</div>
+        <h3>Sistema de Distribución y Logística</h3>
+        <p>Pensado para empresas con vendedores en la calle. Vista gerencial con alertas, app de vendedor para registrar entregas y cobros, control de stock y deudas en tiempo real.</p>
+        <div class="ej-features">
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Vista gerencial con alertas</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>App de vendedor en ruta</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Control de stock en tiempo real</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Reporte del día consolidado</div>
+        </div>
+        <div class="ej-metrics">
+          <div class="ej-metric"><div class="ej-metric-value">+50%</div><div class="ej-metric-label">carga diaria de vendedores</div></div>
+          <div class="ej-metric"><div class="ej-metric-value">−60%</div><div class="ej-metric-label">errores de cobro</div></div>
+          <div class="ej-metric"><div class="ej-metric-value">100%</div><div class="ej-metric-label">trazabilidad por cliente</div></div>
+        </div>
+        <a href="/diagnostico" class="ej-info-btn">Quiero algo así para mi negocio →</a>
+      </div>
+
+      <!-- Info 2: Ventas -->
+      <div id="info-2" class="ej-info">
+        <div class="ej-tag">CRM · Ranking de equipo</div>
+        <h3>Sistema de Ventas y Comisiones</h3>
+        <p>Ranking automático de vendedores, cálculo de comisiones, seguimiento de cobranzas y estado de cada venta. Tu equipo compite con datos reales, no con planillas.</p>
+        <div class="ej-features">
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Ranking de vendedores en vivo</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Comisiones calculadas por programa</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Estado de cobro por venta</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Exportable a planilla</div>
+        </div>
+        <div class="ej-metrics">
+          <div class="ej-metric"><div class="ej-metric-value">+45%</div><div class="ej-metric-label">ventas cobradas a tiempo</div></div>
+          <div class="ej-metric"><div class="ej-metric-value">0</div><div class="ej-metric-label">planillas de Excel</div></div>
+          <div class="ej-metric"><div class="ej-metric-value">100%</div><div class="ej-metric-label">comisiones automatizadas</div></div>
+        </div>
+        <a href="/diagnostico" class="ej-info-btn">Quiero algo así para mi negocio →</a>
+      </div>
+
+      <!-- Info 3: Comercial -->
+      <div id="info-3" class="ej-info">
+        <div class="ej-tag">BI · Reportes ejecutivos</div>
+        <h3>Panel Comercial Multi-Producto</h3>
+        <p>Comparativas mes a mes, distribución de ventas por vendedor, ranking por venta, kilos, cobranza y clientes. Para decisiones rápidas en reuniones de gerencia.</p>
+        <div class="ej-features">
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Comparativa mes vs mes</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Ranking multi-criterio</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Distribución porcentual</div>
+          <div class="ej-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#2ED47A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Búsqueda instantánea</div>
+        </div>
+        <div class="ej-metrics">
+          <div class="ej-metric"><div class="ej-metric-value">+38%</div><div class="ej-metric-label">agilidad en reportes</div></div>
+          <div class="ej-metric"><div class="ej-metric-value">5×</div><div class="ej-metric-label">más cruces de datos</div></div>
+          <div class="ej-metric"><div class="ej-metric-value">Real-time</div><div class="ej-metric-label">sin esperar al cierre</div></div>
+        </div>
+        <a href="/diagnostico" class="ej-info-btn">Quiero algo así para mi negocio →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ─── ALL SYSTEMS ─── -->
+<section class="ej-all aurora-bg">
+  <div class="ej-all-inner">
+    <div class="ej-all-header">
+      <h3>Todos los sistemas en un vistazo</h3>
+      <span>Click para explorar</span>
+    </div>
+    <div class="ej-all-grid" id="ej-all-grid">
+      <div class="ej-all-card active" data-index="0">
+        <div class="ej-all-icon">📊</div>
+        <div class="ej-all-info">
+          <div class="ej-all-name">Sistema de Gestión Financiera</div>
+          <div class="ej-all-tag">ERP · Dashboard financiero</div>
+        </div>
+        <span class="ej-all-arrow">→</span>
+      </div>
+      <div class="ej-all-card" data-index="1">
+        <div class="ej-all-icon">🚚</div>
+        <div class="ej-all-info">
+          <div class="ej-all-name">Sistema de Distribución y Logística</div>
+          <div class="ej-all-tag">Operaciones · Multi-rol</div>
+        </div>
+        <span class="ej-all-arrow">→</span>
+      </div>
+      <div class="ej-all-card" data-index="2">
+        <div class="ej-all-icon">🏆</div>
+        <div class="ej-all-info">
+          <div class="ej-all-name">Sistema de Ventas y Comisiones</div>
+          <div class="ej-all-tag">CRM · Ranking de equipo</div>
+        </div>
+        <span class="ej-all-arrow">→</span>
+      </div>
+      <div class="ej-all-card" data-index="3">
+        <div class="ej-all-icon">📈</div>
+        <div class="ej-all-info">
+          <div class="ej-all-name">Panel Comercial Multi-Producto</div>
+          <div class="ej-all-tag">BI · Reportes ejecutivos</div>
+        </div>
+        <span class="ej-all-arrow">→</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ─── CTA ─── -->
+<section class="cta-section">
+  <h2 class="cta-titulo">Tu negocio merece un sistema<br><span class="acento">hecho a medida</span>.</h2>
+  <p class="cta-sub">Contanos cómo trabajás. En 30 minutos te mostramos cómo se vería tu sistema.</p>
+  <a href="/diagnostico" class="cta-btn">Agendar una llamada →</a>
+  <p class="cta-nota">Sin spam. Sin vendedores. Una conversación directa.</p>
+</section>
+
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  <a href="/" class="logo">
+    <img src="/Logo Infyn.png" alt="INFYN" style="height:28px;width:auto;">
+    <span class="logo-wordmark" style="font-size:15px;">INFYN</span>
+  </a>
+  <ul class="footer-nav">
+    <li><a href="/#metodo">Cómo trabajamos</a></li>
+    <li><a href="/#resultados">Resultados</a></li>
+    <li><a href="/ejemplos">Ejemplos</a></li>
+    <li><a href="/#contacto">Contacto</a></li>
+  </ul>
+  <div class="footer-copy">© 2026 INFYN</div>
+</footer>
+
+
+<script>
+(function () {
+  var current = 0;
+
+  function switchTo(idx) {
+    if (idx === current) return;
+    document.getElementById('mockup-' + current).classList.remove('active');
+    document.getElementById('info-'   + current).classList.remove('active');
+    current = idx;
+    document.getElementById('mockup-' + current).classList.add('active');
+    document.getElementById('info-'   + current).classList.add('active');
+
+    document.querySelectorAll('.ej-tab').forEach(function (t, i) {
+      t.classList.toggle('active', i === current);
+    });
+    document.querySelectorAll('.ej-dot').forEach(function (d, i) {
+      d.classList.toggle('active', i === current);
+    });
+    document.querySelectorAll('.ej-all-card').forEach(function (c, i) {
+      c.classList.toggle('active', i === current);
+    });
+  }
+
+  document.querySelectorAll('.ej-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () { switchTo(parseInt(tab.dataset.index)); });
+  });
+  document.querySelectorAll('.ej-dot').forEach(function (dot) {
+    dot.addEventListener('click', function () { switchTo(parseInt(dot.dataset.index)); });
+  });
+  document.querySelectorAll('.ej-all-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      switchTo(parseInt(card.dataset.index));
+      document.getElementById('ej-tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
