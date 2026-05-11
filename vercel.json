@@ -1,6 +1,12 @@
 {
-  "rewrites": [
-    { "source": "/diagnostico", "destination": "/diagnostico.html" },
-    { "source": "/ejemplos",    "destination": "/ejemplos.html" }
-  ]
+  "experimentalServices": {
+    "frontend": {
+      "entrypoint": "frontend",
+      "framework": "vite"
+    },
+    "backend": {
+      "entrypoint": "_/backend",
+      "framework": "fastapi"
+    }
+  }
 }
