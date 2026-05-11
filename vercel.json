@@ -1,12 +1,5 @@
 {
-  "experimentalServices": {
-    "frontend": {
-      "entrypoint": "frontend",
-      "framework": "vite"
-    },
-    "backend": {
-      "entrypoint": "_/backend",
-      "framework": "fastapi"
-    }
-  }
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "framework": "vite"
 }
