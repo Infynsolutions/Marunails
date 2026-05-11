@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #162818;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2ED47A33;
+  }
+
+  /* Aurora sutil para sidebar y áreas de brand */
+  .aurora-sidebar {
+    background: radial-gradient(ellipse 180% 60% at 50% -10%, rgba(46, 212, 122, 0.12) 0%, transparent 70%);
+  }
+}
