@@ -28,3 +28,4 @@ Thumbs.db
 !package-lock.json
 !tsconfig.json
 service-account*.json
+.vercel
