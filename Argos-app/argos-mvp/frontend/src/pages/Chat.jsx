@@ -4,17 +4,17 @@ import { api } from '../lib/api';
 import { formatTime } from '../lib/format';
 
 const SUGGESTIONS = [
-  '📊 ¿Cómo viene marzo comparado con febrero?',
-  '💸 ¿Cuánto gasté en materia prima este mes?',
-  '📈 Proyección de ingresos próximos 30 días',
-  '⚠️ ¿Hay facturas vencidas?',
+  '📊 ¿Cómo viene este mes comparado con el anterior?',
+  '💸 ¿Cuánto gasté en proveedores este mes?',
+  '⚠️ ¿Hay facturas sin cobrar?',
+  '📦 ¿Qué productos tienen stock bajo?',
 ];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Hola 👋 Soy **Argos**, tu asesor financiero IA. Estoy conectado a los datos de Café Aruba en tiempo real.\n\nPodés preguntarme cualquier cosa sobre tu negocio en lenguaje natural. ¿En qué te puedo ayudar hoy?',
+      content: 'Hola 👋 Soy **Argos**, tu asesor financiero IA. Estoy conectado a tus datos en tiempo real.\n\nPodés preguntarme cualquier cosa sobre tu negocio en lenguaje natural. ¿En qué te puedo ayudar hoy?',
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -50,8 +50,10 @@ export default function ChatPage() {
         ...prev,
         {
           role: 'assistant',
-          content: 'Disculpá, hubo un error procesando tu consulta. ¿Podés intentar de nuevo?',
+          content: 'Disculpá, no pude conectarme en este momento. ¿Podés intentar de nuevo?',
           timestamp: new Date().toISOString(),
+          error: true,
+          retry: userMsg,
         },
       ]);
     } finally {
@@ -74,7 +76,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)]">
+    <div className="flex flex-col h-[calc(100dvh-5.5rem)] lg:h-[calc(100dvh-4rem)]">
       {/* Chat header */}
       <div className="flex items-center gap-3 pb-4 border-b border-surface-200 mb-4">
         <div className="w-10 h-10 bg-gradient-to-br from-argos-400 to-argos-600 rounded-2xl flex items-center justify-center shadow-sm shadow-argos-600/30">
@@ -103,10 +105,20 @@ export default function ChatPage() {
                 className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-argos-400/10 border border-argos-400/25 text-surface-800 rounded-br-md'
-                    : 'bg-surface-100 border border-surface-200 text-surface-700 rounded-bl-md'
+                    : msg.error
+                      ? 'bg-red-500/8 border border-red-500/20 text-red-600 rounded-bl-md'
+                      : 'bg-surface-100 border border-surface-200 text-surface-700 rounded-bl-md'
                 }`}
                 dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }}
               />
+              {msg.error && msg.retry && (
+                <button
+                  onClick={() => sendMessage(msg.retry)}
+                  className="mt-1.5 text-[11px] text-red-500 hover:text-red-400 underline underline-offset-2"
+                >
+                  Reintentar
+                </button>
+              )}
               <p className={`text-[10px] text-surface-400 mt-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
                 {formatTime(msg.timestamp)}
               </p>
