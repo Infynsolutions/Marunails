@@ -66,6 +66,18 @@ export const api = {
   resolveAlert: (alertId) =>
     request(`/api/v1/alerts/${TENANT_ID}/${alertId}/resolve`, { method: 'POST' }),
 
+  // Reports
+  getReport: (year, month) => {
+    const params = new URLSearchParams();
+    if (year) params.append('year', year);
+    if (month) params.append('month', month);
+    const qs = params.toString() ? `?${params}` : '';
+    return request(`/api/v1/report/${TENANT_ID}${qs}`);
+  },
+
+  // Collections
+  getCollections: () => request(`/api/v1/collections/${TENANT_ID}`),
+
   // Health
   health: () => request('/api/v1/health'),
 };

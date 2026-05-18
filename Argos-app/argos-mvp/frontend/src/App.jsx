@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { Menu, Eye } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/Dashboard';
 import ChatPage from './pages/Chat';
@@ -13,11 +15,32 @@ import StockPage from './pages/Stock';
 import NuevoProductoPage from './pages/NuevoProducto';
 
 function Layout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen bg-surface-50 text-surface-900">
-      <Sidebar />
-      <main className="ml-60 flex-1 p-8 max-w-6xl">
-        <Outlet />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <main className="flex-1 lg:ml-60 flex flex-col min-h-screen">
+        {/* Mobile top bar */}
+        <div className="flex items-center h-14 px-4 bg-surface-100 border-b border-surface-200 lg:hidden sticky top-0 z-30">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg hover:bg-surface-200 text-surface-600"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2 ml-3">
+            <div className="w-7 h-7 bg-argos-600 rounded-lg flex items-center justify-center">
+              <Eye size={14} className="text-white" />
+            </div>
+            <span className="font-bold text-surface-900">Argos</span>
+          </div>
+        </div>
+
+        <div className="flex-1 p-4 lg:p-8">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

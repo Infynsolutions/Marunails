@@ -9,7 +9,14 @@ from app.services import database as db
 from app.models.schemas import (
     KPI, CategoryBreakdown, MonthlyComparison,
     Transaction, DashboardData,
+    CategoryLine, ReportData, CollectionItem, CollectionsSummary,
 )
+
+_MESES = {
+    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+    5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+    9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre",
+}
 
 
 def _format_ars(amount: float) -> str:
@@ -163,4 +170,126 @@ def get_dashboard(tenant_id: str) -> DashboardData:
         category_breakdown=category_breakdown,
         recent_transactions=recent_txs,
         last_sync=raw.get("last_sync"),
+    )
+
+
+def get_report(tenant_id: str, year: int, month: int) -> ReportData:
+    raw = db.get_report_data(tenant_id, year, month)
+    current = raw["current"]
+    previous = raw["previous"]
+
+    ingresos = sum(t["amount"] for t in current if t["type"] == "ingreso")
+    gastos = sum(t["amount"] for t in current if t["type"] == "gasto")
+    ingresos_prev = sum(t["amount"] for t in previous if t["type"] == "ingreso")
+    gastos_prev = sum(t["amount"] for t in previous if t["type"] == "gasto")
+
+    margen = (ingresos - gastos) / ingresos * 100 if ingresos > 0 else 0.0
+    margen_prev = (ingresos_prev - gastos_prev) / ingresos_prev * 100 if ingresos_prev > 0 else 0.0
+
+    gastos_cat: dict = defaultdict(float)
+    ingresos_cat: dict = defaultdict(float)
+    for t in current:
+        cat = t.get("category") or "Sin clasificar"
+        if t["type"] == "gasto":
+            gastos_cat[cat] += t["amount"]
+        else:
+            ingresos_cat[cat] += t["amount"]
+
+    total_g = sum(gastos_cat.values()) or 1
+    total_i = sum(ingresos_cat.values()) or 1
+
+    gastos_por_categoria = [
+        CategoryLine(category=cat, amount=amt, percentage=round(amt / total_g * 100, 1))
+        for cat, amt in sorted(gastos_cat.items(), key=lambda x: x[1], reverse=True)
+    ]
+    ingresos_por_categoria = [
+        CategoryLine(category=cat, amount=amt, percentage=round(amt / total_i * 100, 1))
+        for cat, amt in sorted(ingresos_cat.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    transactions = [
+        Transaction(
+            id=t.get("id"),
+            tenant_id=tenant_id,
+            date=t["date"],
+            amount=t["amount"],
+            type=t["type"],
+            category=t.get("category") or "",
+            description=t.get("description") or "",
+            status=t.get("status") or "pendiente",
+            reference=t.get("reference"),
+        )
+        for t in current
+    ]
+
+    return ReportData(
+        year=year,
+        month=month,
+        month_label=f"{_MESES.get(month, str(month))} {year}",
+        ingresos=ingresos,
+        gastos=gastos,
+        margen=round(margen, 1),
+        saldo=ingresos - gastos,
+        ingresos_prev=ingresos_prev,
+        gastos_prev=gastos_prev,
+        margen_prev=round(margen_prev, 1),
+        ingresos_change=_pct_change(ingresos, ingresos_prev),
+        gastos_change=_pct_change(gastos, gastos_prev),
+        gastos_por_categoria=gastos_por_categoria,
+        ingresos_por_categoria=ingresos_por_categoria,
+        transacciones=transactions,
+        formatted_ingresos=_format_ars(ingresos),
+        formatted_gastos=_format_ars(gastos),
+        formatted_saldo=_format_ars(ingresos - gastos),
+    )
+
+
+def get_collections_summary(tenant_id: str) -> CollectionsSummary:
+    pending = db.get_pending_collections(tenant_id)
+    now = datetime.utcnow()
+
+    items = []
+    for t in pending:
+        try:
+            raw_date = str(t["date"]).replace("Z", "").split("+")[0]
+            tx_date = datetime.fromisoformat(raw_date)
+            days = max(0, (now - tx_date).days)
+        except Exception:
+            days = 0
+
+        if days <= 7:
+            bucket = "al_dia"
+        elif days <= 30:
+            bucket = "por_vencer"
+        else:
+            bucket = "vencida"
+
+        items.append(CollectionItem(
+            id=t["id"],
+            date=t["date"],
+            amount=t["amount"],
+            description=t.get("description") or "",
+            category=t.get("category") or "",
+            reference=t.get("reference"),
+            days_pending=days,
+            bucket=bucket,
+            formatted_amount=_format_ars(t["amount"]),
+        ))
+
+    al_dia = [i for i in items if i.bucket == "al_dia"]
+    por_vencer = [i for i in items if i.bucket == "por_vencer"]
+    vencidas = sorted(
+        [i for i in items if i.bucket == "vencida"],
+        key=lambda x: x.days_pending,
+        reverse=True,
+    )
+    total = sum(i.amount for i in items)
+
+    return CollectionsSummary(
+        total_pendiente=total,
+        total_count=len(items),
+        al_dia=al_dia,
+        por_vencer=por_vencer,
+        vencidas=vencidas,
+        formatted_total=_format_ars(total),
     )

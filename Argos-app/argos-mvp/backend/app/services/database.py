@@ -262,6 +262,54 @@ def create_stock_movement(tenant_id: str, data: dict) -> dict:
     return result.data[0] if result.data else {}
 
 
+# ── Report data ──
+
+def get_report_data(tenant_id: str, year: int, month: int) -> dict:
+    import calendar
+    db = get_db()
+    month_start = datetime(year, month, 1)
+    last_day = calendar.monthrange(year, month)[1]
+    month_end = datetime(year, month, last_day, 23, 59, 59)
+
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+    prev_start = datetime(prev_year, prev_month, 1)
+    prev_last_day = calendar.monthrange(prev_year, prev_month)[1]
+    prev_end = datetime(prev_year, prev_month, prev_last_day, 23, 59, 59)
+
+    current = (
+        db.table("transactions").select("*")
+        .eq("tenant_id", tenant_id)
+        .gte("date", month_start.isoformat())
+        .lte("date", month_end.isoformat())
+        .order("date", desc=True)
+        .execute()
+    )
+    previous = (
+        db.table("transactions").select("*")
+        .eq("tenant_id", tenant_id)
+        .gte("date", prev_start.isoformat())
+        .lte("date", prev_end.isoformat())
+        .execute()
+    )
+    return {"current": current.data, "previous": previous.data}
+
+
+def get_pending_collections(tenant_id: str) -> list[dict]:
+    db = get_db()
+    result = (
+        db.table("transactions").select("*")
+        .eq("tenant_id", tenant_id)
+        .eq("type", "ingreso")
+        .eq("status", "pendiente")
+        .order("date")
+        .execute()
+    )
+    return result.data
+
+
 # ── create_sale RPC (D2 — atomic Transaction + StockMovement) ──
 
 def create_sale(tenant_id: str, product_id: str, quantity: int, amount: float,

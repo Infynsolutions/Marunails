@@ -207,3 +207,55 @@ class StockMovement(BaseModel):
 class StockSummary(BaseModel):
     products: list[ProductResponse]
     low_stock_count: int
+
+
+# ── Report ──
+
+class CategoryLine(BaseModel):
+    category: str
+    amount: float
+    percentage: float
+
+
+class ReportData(BaseModel):
+    year: int
+    month: int
+    month_label: str
+    ingresos: float
+    gastos: float
+    margen: float
+    saldo: float
+    ingresos_prev: float
+    gastos_prev: float
+    margen_prev: float
+    ingresos_change: float
+    gastos_change: float
+    gastos_por_categoria: list[CategoryLine]
+    ingresos_por_categoria: list[CategoryLine]
+    transacciones: list[Transaction]
+    formatted_ingresos: str
+    formatted_gastos: str
+    formatted_saldo: str
+
+
+# ── Collections ──
+
+class CollectionItem(BaseModel):
+    id: str
+    date: datetime
+    amount: float
+    description: str
+    category: str
+    reference: Optional[str] = None
+    days_pending: int
+    bucket: str  # "al_dia" | "por_vencer" | "vencida"
+    formatted_amount: str
+
+
+class CollectionsSummary(BaseModel):
+    total_pendiente: float
+    total_count: int
+    al_dia: list[CollectionItem]
+    por_vencer: list[CollectionItem]
+    vencidas: list[CollectionItem]
+    formatted_total: str

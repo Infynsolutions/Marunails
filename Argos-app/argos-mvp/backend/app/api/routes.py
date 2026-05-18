@@ -6,11 +6,13 @@ Each endpoint validates tenant_id for multi-tenant isolation.
 import logging
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
+from typing import Optional
 from app.models.schemas import (
     DashboardData, TransactionList, TransactionCreate, Transaction,
     ChatRequest, ChatResponse,
     SyncRequest, SyncResponse, AlertList,
     ProductCreate, ProductResponse, StockMovementCreate, StockMovement, StockSummary,
+    ReportData, CollectionsSummary,
 )
 from app.services import database as db
 from app.services import dashboard as dash_service
@@ -269,6 +271,33 @@ async def add_stock_movement(tenant_id: str, req: StockMovementCreate):
     except Exception as e:
         logger.error("stock_movement error for %s: %s", tenant_id, e)
         raise HTTPException(status_code=500, detail="Error registrando movimiento de stock")
+
+
+@router.get("/report/{tenant_id}", response_model=ReportData)
+async def get_report(tenant_id: str, year: Optional[int] = None, month: Optional[int] = None):
+    """Monthly P&L report: ingresos, gastos, margen, categories, transactions."""
+    tenant = db.get_tenant(tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+    now = datetime.utcnow()
+    try:
+        return dash_service.get_report(tenant_id, year or now.year, month or now.month)
+    except Exception as e:
+        logger.error("Report error for %s: %s", tenant_id, e)
+        raise HTTPException(status_code=500, detail="Error generando el reporte")
+
+
+@router.get("/collections/{tenant_id}", response_model=CollectionsSummary)
+async def get_collections(tenant_id: str):
+    """Pending income transactions grouped by aging bucket."""
+    tenant = db.get_tenant(tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+    try:
+        return dash_service.get_collections_summary(tenant_id)
+    except Exception as e:
+        logger.error("Collections error for %s: %s", tenant_id, e)
+        raise HTTPException(status_code=500, detail="Error obteniendo cobranzas")
 
 
 @router.get("/stock/{tenant_id}", response_model=StockSummary)
