@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 import { timeAgo } from '../lib/format';
 
 const severityStyles = {
@@ -28,6 +28,7 @@ const severityStyles = {
 };
 
 export default function AlertsPage() {
+  const api = useApi();
   const [alerts, setAlerts] = useState([]);
   const [counts, setCounts] = useState({});
   const [filter, setFilter] = useState('all');

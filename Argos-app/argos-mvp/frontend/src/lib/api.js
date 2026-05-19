@@ -1,17 +1,24 @@
 /**
  * Argos API Client
- * All backend communication goes through here.
+ * Uses Supabase session JWT for auth. All calls are scoped to the
+ * authenticated user's tenant (resolved server-side via RLS + user_tenants).
  */
 
+import { supabase } from './supabase';
+
 const API_URL = import.meta.env.VITE_API_URL ?? '';
-const TENANT_ID = import.meta.env.VITE_TENANT_ID || '00000000-0000-0000-0000-000000000001';
+
+async function getToken() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+}
 
 async function request(path, options = {}) {
-  const url = `${API_URL}${path}`;
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
+  const token = await getToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_URL}${path}`, { headers, ...options });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: 'Error de conexión' }));
     throw new Error(error.detail || `HTTP ${res.status}`);
@@ -19,67 +26,68 @@ async function request(path, options = {}) {
   return res.json();
 }
 
-export const api = {
-  // Dashboard
-  getDashboard: () => request(`/api/v1/dashboard/${TENANT_ID}`),
+// tenantId is passed by the caller (from useAuth().tenantId) so the URL matches
+// what the backend expects. The server verifies it against the JWT's tenant.
+export function makeApi(tenantId) {
+  return {
+    // Dashboard
+    getDashboard: () => request(`/api/v1/dashboard/${tenantId}`),
 
-  // Transactions
-  getTransactions: (limit = 50, offset = 0) =>
-    request(`/api/v1/transactions/${TENANT_ID}?limit=${limit}&offset=${offset}`),
+    // Transactions
+    getTransactions: (limit = 50, offset = 0) =>
+      request(`/api/v1/transactions/${tenantId}?limit=${limit}&offset=${offset}`),
 
-  createTransaction: (data) =>
-    request(`/api/v1/transactions/${TENANT_ID}`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    createTransaction: (data) =>
+      request(`/api/v1/transactions/${tenantId}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
 
-  // Products
-  getProducts: () => request(`/api/v1/products/${TENANT_ID}`),
+    // Products
+    getProducts: () => request(`/api/v1/products/${tenantId}`),
+    getProduct:  (sku) => request(`/api/v1/products/${tenantId}/${sku}`),
+    createProduct: (data) =>
+      request(`/api/v1/products/${tenantId}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
 
-  getProduct: (sku) => request(`/api/v1/products/${TENANT_ID}/${sku}`),
+    // Stock
+    getStock: () => request(`/api/v1/stock/${tenantId}`),
+    addStockMovement: (data) =>
+      request(`/api/v1/stock-movement/${tenantId}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
 
-  createProduct: (data) =>
-    request(`/api/v1/products/${TENANT_ID}`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    // Chat
+    sendMessage: (message, sessionId = null) =>
+      request(`/api/v1/chat/${tenantId}`, {
+        method: 'POST',
+        body: JSON.stringify({ message, session_id: sessionId }),
+      }),
 
-  // Stock
-  getStock: () => request(`/api/v1/stock/${TENANT_ID}`),
+    // Alerts
+    getAlerts: () => request(`/api/v1/alerts/${tenantId}`),
+    resolveAlert: (alertId) =>
+      request(`/api/v1/alerts/${tenantId}/${alertId}/resolve`, { method: 'POST' }),
 
-  addStockMovement: (data) =>
-    request(`/api/v1/stock-movement/${TENANT_ID}`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    // Reports
+    getReport: (year, month) => {
+      const params = new URLSearchParams();
+      if (year)  params.append('year', year);
+      if (month) params.append('month', month);
+      const qs = params.toString() ? `?${params}` : '';
+      return request(`/api/v1/report/${tenantId}${qs}`);
+    },
 
-  // Chat
-  sendMessage: (message, sessionId = null) =>
-    request(`/api/v1/chat/${TENANT_ID}`, {
-      method: 'POST',
-      body: JSON.stringify({ message, session_id: sessionId }),
-    }),
+    // Collections
+    getCollections: () => request(`/api/v1/collections/${tenantId}`),
+  };
+}
 
-  // Alerts
-  getAlerts: () => request(`/api/v1/alerts/${TENANT_ID}`),
-
-  resolveAlert: (alertId) =>
-    request(`/api/v1/alerts/${TENANT_ID}/${alertId}/resolve`, { method: 'POST' }),
-
-  // Reports
-  getReport: (year, month) => {
-    const params = new URLSearchParams();
-    if (year) params.append('year', year);
-    if (month) params.append('month', month);
-    const qs = params.toString() ? `?${params}` : '';
-    return request(`/api/v1/report/${TENANT_ID}${qs}`);
-  },
-
-  // Collections
-  getCollections: () => request(`/api/v1/collections/${TENANT_ID}`),
-
-  // Health
+// Public endpoints (no tenant needed)
+export const publicApi = {
   health: () => request('/api/v1/health'),
+  me:     () => request('/api/v1/me'),
 };
-
-export { TENANT_ID };

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, CheckCircle, AlertCircle } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 
 const today = () => new Date().toISOString().slice(0, 16);
 
@@ -12,6 +12,7 @@ const MOVEMENT_TYPES = [
 ];
 
 export default function IngresarStockPage() {
+  const api = useApi();
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);

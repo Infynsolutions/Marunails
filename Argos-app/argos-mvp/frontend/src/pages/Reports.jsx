@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Printer, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 import { formatARS, formatDate } from '../lib/format';
 
 const MESES = [
@@ -49,6 +49,7 @@ const EXPENSE_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4', '
 const INCOME_COLORS  = ['#16a34a', '#22c55e', '#4ade80', '#059669', '#10b981', '#34d399'];
 
 export default function ReportsPage() {
+  const api = useApi();
   const monthOptions = buildMonthOptions();
   const [selected, setSelected] = useState(0);
   const [data, setData] = useState(null);

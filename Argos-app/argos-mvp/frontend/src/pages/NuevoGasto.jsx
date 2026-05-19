@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Receipt, CheckCircle, AlertCircle } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 
 const today = () => new Date().toISOString().slice(0, 16);
 
@@ -11,6 +11,7 @@ const CATEGORIES = [
 ];
 
 export default function NuevoGastoPage() {
+  const api = useApi();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);

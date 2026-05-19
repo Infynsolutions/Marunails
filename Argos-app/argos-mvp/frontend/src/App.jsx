@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { Menu, Eye } from 'lucide-react';
+import { AuthProvider, useAuth } from './lib/auth';
 import Sidebar from './components/Sidebar';
+import LoginPage from './pages/Login';
 import DashboardPage from './pages/Dashboard';
 import ChatPage from './pages/Chat';
 import AgentsPage from './pages/Agents';
@@ -13,6 +15,24 @@ import IngresarStockPage from './pages/IngresarStock';
 import NuevoGastoPage from './pages/NuevoGasto';
 import StockPage from './pages/Stock';
 import NuevoProductoPage from './pages/NuevoProducto';
+
+function ProtectedRoute() {
+  const { session, tenantId, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-argos-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session || !tenantId) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+}
 
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -48,22 +68,30 @@ function Layout() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/agentes" element={<AgentsPage />} />
-          <Route path="/alertas" element={<AlertsPage />} />
-          <Route path="/reportes" element={<ReportsPage />} />
-          <Route path="/config" element={<ConfigPage />} />
-          <Route path="/venta/nueva" element={<NuevaVentaPage />} />
-          <Route path="/stock/ingresar" element={<IngresarStockPage />} />
-          <Route path="/gasto/nuevo" element={<NuevoGastoPage />} />
-          <Route path="/stock" element={<StockPage />} />
-          <Route path="/productos/nuevo" element={<NuevoProductoPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Protected — require valid session + tenant */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/"                  element={<DashboardPage />} />
+              <Route path="/chat"              element={<ChatPage />} />
+              <Route path="/agentes"           element={<AgentsPage />} />
+              <Route path="/alertas"           element={<AlertsPage />} />
+              <Route path="/reportes"          element={<ReportsPage />} />
+              <Route path="/config"            element={<ConfigPage />} />
+              <Route path="/venta/nueva"       element={<NuevaVentaPage />} />
+              <Route path="/stock/ingresar"    element={<IngresarStockPage />} />
+              <Route path="/gasto/nuevo"       element={<NuevoGastoPage />} />
+              <Route path="/stock"             element={<StockPage />} />
+              <Route path="/productos/nuevo"   element={<NuevoProductoPage />} />
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

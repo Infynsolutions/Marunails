@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Eye, Sparkles } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 import { formatTime } from '../lib/format';
 
 const SUGGESTIONS = [
@@ -11,6 +11,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPage() {
+  const api = useApi();
   const [messages, setMessages] = useState([
     {
       role: 'assistant',

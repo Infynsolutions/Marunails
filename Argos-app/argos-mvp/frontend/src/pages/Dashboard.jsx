@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Clock, AlertTriangle, Package, ShoppingCart, Receipt } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 import { timeAgo } from '../lib/format';
 import KPICard from '../components/KPICard';
 import RevenueChart from '../components/RevenueChart';
@@ -11,6 +11,7 @@ import TransactionsTable from '../components/TransactionsTable';
 const kpiColors = ['green', 'red', 'green', 'amber'];
 
 export default function DashboardPage() {
+  const api = useApi();
   const [data, setData] = useState(null);
   const [stock, setStock] = useState(null);
   const [loading, setLoading] = useState(true);

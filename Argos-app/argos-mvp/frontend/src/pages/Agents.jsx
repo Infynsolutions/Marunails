@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Bot, Sparkles, RefreshCw, AlertCircle, Clock, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 import { formatARS, formatDate } from '../lib/format';
 
 function BucketBadge({ bucket }) {
@@ -139,6 +139,7 @@ const staticAgents = [
 ];
 
 export default function AgentsPage() {
+  const api = useApi(); // eslint-disable-line no-unused-vars
   return (
     <div>
       <h1 className="font-sans text-xl font-bold text-surface-900 mb-6">Agentes</h1>

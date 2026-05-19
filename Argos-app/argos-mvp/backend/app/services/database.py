@@ -1,22 +1,59 @@
 """
 Supabase data layer — all DB operations go through here.
-Multi-tenant isolation: every query filters by tenant_id.
+Multi-tenant isolation: DB-level via RLS + application-level tenant_id filter.
+
+Two clients:
+  get_admin_db() — service key, bypasses RLS. Only for auth resolution / admin ops.
+  get_db()       — returns request-scoped anon+JWT client when inside a request,
+                   falls back to admin client for scripts/tests.
 """
 
+from contextvars import ContextVar
 from datetime import datetime, timedelta
 from typing import Optional
 from supabase import create_client, Client
 from app.config import get_settings
 
-_client: Optional[Client] = None
+_admin_client: Optional[Client] = None
+_request_client: ContextVar[Optional[Client]] = ContextVar("request_client", default=None)
+
+
+def get_admin_db() -> Client:
+    """Service-key client — bypasses RLS. Never use for user data queries."""
+    global _admin_client
+    if _admin_client is None:
+        s = get_settings()
+        _admin_client = create_client(s.supabase_url, s.supabase_service_key)
+    return _admin_client
+
+
+def set_request_db(token: str) -> None:
+    """Store an anon+JWT client scoped to the current async request context."""
+    s = get_settings()
+    client = create_client(s.supabase_url, s.supabase_anon_key)
+    client.postgrest.auth(token)
+    _request_client.set(client)
 
 
 def get_db() -> Client:
-    global _client
-    if _client is None:
-        s = get_settings()
-        _client = create_client(s.supabase_url, s.supabase_service_key)
-    return _client
+    """Returns the request-scoped user client if set; admin client otherwise."""
+    client = _request_client.get()
+    return client if client is not None else get_admin_db()
+
+
+# ── Auth resolution ──
+
+def get_user_tenant(user_id: str) -> Optional[dict]:
+    """Resolve user_id → {tenant_id, role} using admin client (auth bootstrap)."""
+    admin = get_admin_db()
+    result = (
+        admin.table("user_tenants")
+        .select("tenant_id, role")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
 
 
 # ── Transactions ──

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tag, CheckCircle, AlertCircle } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 
 export default function NuevoProductoPage() {
+  const api = useApi();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);

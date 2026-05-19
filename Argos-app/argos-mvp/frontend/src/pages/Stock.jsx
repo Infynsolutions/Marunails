@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, AlertTriangle, Plus, RefreshCw } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 
 export default function StockPage() {
+  const api = useApi();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

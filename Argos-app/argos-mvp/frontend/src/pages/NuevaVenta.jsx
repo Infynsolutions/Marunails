@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, CheckCircle, AlertCircle } from 'lucide-react';
-import { api } from '../lib/api';
+import { useApi } from '../lib/useApi';
 
 const today = () => new Date().toISOString().slice(0, 16);
 
 export default function NuevaVentaPage() {
+  const api = useApi();
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);

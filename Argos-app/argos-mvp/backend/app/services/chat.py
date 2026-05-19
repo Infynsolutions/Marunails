@@ -14,7 +14,7 @@ from app.services import database as db
 
 logger = logging.getLogger("argos.chat")
 
-SYSTEM_PROMPT_TEMPLATE = """Sos Argos, el asistente financiero IA de {empresa}.
+OWNER_PROMPT_TEMPLATE = """Sos Argos, el asistente financiero IA de {empresa}.
 Tenés acceso a los datos financieros actualizados de la empresa.
 
 DATOS ACTUALES DEL NEGOCIO:
@@ -24,12 +24,24 @@ REGLAS:
 - Respondé siempre en español rioplatense, de forma clara y orientada a la acción.
 - Usá números concretos de los datos cuando respondas.
 - Si detectás algo preocupante, mencionalo proactivamente.
-- Si no tenés datos suficientes para responder, decilo honestamente y sugerí qué
-  información completar en el Google Sheet.
 - Formateá montos con punto como separador de miles (ej: $1.234.567).
 - Sé conciso pero completo. Priorizá la información más relevante.
 - Cuando hables de tendencias, compará siempre con el período anterior.
 - No inventes datos que no tenés. Basate estrictamente en la información proporcionada.
+"""
+
+EMPLOYEE_PROMPT_TEMPLATE = """Sos Argos, el asistente operativo de {empresa}.
+Ayudás al equipo con consultas de stock y ventas del día.
+
+DATOS OPERATIVOS HOY:
+{contexto_operativo}
+
+REGLAS:
+- Respondé siempre en español rioplatense, de forma práctica y directa.
+- Solo tenés acceso a stock y ventas del día — no tenés datos de márgenes, P&L ni totales financieros.
+- Si te preguntan algo financiero (ganancias, costos totales, rentabilidad), decí que esa información
+  la ve el dueño y no está disponible para empleados.
+- No inventes datos que no tenés.
 """
 
 
@@ -114,17 +126,38 @@ def _build_financial_context(tenant_id: str) -> str:
     return "\n".join(lines)
 
 
-async def chat(tenant_id: str, user_message: str, session_id: Optional[str] = None) -> dict:
-    """
-    Process a chat message from the user.
-    Returns the AI response with session tracking.
-    """
+def _build_employee_context(tenant_id: str) -> str:
+    """Scoped context for employees — stock + today's sales only, no financials."""
+    data = db.get_dashboard_data(tenant_id)
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+
+    today_sales = [
+        t for t in data["recent_transactions"]
+        if t["type"] == "ingreso" and t["date"][:10] == today
+    ]
+    total_today = sum(t["amount"] for t in today_sales)
+
+    lines = [
+        "Ventas de hoy ({} transacciones): ${:,.0f}".format(len(today_sales), total_today),
+    ]
+    for t in today_sales[:10]:
+        lines.append("  · {} — ${:,.0f} ({})".format(t["description"], t["amount"], t["status"]))
+
+    return "\n".join(lines)
+
+
+async def chat(
+    tenant_id: str,
+    user_message: str,
+    session_id: Optional[str] = None,
+    role: str = "owner",
+) -> dict:
+    """Process a chat message. Role determines financial context depth."""
     settings = get_settings()
 
     if not session_id:
         session_id = str(uuid.uuid4())
 
-    # Get tenant info
     tenant = db.get_tenant(tenant_id)
     if not tenant:
         return {
@@ -134,29 +167,29 @@ async def chat(tenant_id: str, user_message: str, session_id: Optional[str] = No
 
     empresa_name = tenant.get("name", "tu empresa")
 
-    # Build context
     try:
-        contexto = _build_financial_context(tenant_id)
+        if role == "employee":
+            contexto = _build_employee_context(tenant_id)
+            system_prompt = EMPLOYEE_PROMPT_TEMPLATE.format(
+                empresa=empresa_name,
+                contexto_operativo=contexto,
+            )
+        else:
+            contexto = _build_financial_context(tenant_id)
+            system_prompt = OWNER_PROMPT_TEMPLATE.format(
+                empresa=empresa_name,
+                contexto_financiero=contexto,
+            )
     except Exception as e:
         logger.error("Error building context for tenant %s: %s", tenant_id, e)
-        contexto = "(No se pudieron cargar los datos financieros en este momento)"
+        system_prompt = "Sos Argos, el asistente de {empresa}. Los datos no están disponibles en este momento.".format(empresa=empresa_name)
 
-    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-        empresa=empresa_name,
-        contexto_financiero=contexto,
-    )
-
-    # Get chat history for continuity
     history = db.get_chat_history(tenant_id, session_id, limit=10)
-    messages = []
-    for msg in history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages = [{"role": msg["role"], "content": msg["content"]} for msg in history]
     messages.append({"role": "user", "content": user_message})
 
-    # Save user message
     db.save_chat_message(tenant_id, session_id, "user", user_message)
 
-    # Call Claude API
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.messages.create(
@@ -166,6 +199,12 @@ async def chat(tenant_id: str, user_message: str, session_id: Optional[str] = No
             messages=messages,
         )
         ai_response = response.content[0].text
+
+        # Track token usage for billing limits (M3)
+        usage = response.usage
+        if usage:
+            _track_token_usage(tenant_id, usage.input_tokens + usage.output_tokens, settings)
+
     except anthropic.APITimeoutError:
         logger.error("Claude API timeout for tenant %s", tenant_id)
         ai_response = "Disculpá, tardé demasiado en procesar tu consulta. ¿Podés intentar de nuevo?"
@@ -173,10 +212,30 @@ async def chat(tenant_id: str, user_message: str, session_id: Optional[str] = No
         logger.error("Claude API error for tenant %s: %s", tenant_id, e)
         ai_response = "Hubo un error al procesar tu consulta. Por favor intentá de nuevo en unos segundos."
 
-    # Save assistant message
     db.save_chat_message(tenant_id, session_id, "assistant", ai_response)
 
     return {
         "response": ai_response,
         "session_id": session_id,
     }
+
+
+def _track_token_usage(tenant_id: str, tokens: int, settings) -> None:
+    """Upsert token usage into tenant_usage. Logs warnings at thresholds."""
+    try:
+        from datetime import date
+        month_start = date.today().replace(day=1).isoformat()
+        admin = db.get_admin_db()
+        result = admin.rpc("increment_token_usage", {
+            "p_tenant_id": tenant_id,
+            "p_month": month_start,
+            "p_tokens": tokens,
+        }).execute()
+        total = result.data if result.data else 0
+        if isinstance(total, (int, float)):
+            if total >= settings.hard_token_limit:
+                logger.warning("Tenant %s hit hard token limit (%d)", tenant_id, total)
+            elif total >= settings.alert_token_threshold:
+                logger.warning("Tenant %s at 80%% token usage (%d)", tenant_id, total)
+    except Exception as e:
+        logger.error("Token tracking failed for %s: %s", tenant_id, e)
