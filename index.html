@@ -1,10 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>INFYN — Diseñamos el camino de tu negocio hacia un futuro más grande</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
 <style>
 
   /* ═══════════════════════════════════════════════════
@@ -409,12 +411,11 @@
   }
 
   .hero-headline {
-    font-family: 'Hanken Grotesk', sans-serif;
-    font-size: clamp(30px, 3.5vw, 50px);
+    font-size: clamp(40px, 5.5vw, 72px);
     font-weight: 800;
     color: var(--blanco);
-    line-height: 1.08;
-    letter-spacing: -0.3px;
+    line-height: 1.04;
+    letter-spacing: -1.5px;
     margin-bottom: 24px;
     opacity: 0;
     animation: fadeUp 0.6s ease forwards 0.35s;
@@ -472,7 +473,7 @@
 
   /* ─── PROBLEMA ─── */
   .problema {
-    background: var(--blanco);
+    background: var(--gris-medio);
     padding: 100px 60px;
   }
 
@@ -580,7 +581,7 @@
 
   .metodo-header {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: flex-end;
     margin-bottom: 48px;
     gap: 40px;
@@ -605,8 +606,8 @@
 
   .metodo-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
   }
 
   .paso {
@@ -1318,6 +1319,7 @@
   }
 
   .resultado-num {
+    font-family: 'Inter', sans-serif;
     font-size: clamp(52px, 7vw, 80px);
     font-weight: 800;
     color: var(--blanco);
@@ -1409,6 +1411,7 @@
 
   .cta-form {
     display: flex;
+    justify-content: center;
     width: 100%;
     max-width: 420px;
   }
@@ -1545,6 +1548,232 @@
     .producto-pills { flex-wrap: wrap; gap: 6px; }
   }
 
+  /* ─── DISPLAY TYPOGRAPHY OVERRIDE ─── */
+  /* Headline base: Bricolage Grotesque (sans display con peso = autoridad tech) */
+  .hero-headline,
+  .problema-statement,
+  .metodo-titulo,
+  .producto-titulo,
+  .resultados-titulo,
+  .cta-titulo,
+  .quote-text {
+    font-family: 'Bricolage Grotesque', 'Inter', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .hero-headline { font-size: clamp(48px, 6.8vw, 96px); line-height: 1.0; letter-spacing: -0.035em; }
+  .problema-statement { font-size: clamp(28px, 3.8vw, 50px); line-height: 1.1; letter-spacing: -0.025em; }
+  .metodo-titulo { font-size: clamp(38px, 5vw, 64px); line-height: 1.0; }
+  .producto-titulo { font-size: clamp(34px, 4.6vw, 58px); line-height: 1.0; }
+  .resultados-titulo { font-size: clamp(36px, 4.8vw, 60px); line-height: 1.0; }
+  .cta-titulo { font-size: clamp(32px, 4.6vw, 60px); line-height: 1.05; }
+  .quote-text { font-size: clamp(28px, 3.8vw, 52px); line-height: 1.15; }
+
+  /* .acento: mantiene Instrument Serif italic (signature editorial) */
+  .hero-headline .acento,
+  .problema-statement .acento,
+  .producto-titulo .acento,
+  .quote-text .acento,
+  .cta-titulo .acento,
+  .resultados-titulo .acento,
+  .metodo-titulo .acento {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.01em;
+  }
+
+  /* ====================================================================
+     MOVIMIENTO #2: HEADLINE MÁS GRANDE + BEAM DE LUZ DRAMÁTICO
+     MOVIMIENTO #3: HERO ASIMÉTRICO
+     MOVIMIENTO #4: REDUCIR VERDE
+     MOVIMIENTO #5: CORNER MARKS SIGNATURE
+     ==================================================================== */
+
+  /* #3 — Hero asimétrico (más espacio al texto) */
+  .hero {
+    grid-template-columns: 1.2fr 0.8fr !important;
+    gap: 48px !important;
+  }
+
+  /* #2 — Headline más grande para dominar el fold */
+  .hero-headline {
+    font-size: clamp(40px, 5.5vw, 76px) !important;
+    line-height: 1.0 !important;
+  }
+
+  /* #2 + #5 — Beam de luz + corner marks en HERO */
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") top 28px left 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") top 28px right 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") bottom 28px left 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") bottom 28px right 28px / 14px no-repeat,
+      linear-gradient(225deg, rgba(46,212,122,0.18) 0%, transparent 45%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* #5 — Corner marks en resultados, quote, cta */
+  .resultados::before, .quote-section::before, .cta-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") top 28px left 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") top 28px right 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") bottom 28px left 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") bottom 28px right 28px / 14px no-repeat;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .cta-section::before {
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%230A3F2C' stroke-opacity='0.45' stroke-width='1' stroke-linecap='round'/></svg>") top 28px left 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%230A3F2C' stroke-opacity='0.45' stroke-width='1' stroke-linecap='round'/></svg>") top 28px right 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%230A3F2C' stroke-opacity='0.45' stroke-width='1' stroke-linecap='round'/></svg>") bottom 28px left 28px / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%230A3F2C' stroke-opacity='0.45' stroke-width='1' stroke-linecap='round'/></svg>") bottom 28px right 28px / 14px no-repeat;
+  }
+  .cta-section { position: relative; }
+  .resultados, .quote-section { position: relative; }
+
+  /* #5 — Corner marks en metodo y producto (via inner container) */
+  .metodo-inner, .producto-inner { position: relative; }
+  .metodo-inner::before, .producto-inner::before {
+    content: '';
+    position: absolute;
+    inset: -16px;
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") top left / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") top right / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") bottom left / 14px no-repeat,
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M7 1v12M1 7h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") bottom right / 14px no-repeat;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* #4 — Reducir verde: eyebrows pasan a blanco/oscuro neutro */
+  .section-eyebrow {
+    color: rgba(255,255,255,0.55) !important;
+  }
+  .section-eyebrow::before {
+    background: rgba(255,255,255,0.55) !important;
+  }
+  .eyebrow-light {
+    color: rgba(255,255,255,0.55) !important;
+  }
+  .eyebrow-light::before {
+    background: rgba(255,255,255,0.55) !important;
+  }
+  .problema .section-eyebrow {
+    color: rgba(10,63,44,0.55) !important;
+  }
+  .problema .section-eyebrow::before {
+    background: rgba(10,63,44,0.55) !important;
+  }
+
+  /* #4 — Reducir verde: paso-tiempo neutro */
+  .paso-tiempo {
+    color: rgba(255,255,255,0.4) !important;
+  }
+
+  /* #4 — Reducir verde: hero-tag pasa a blanco translúcido */
+  .hero-tag {
+    color: rgba(255,255,255,0.55) !important;
+  }
+  .hero-tag::before {
+    background: rgba(255,255,255,0.55) !important;
+  }
+
+  /* Fix de contraste: hero-sub más legible */
+  .hero-sub {
+    color: rgba(255,255,255,0.72) !important;
+  }
+
+  /* Mobile: ajustar hero asimétrico (vuelve a 1 col en mobile) */
+  @media (max-width: 900px) {
+    .hero {
+      grid-template-columns: 1fr !important;
+    }
+    .hero::before {
+      background:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M6 0v12M0 6h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") top 20px left 20px / 12px no-repeat,
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M6 0v12M0 6h12' stroke='%232ED47A' stroke-opacity='0.55' stroke-width='1' stroke-linecap='round'/></svg>") top 20px right 20px / 12px no-repeat,
+        linear-gradient(220deg, rgba(46,212,122,0.12) 0%, transparent 45%) !important;
+    }
+  }
+
+  /* ─── PULSO PREVIEW EN HERO ─── */
+  /* Ambient chart de fondo: data 24/7 fluyendo detrás del chat */
+  .hv-bg-chart {
+    position: absolute;
+    top: -80px;
+    left: -120px;
+    right: -120px;
+    bottom: -80px;
+    width: calc(100% + 240px);
+    height: calc(100% + 160px);
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .hv-chat {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 0 10px;
+  }
+  .hv-msg-user { display: flex; justify-content: flex-end; }
+  .hv-msg-bot  { display: flex; justify-content: flex-start; }
+  .hv-bubble-user {
+    background: var(--verde-acento);
+    color: #06180E;
+    padding: 10px 14px;
+    border-radius: 14px 14px 4px 14px;
+    font-size: 13px;
+    line-height: 1.42;
+    max-width: 88%;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+  }
+  .hv-bubble-bot {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.92);
+    padding: 10px 14px;
+    border-radius: 14px 14px 14px 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 92%;
+    font-family: 'Inter', sans-serif;
+  }
+  .hv-bubble-bot strong { color: var(--verde-acento); font-weight: 600; }
+  .hv-input-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    margin-top: 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.42);
+    font-family: 'Inter', sans-serif;
+  }
+  .hv-input-send {
+    width: 22px; height: 22px;
+    background: var(--verde-acento);
+    color: #06180E;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
 </style>
 </head>
 <body>
@@ -1568,79 +1797,78 @@
 <!-- ─── HERO — aurora-bg ─── -->
 <section class="hero aurora-bg">
   <div class="hero-content">
-    <div class="hero-tag">Consultoría estratégica para PyMEs</div>
+    <div class="hero-tag">Consultoría + desarrollo + IA para PyMEs</div>
     <h1 class="hero-headline">
-      Diseñamos el camino<br>
-      de tu negocio hacia<br>
-      <span class="acento">un futuro más grande.</span>
+      Tu negocio merece<br>
+      un sistema a medida<br>
+      <span class="acento">sin que estés pendiente.</span>
     </h1>
-    <p class="hero-sub">Estrategia + procesos + implementación real.</p>
+
     <div class="hero-actions">
       <a href="/diagnostico" class="btn-primary">Agendar diagnóstico</a>
       <a href="#metodo" class="btn-secondary">Cómo trabajamos</a>
     </div>
   </div>
 
-  <!-- Live chart widget -->
+  <!-- Ciro preview — co-pensador en vivo -->
   <div class="hero-visual">
-    <div style="position:relative; width:100%; max-width:420px; overflow:visible;">
+    <div style="position:relative; width:100%; max-width:440px; overflow:visible;">
+
+      <!-- Ambient data chart (background, runs 24/7) -->
+      <canvas id="hv-bg-chart" class="hv-bg-chart" width="900" height="600"></canvas>
 
       <!-- Floating badges -->
       <div class="hv-badge hv-badge-1">
-        <div class="hv-badge-icon">⚡</div>
+        <div class="hv-badge-icon">💚</div>
         <div>
-          <div class="hv-badge-title">Sync activo</div>
-          <div class="hv-badge-sub">Hace 2 min</div>
-        </div>
-      </div>
-
-      <div class="hv-badge hv-badge-2">
-        <div class="hv-badge-icon">⚠️</div>
-        <div>
-          <div class="hv-badge-title">Factura vencida</div>
-          <div class="hv-badge-sub">$280.000 — 12 días</div>
+          <div class="hv-badge-title">Pensando en vivo</div>
+          <div class="hv-badge-sub">Con tus datos</div>
         </div>
       </div>
 
       <div class="hv-badge hv-badge-3">
         <div class="hv-badge-icon" style="color:var(--verde-acento)">✓</div>
         <div>
-          <div class="hv-badge-title" style="color:var(--verde-acento)">Margen sólido</div>
+          <div class="hv-badge-title" style="color:var(--verde-acento)">Margen 54,7%</div>
           <div class="hv-badge-sub">+2,3pp vs mes anterior</div>
         </div>
       </div>
 
-      <!-- Main card -->
+      <!-- Ciro card -->
       <div class="hv-card">
         <div class="hv-header">
           <div class="hv-live">
             <div class="hv-live-dot"></div>
-            Tu operación en vivo
+            Ciro · Tu co-pensador
           </div>
-          <div class="hv-period">Abr 2026</div>
+          <div class="hv-period">24/7</div>
         </div>
 
-        <div class="hv-canvas-wrap">
-          <canvas id="live-chart" width="760" height="280"></canvas>
-          <div class="hv-tooltip" id="hv-tooltip"></div>
+        <div class="hv-chat">
+          <div class="hv-msg-user">
+            <div class="hv-bubble-user">¿Conviene invertir $500K en una segunda sucursal en marzo?</div>
+          </div>
+
+          <div class="hv-msg-bot">
+            <div class="hv-bubble-bot">
+              Con tu margen <strong>54,7%</strong> y la caída de marzo (−18% vs promedio), recuperás en <strong>~7,2 meses</strong>. Mejor abrir en mayo: te da 2 meses extra de respiro.
+            </div>
+          </div>
+
+          <div class="hv-msg-user">
+            <div class="hv-bubble-user">¿Y mi cliente más rentable?</div>
+          </div>
+
+          <div class="hv-msg-bot">
+            <div class="hv-bubble-bot">
+              <strong>Comercial Norte.</strong> Paga a 7 días, margen 62%. Si crece 30%, tu rentabilidad sube <strong>8,5%</strong>.
+            </div>
+          </div>
         </div>
 
-        <div class="hv-metrics">
-          <div class="hv-metric">
-            <div class="hv-metric-label">Ingresos</div>
-            <div class="hv-metric-value" id="hv-ingresos">$4.280.000</div>
-            <div class="hv-metric-delta" id="hv-ingresos-d">↑ 12,4%</div>
-          </div>
-          <div class="hv-metric">
-            <div class="hv-metric-label">Margen</div>
-            <div class="hv-metric-value" id="hv-margen">54,7%</div>
-            <div class="hv-metric-delta" id="hv-margen-d">↑ 2,3pp</div>
-          </div>
-          <div class="hv-metric">
-            <div class="hv-metric-label">Saldo</div>
-            <div class="hv-metric-value" id="hv-saldo">$892.400</div>
-            <div class="hv-metric-delta" id="hv-saldo-d">↑ 8,2%</div>
-          </div>
+        <div class="hv-input-bar">
+          <span>Pensemos algo juntos…</span>
+          <span class="hv-input-send">→</span>
         </div>
       </div>
 
@@ -1654,10 +1882,9 @@
   <div class="problema-inner">
     <div class="section-eyebrow">El problema</div>
     <p class="problema-statement">
-      Si tu negocio crece pero cada vez<br>
-      es más desordenado…<br>
-      el problema no es la venta.<br>
-      <span class="acento">Es el sistema.</span>
+      Tu negocio crece.<br>
+      Pero el caos también.<br>
+      <span class="acento">El problema no es la venta.<br>Es la falta de sistema.</span>
     </p>
 
     <div class="problema-grid">
@@ -1665,22 +1892,22 @@
         <div class="card-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </div>
-        <div class="card-titulo">Dependencia del dueño</div>
-        <div class="card-texto">Todo depende de vos para funcionar. Si no estás, el negocio se frena.</div>
+        <div class="card-titulo">Dependencia total del dueño</div>
+        <div class="card-texto">Si no estás, nada avanza. Las decisiones, los problemas y los detalles operativos pasan todos por vos.</div>
       </div>
       <div class="problema-card">
         <div class="card-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M9 4v16"/></svg>
         </div>
-        <div class="card-titulo">Falta de procesos</div>
-        <div class="card-texto">Cada vez más trabajo sin estructura. Las tareas se acumulan y se repiten sin sistema.</div>
+        <div class="card-titulo">Sin información centralizada</div>
+        <div class="card-texto">Los datos están en Excel, mails y planillas sueltas. Cuando necesitás un número, primero tenés que encontrarlo.</div>
       </div>
       <div class="problema-card">
         <div class="card-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
         </div>
-        <div class="card-titulo">Decisiones sin datos</div>
-        <div class="card-texto">No sabés qué medir para crecer. Las decisiones se toman por intuición, no por números.</div>
+        <div class="card-titulo">Decisiones sin respaldo</div>
+        <div class="card-texto">Subir precios, contratar, expandirse. Sin datos claros, cada decisión grande se toma a intuición.</div>
       </div>
     </div>
   </div>
@@ -1691,9 +1918,9 @@
 <section class="metodo aurora-bg aurora-subtle grid-bg" id="metodo">
   <div class="metodo-inner">
     <div class="metodo-header">
-      <div style="text-align: center;">
-        <div class="section-eyebrow eyebrow-light">Método</div>
-        <h2 class="metodo-titulo">Cómo trabajamos</h2>
+      <div style="text-align: left;">
+        <div class="section-eyebrow eyebrow-light">Nuestro modelo</div>
+        <h2 class="metodo-titulo">Tres capas.<br>Sin huecos entre ellas.</h2>
       </div>
     </div>
 
@@ -1701,26 +1928,17 @@
       <div class="paso">
         <div class="paso-num">01</div>
         <div class="paso-titulo">Diagnóstico</div>
-        <div class="paso-texto">Analizamos tu operación y detectamos cuellos de botella, pérdidas y oportunidades sin aprovechar.</div>
-        <div class="paso-tiempo">48–72 hs</div>
+        <div class="paso-texto">Entramos a tu operación y la entendemos desde adentro. Flujos, herramientas, datos y cuellos de botella. El resultado: un plan claro con alcance y presupuesto.</div>
       </div>
       <div class="paso">
         <div class="paso-num">02</div>
-        <div class="paso-titulo">Sistema</div>
-        <div class="paso-texto">Diseñamos procesos claros y medibles. Definimos qué hacer, quién lo hace y cómo se mide.</div>
-        <div class="paso-tiempo">1 semana</div>
+        <div class="paso-titulo">Sistema a medida</div>
+        <div class="paso-texto">Diseñamos y construimos el sistema operativo de tu negocio. Procesos, automatizaciones e integraciones reales.</div>
       </div>
       <div class="paso">
         <div class="paso-num">03</div>
-        <div class="paso-titulo">Implementación</div>
-        <div class="paso-texto">Bajamos todo a la operación. Construimos, integramos y dejamos funcionando con tu equipo.</div>
-        <div class="paso-tiempo">2–6 semanas</div>
-      </div>
-      <div class="paso">
-        <div class="paso-num">04</div>
-        <div class="paso-titulo">Seguimiento</div>
-        <div class="paso-texto">Medimos y optimizamos. A los 30 días hay números concretos que muestran el impacto real.</div>
-        <div class="paso-tiempo">30 días</div>
+        <div class="paso-titulo">Operación continua</div>
+        <div class="paso-texto">Mantenemos, mejoramos y sumamos inteligencia donde tiene impacto. Tu sistema evoluciona con tu negocio.</div>
       </div>
     </div>
   </div>
@@ -1731,12 +1949,15 @@
 <section class="producto aurora-bg aurora-subtle grid-bg">
   <div class="producto-inner">
     <div class="producto-header">
-      <div class="section-eyebrow eyebrow-light">El sistema</div>
-      <h2 class="producto-titulo">Tu negocio conectado.<br>Desde cualquier lugar.</h2>
+      <div class="section-eyebrow eyebrow-light">El diferencial</div>
+      <h2 class="producto-titulo">Ciro.<br>Tu co-pensador estratégico, 24/7.</h2>
+      <p style="max-width:680px;margin:18px auto 0;font-size:17px;line-height:1.55;color:rgba(255,255,255,0.72);text-align:center;">
+        Ciro conoce tu operación en tiempo real. Le preguntás, analiza tus datos y te responde como lo haría un socio estratégico — con contexto, sin rodeos.
+      </p>
       <div class="producto-pills">
-        <span class="pill">⚡ En vivo 24hs</span>
-        <span class="pill">📱 Desde tu celular</span>
-        <span class="pill">💬 Chat inteligente</span>
+        <span class="pill">🧠 Co-pensador estratégico</span>
+        <span class="pill">⚡ Conectado a tu sistema</span>
+        <span class="pill">📈 Proyecciones y simulaciones</span>
       </div>
     </div>
 
@@ -1750,22 +1971,22 @@
             <span style="background:#febc2e"></span>
             <span style="background:#28c840"></span>
           </div>
-          <div class="browser-url">app.infyn.co — Dashboard</div>
+          <div class="browser-url">tu-negocio.infyn.co — Sistema + Ciro</div>
         </div>
         <div class="app-window">
 
           <!-- Sidebar -->
           <div class="app-sidebar">
             <div class="app-brand">
-              <div class="app-brand-icon">👁</div>
+              <div class="app-brand-icon">💚</div>
               <div>
-                <div class="app-brand-name">Argos</div>
-                <div class="app-brand-sub">Tu negocio en vivo</div>
+                <div class="app-brand-name">Ciro</div>
+                <div class="app-brand-sub">Tu co-pensador 24/7</div>
               </div>
             </div>
             <div class="app-nav-group">Principal</div>
             <div class="app-nav-item" style="color:rgba(255,255,255,0.5)">
-              <span>💬</span> Chat con Argos
+              <span>💬</span> Hablar con Ciro
             </div>
             <div class="app-nav-group">Datos</div>
             <div class="app-nav-item active">
@@ -1796,7 +2017,7 @@
                   Conectado en vivo
                 </div>
                 <div style="font-size:10px;color:#6b7b76;padding:4px 8px;background:#f5f7f6;border-radius:4px;border:1px solid #e8eceb">📅 Abril 2026</div>
-                <div class="app-btn-orange">💬 Hablar con Argos</div>
+                <div class="app-btn-orange">💬 Hablar con Ciro</div>
               </div>
             </div>
             <div class="app-body">
@@ -1924,60 +2145,57 @@
         <div class="phone-notch"></div>
         <div class="phone-screen">
           <div class="chat-header">
-            <div class="chat-avatar">👁</div>
+            <div class="chat-avatar">💚</div>
             <div class="chat-header-info">
-              <div class="chat-header-name">Argos</div>
-              <div class="chat-header-status">● Analizando tu operación</div>
+              <div class="chat-header-name">Ciro</div>
+              <div class="chat-header-status">● Pensando con tus datos en vivo</div>
             </div>
           </div>
           <div class="chat-body">
             <div class="chat-msg-bot">
               <div class="chat-bubble-bot">
-                Hola 👋 Soy <strong>Argos</strong>, tu asesor IA.<br>
-                Preguntame cualquier cosa sobre tu negocio 💡
+                Hola 👋 Soy <strong>Ciro</strong>.<br>
+                Conozco tu negocio en tiempo real. Preguntame lo que un buen socio respondería.
               </div>
             </div>
             <div class="chat-msg-user">
-              <div class="chat-bubble-user">¿Cómo cerré febrero comparado con enero?</div>
+              <div class="chat-bubble-user">Si invierto $500.000 en una segunda sucursal en marzo, ¿en cuánto la recupero?</div>
             </div>
             <div class="chat-msg-bot">
               <div class="chat-bubble-bot">
-                Acá el resumen feb vs ene 📊
+                Con tu margen actual (54,7%) y la facturación promedio de los últimos 6 meses, recuperás la inversión en <strong>~7,2 meses</strong> 📈
                 <div class="chat-data-card">
                   <div class="chat-data-item">
-                    <div class="chat-data-label">Ingresos</div>
-                    <div class="chat-data-value">$4.28M</div>
-                    <div class="chat-data-delta">↑ +8,6%</div>
+                    <div class="chat-data-label">Inversión</div>
+                    <div class="chat-data-value">$500k</div>
+                    <div class="chat-data-delta" style="color:rgba(0,0,0,0.45)">Mes 0</div>
                   </div>
                   <div class="chat-data-item">
-                    <div class="chat-data-label">Gastos</div>
-                    <div class="chat-data-value">$1.94M</div>
-                    <div class="chat-data-delta" style="color:#dc2626">↑ +2,3%</div>
+                    <div class="chat-data-label">Break-even</div>
+                    <div class="chat-data-value">Mes 7</div>
+                    <div class="chat-data-delta">↑ proy.</div>
                   </div>
                   <div class="chat-data-item">
-                    <div class="chat-data-label">Margen</div>
-                    <div class="chat-data-value">54,7%</div>
-                    <div class="chat-data-delta">↑ +2,3pp</div>
-                  </div>
-                  <div class="chat-data-item">
-                    <div class="chat-data-label">Saldo</div>
-                    <div class="chat-data-value">$892k</div>
-                    <div class="chat-data-delta">↑ +8,2%</div>
+                    <div class="chat-data-label">Año 1 neto</div>
+                    <div class="chat-data-value">+$380k</div>
+                    <div class="chat-data-delta">↑ 76%</div>
                   </div>
                 </div>
+                ⚠️ Marzo y abril son tus meses más bajos (−18% vs promedio). Si abrís en mayo, tenés 2 meses extra de respiro de caja.
               </div>
             </div>
             <div class="chat-msg-user">
-              <div class="chat-bubble-user">¿Hay alguna anomalía?</div>
+              <div class="chat-bubble-user">¿Cuál es mi cliente más rentable y por qué?</div>
             </div>
             <div class="chat-msg-bot">
               <div class="chat-bubble-bot">
-                Sí ⚠️ Comercial Norte debe <strong>$280.000</strong> desde hace 12 días. ¿Querés que genere un recordatorio?
+                <strong>Comercial Norte.</strong> No es el que más compra, pero paga a 7 días y elige productos de margen alto (62% promedio vs 38% de tus clientes grandes).<br><br>
+                Si Comercial Norte creciera 30%, tu rentabilidad total sube <strong>+8,5%</strong> sin sumar costos.
               </div>
             </div>
           </div>
           <div class="chat-input-bar">
-            <div class="chat-input-field">Preguntale a Argos...</div>
+            <div class="chat-input-field">Pensemos algo juntos…</div>
             <div class="chat-send-btn">→</div>
           </div>
         </div>
@@ -1992,23 +2210,23 @@
 <section class="resultados aurora-bg" id="resultados">
   <div class="resultados-inner">
     <div class="section-eyebrow eyebrow-light">Resultados</div>
-    <h2 class="resultados-titulo">Números reales.<br>Nada de estimaciones.</h2>
+    <h2 class="resultados-titulo">Números reales.<br>Casos reales.</h2>
 
     <div class="resultados-grid">
       <div class="resultado-item">
-        <div class="resultado-num">+32%<span class="flecha">↗</span></div>
-        <div class="resultado-label">Rentabilidad</div>
-        <div class="resultado-desc">Después de ordenar procesos y costos operativos.</div>
+        <div class="resultado-num">+30%<span class="flecha">↗</span></div>
+        <div class="resultado-label">Recupero de cartera</div>
+        <div class="resultado-desc">Un agente de cobranzas automatizado redujo la mora y recuperó el flujo en menos de dos meses.</div>
       </div>
       <div class="resultado-item">
-        <div class="resultado-num">−25%<span class="flecha">↘</span></div>
-        <div class="resultado-label">Costos</div>
-        <div class="resultado-desc">Al eliminar duplicación de tareas y fricción interna.</div>
+        <div class="resultado-num">−70%<span class="flecha">↘</span></div>
+        <div class="resultado-label">Tiempo administrativo</div>
+        <div class="resultado-desc">Facturación y conciliación 100% automatizadas. El equipo dejó de hacer trabajo que no agrega valor.</div>
       </div>
       <div class="resultado-item">
-        <div class="resultado-num">+40%<span class="flecha">↗</span></div>
-        <div class="resultado-label">Eficiencia</div>
-        <div class="resultado-desc">Con procesos definidos y equipos que saben qué hacer.</div>
+        <div class="resultado-num">6 semanas<span class="flecha">↗</span></div>
+        <div class="resultado-label">De Excel a sistema operativo</div>
+        <div class="resultado-desc">Stock, cuenta corriente y reportes unificados. De cero a operación ordenada en un mes y medio.</div>
       </div>
     </div>
   </div>
@@ -2031,12 +2249,11 @@
     <span class="acento">no está listo para crecer.</span>
   </h2>
   <p class="cta-sub">
-    Primera conversación sin costo. En 30 minutos te decimos si podemos ayudarte y cómo.
+    En 30 minutos sabemos si podemos ayudarte y cómo.
   </p>
   <div class="cta-form">
     <a href="/diagnostico" class="cta-btn" style="text-decoration:none;display:inline-flex;align-items:center;">Agendar diagnóstico</a>
   </div>
-  <p class="cta-nota">Sin spam. Sin vendedores. Una conversación directa.</p>
 </section>
 
 
@@ -2208,7 +2425,7 @@
 
   // ── Animate ─────────────────────────────────────────────
   function init() {
-    const canvas = document.getElementById('live-chart');
+    const canvas = document.getElementById('hv-bg-chart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
@@ -2241,3 +2458,4 @@
 </script>
 </body>
 </html>
+
