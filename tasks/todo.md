@@ -28,12 +28,25 @@ Cambio más sutil pero crítico: **el bloque problema sin anti-positioning**. So
 
 Cambio de mayor impacto visual: **la tipografía híbrida**. Sans heavy para autoridad + serif italic para signature editorial. Es lo que separa a INFYN del resto del mercado argentino (casi nadie usa serifs editoriales en agencias tech).
 
+## Sesión 2026-05-22 — Git sync + Vercel fix (cerrada)
+
+### Hecho
+- [x] Commit y push de `index.html` + `.gitignore` al repo
+- [x] Resolución de conflicto de merge (remote tenía copy actualizado: Ciro, headline reducido)
+- [x] Fix cuenta Vercel: re-login como `sofiafbravo`, link a `sofiafbravos-projects/infyn-web`
+- [x] Deploy exitoso a producción (infynsolutions.com)
+- [x] Diagnóstico de `/ejemplos` → 404 por falta de cleanUrls
+- [x] Agregado `vercel.json` con `cleanUrls: true`
+- [x] Re-deploy y verificación: `/ejemplos` resuelve con 200
+
+### Review
+Sesión de mantenimiento/ops. El cambio más importante fue el `vercel.json` con `cleanUrls` — sin eso, el link del nav a `/ejemplos` daba 404 para todos los visitantes. También quedó fija la cuenta de Vercel para próximas sesiones.
+
 ## Backlog (próximas sesiones)
 
 - [ ] WhatsApp como escalón blando además de "agendar diagnóstico"
-- [ ] Decidir el destino del link `/ejemplos` en el nav (sacar o crear página)
 - [ ] Animaciones de scroll-trigger: entrada con stagger en secciones
 - [ ] Sumar Café Aruba como caso con nombre (cuando haya permiso del cliente)
-- [ ] Posible landing dedicada a Pulso si se quiere llevarlo más lejos como producto comprable
+- [ ] Posible landing dedicada a Pulso/Ciro si se quiere llevarlo como producto comprable
 - [ ] Considerar segunda línea de data en el ambient chart para más densidad
 - [ ] Auditar si el footer necesita información de contacto/email visible

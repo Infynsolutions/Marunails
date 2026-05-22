@@ -45,3 +45,15 @@ Lista de aprendizajes acumulados sesión a sesión. Revisar al inicio de cada se
 ### Regla: Deployar siempre al terminar cambios visuales
 - **Por qué:** Sofia valida en su browser real (Chrome, retina, su resolución). Los screenshots locales son aproximaciones — el feedback útil viene de ver en producción.
 - **Cuándo aplica:** Siempre después de cambios al sitio. `vercel --prod` y avisar la URL.
+
+### Regla: Verificar `vercel whoami` antes de deployar
+- **Por qué:** El CLI puede quedar logueado con una cuenta incorrecta (contacto-9286 en vez de sofiafbravo). El proyecto `infyn-web` vive en `sofiafbravos-projects`. Si el `orgId` en `.vercel/project.json` no matchea la cuenta activa, el deploy falla o va al proyecto equivocado.
+- **Cuándo aplica:** Al inicio de cualquier sesión que incluya deploy. Si `vercel whoami` no dice `sofiafbravo`, hacer `vercel logout` + `vercel login` + `vercel link --project infyn-web --scope sofiafbravos-projects --yes`.
+
+### Regla: `cleanUrls: true` en vercel.json para rutas sin extensión
+- **Por qué:** Sin esta config, Vercel sirve `ejemplos.html` en `/ejemplos.html` pero devuelve 404 en `/ejemplos`. El nav linkea a `/ejemplos`, así que sin `cleanUrls` la página es inaccesible desde el sitio.
+- **Cuándo aplica:** Cualquier página nueva que se agregue al proyecto (diagnostico.html, ejemplos.html, etc.). El `vercel.json` ya tiene `cleanUrls: true` desde 2026-05-22, no volver a sacarlo.
+
+### Regla: En conflictos de merge, si el remote es la verdad, usar `git checkout --theirs`
+- **Por qué:** Al hacer pull con conflictos en `index.html` (20+ marcadores), resolver a mano es lento y propenso a errores. Si Sofia confirma que el remote es la versión correcta, `git checkout --theirs <archivo>` resuelve todo en un comando.
+- **Cuándo aplica:** Cuando hay conflictos y el usuario dice "lo que vale es lo del github" o equivalente.
