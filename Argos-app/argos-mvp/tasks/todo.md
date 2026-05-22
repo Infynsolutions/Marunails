@@ -40,49 +40,30 @@
 
 ---
 
-## Milestone 1 — Auth + Multi-tenant (BLOQUEANTE para todo lo demás)
+## Milestone 1 — Auth + Multi-tenant ✅ CÓDIGO COMPLETO (2026-05-19)
 
-### Schema changes (Supabase)
-- [ ] Crear tabla `user_tenants` (`user_id UUID references auth.users`, `tenant_id UUID references tenants`, `role TEXT CHECK(role IN ('owner','employee'))`, PK compuesta)
-- [ ] Agregar campo `subscription_tier TEXT DEFAULT 'basic' CHECK(tier IN ('basic','pro'))` a tabla `tenants`
-- [ ] Agregar campo `stripe_customer_id TEXT` a tabla `tenants`
-- [ ] Agregar campo `stripe_subscription_id TEXT` a tabla `tenants`
-- [ ] Crear tabla `tenant_usage` (`id`, `tenant_id`, `month DATE`, `tokens_used INTEGER DEFAULT 0`, `alert_sent BOOLEAN DEFAULT false`, UNIQUE(tenant_id, month))
+### Pendiente (manual en Supabase, ~15 min)
+- [ ] Correr `scripts/migrations/001_saas_schema.sql` en Supabase SQL Editor
+- [ ] Cargar `SUPABASE_ANON_KEY` en backend `.env` y en Vercel (Project Settings → API → anon public)
+- [ ] Cargar `SUPABASE_JWT_SECRET` en backend `.env` y en Vercel (Project Settings → API → JWT Secret)
+- [ ] Cargar `VITE_SUPABASE_ANON_KEY` en frontend `.env` y en Vercel
+- [ ] Crear primer usuario en Supabase Auth → Authentication → Users → Invite user
+- [ ] Insertar en `user_tenants`: `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ('<uid>', '<tenant-id>', 'owner')`
 
-### RLS policies (8 tablas)
-- [ ] Habilitar RLS en: `transactions`, `products`, `stock_movements`, `alerts`, `sync_log`, `chat_messages`, `tenants`, `tenant_usage`
-- [ ] Política base para cada tabla: `USING (tenant_id IN (SELECT tenant_id FROM user_tenants WHERE user_id = auth.uid()))`
-- [ ] Política especial `tenants`: owner puede UPDATE; employee solo SELECT
-- [ ] Política `chat_messages`: filtrar también por `session_id` perteneciente al usuario
-- [ ] Función helper `get_my_tenant_id()` → `SELECT tenant_id FROM user_tenants WHERE user_id = auth.uid() LIMIT 1`
-- [ ] Crear view `product_stock` con SECURITY DEFINER o actualizar para respetar RLS
-
-### FastAPI — JWT middleware
-- [ ] Crear `backend/app/api/auth.py` con dependency `get_current_user(token: str = Depends(oauth2_scheme))`
-- [ ] Validar JWT con `supabase_jwt_secret` (ya en `config.py`) usando `python-jose`
-- [ ] Agregar `python-jose[cryptography]` a `requirements.txt`
-- [ ] Extraer `user_id` del claim `sub` del JWT
-- [ ] Crear dependency `get_current_tenant(user_id) → tenant_id` — query a `user_tenants` con service key (solo para auth queries)
-- [ ] Inyectar ambas dependencies en todos los endpoints de `routes.py`
-- [ ] ELIMINAR validación manual `db.get_tenant(tenant_id)` de cada endpoint — reemplazar por el middleware
-- [ ] Mantener service key SOLO para: auth queries, seed scripts, funciones admin
-
-### FastAPI — migrar a anon key para operaciones de datos
-- [ ] Agregar `supabase_anon_key: str = ""` a `config.py`
-- [ ] Crear función `get_user_db(jwt_token: str) → Client` que usa anon key + pasa JWT como Authorization header
-- [ ] Todas las queries de datos van por `get_user_db()` — RLS actúa automáticamente
-- [ ] Auth queries (resolver tenant_id desde user_id) van por service key
-
-### Frontend — auth
-- [ ] Instalar `@supabase/supabase-js` en el frontend
-- [ ] Crear `frontend/src/lib/supabase.js` con client usando `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
-- [ ] Crear `frontend/src/pages/Login.jsx` — email/password form → `supabase.auth.signInWithPassword()`
-- [ ] Crear `frontend/src/pages/Register.jsx` — wizard paso 1 (nombre empresa → crea tenant) + paso 2 (plan) + paso 3 (Stripe)
-- [ ] Crear `frontend/src/lib/auth.js` — hook `useAuth()` que expone `user`, `session`, `tenant_id`, `role`
-- [ ] Reemplazar `TENANT_ID` hardcodeado en `api.js` por `useAuth().tenant_id`
-- [ ] Agregar `Authorization: Bearer ${session.access_token}` header a todos los requests en `api.js`
-- [ ] Auth guards en React Router: todas las rutas requieren sesión válida
-- [ ] Redirigir a `/login` si no hay sesión
+### Código completado ✅
+- [x] `scripts/migrations/001_saas_schema.sql` — user_tenants, tenant_usage, RLS en 8 tablas, product_stock SECURITY INVOKER, get_my_tenant_id(), increment_token_usage()
+- [x] `backend/app/api/auth.py` — JWT validation + tenant resolution dependency
+- [x] `backend/app/services/database.py` — contextvars para client request-scoped (RLS automático), get_admin_db() separado
+- [x] `backend/app/api/routes.py` — todos los endpoints con get_current_tenant(), tenant verificado contra JWT
+- [x] `backend/app/services/chat.py` — prompts diferenciados owner/employee, stub de token tracking
+- [x] `backend/app/config.py` — supabase_anon_key, stripe_*, resend_api_key, token thresholds
+- [x] `frontend/src/lib/supabase.js` — cliente Supabase
+- [x] `frontend/src/lib/auth.jsx` — AuthProvider + useAuth hook
+- [x] `frontend/src/lib/useApi.js` — hook useApi() scoped al tenant del usuario
+- [x] `frontend/src/lib/api.js` — JWT en Authorization header, tenant dinámico via makeApi()
+- [x] `frontend/src/pages/Login.jsx` — login page email/password
+- [x] `frontend/src/App.jsx` — AuthProvider, ProtectedRoute, ruta /login
+- [x] Todas las páginas actualizadas (10 archivos): import useApi + const api = useApi()
 
 ---
 
