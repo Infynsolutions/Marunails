@@ -57,3 +57,7 @@ Lista de aprendizajes acumulados sesión a sesión. Revisar al inicio de cada se
 ### Regla: En conflictos de merge, si el remote es la verdad, usar `git checkout --theirs`
 - **Por qué:** Al hacer pull con conflictos en `index.html` (20+ marcadores), resolver a mano es lento y propenso a errores. Si Sofia confirma que el remote es la versión correcta, `git checkout --theirs <archivo>` resuelve todo en un comando.
 - **Cuándo aplica:** Cuando hay conflictos y el usuario dice "lo que vale es lo del github" o equivalente.
+
+### Regla: Para revisar en local idéntico a prod, levantar un server (no abrir con `file://`)
+- **Por qué:** El logo usa ruta absoluta (`<img src="/Logo Infyn.png">`) y `vercel.json` tiene `cleanUrls`. Abriendo el `index.html` directo (protocolo `file://`) el logo se ve roto y las rutas absolutas/`/ejemplos` no resuelven — parece un bug del sitio cuando no lo es. Levantando `python3 -m http.server 8000` desde la carpeta del proyecto y abriendo `http://localhost:8000`, las rutas absolutas resuelven igual que en Vercel.
+- **Cuándo aplica:** Cuando Sofia quiere ver cambios en local antes de deployar. Nunca diagnosticar "logo roto / 404" sobre un render `file://`.

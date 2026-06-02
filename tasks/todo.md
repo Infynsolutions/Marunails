@@ -42,6 +42,21 @@ Cambio de mayor impacto visual: **la tipografía híbrida**. Sans heavy para aut
 ### Review
 Sesión de mantenimiento/ops. El cambio más importante fue el `vercel.json` con `cleanUrls` — sin eso, el link del nav a `/ejemplos` daba 404 para todos los visitantes. También quedó fija la cuenta de Vercel para próximas sesiones.
 
+## Sesión 2026-06-02 — Refinamiento del hero (cerrada)
+
+### Hecho
+- [x] Diagnóstico del hero actual (columna izq top-heavy, `.hero-sub` perdido en markup pero CSS huérfano, tarjeta compitiendo con titular)
+- [x] Decisión de dirección: refinar y completar (no reinventar) — recomendado y aprobado
+- [x] Subline recuperado en tono INFYN ("Convertimos el caos en sistema…") con max-width y ritmo
+- [x] Barra fina de prueba al pie del fold (48–72hs · sin costo · 2–6 semanas) con punto verde acento por ítem
+- [x] Ritmo vertical reequilibrado (headline → subline → CTAs → barra)
+- [x] Headline un toque más grande (clamp tope 76→82px) para dominar el fold
+- [x] Verificado desktop + mobile (390px) con screenshots
+- [x] Deploy a producción (infynsolutions.com), READY, verificado en vivo
+
+### Review
+Sesión de refinamiento puntual del hero. El problema no era estético sino estructural: la columna izquierda quedaba vacía debajo de los botones y el subline se había perdido en un merge previo (el CSS lo seguía estilando). Se resolvió completando el bloque en vez de reinventarlo, respetando toda la intención acumulada (Bricolage+Instrument, aurora, corner marks, tarjeta Ciro, decisión de reducir verde). El acento verde volvió solo en los puntos de la barra de prueba — escasez intencional, no decoración. Gotcha capturado: revisar en local con server, no `file://` (logo roto / 404 falsos).
+
 ## Backlog (próximas sesiones)
 
 - [ ] WhatsApp como escalón blando además de "agendar diagnóstico"
