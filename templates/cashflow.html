@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Cashflow — MaruNails{% endblock %}
+{% block content %}
+
+<style>
+.cf-main { max-width: 1100px; }
+
+.cf-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(62,36,24,0.07);
+}
+
+table.cf {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card-bg);
+    font-size: 13px;
+}
+
+table.cf thead tr.group-row th {
+    background: var(--brown-dark);
+    color: rgba(245,237,230,0.85);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 16px 8px;
+    text-align: center;
+    border-right: 2px solid rgba(255,255,255,0.08);
+}
+table.cf thead tr.group-row th:first-child {
+    text-align: left;
+    border-right: 2px solid rgba(255,255,255,0.15);
+}
+
+table.cf thead tr.col-row th {
+    background: var(--brown);
+    color: rgba(245,237,230,0.75);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    text-align: right;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255,255,255,0.07);
+}
+table.cf thead tr.col-row th:first-child {
+    text-align: left;
+    border-right: 2px solid rgba(255,255,255,0.15);
+}
+table.cf thead tr.col-row th.group-end {
+    border-right: 2px solid rgba(255,255,255,0.15);
+}
+
+table.cf tbody tr {
+    border-bottom: 1px solid var(--sand);
+    transition: background 0.15s;
+}
+table.cf tbody tr:last-child { border-bottom: none; }
+table.cf tbody tr:hover { background: var(--brown-pale); }
+table.cf tbody tr.current-month {
+    background: #fdf5ec;
+}
+table.cf tbody tr.current-month td.mes-cell {
+    font-weight: 600;
+    color: var(--brown-dark);
+}
+table.cf tbody tr.future { opacity: 0.4; }
+
+table.cf td {
+    padding: 13px 16px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    border-right: 1px solid rgba(226,213,203,0.5);
+    color: var(--text);
+}
+table.cf td.mes-cell {
+    text-align: left;
+    font-weight: 500;
+    color: var(--brown-dark);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    border-right: 2px solid var(--sand);
+    white-space: nowrap;
+}
+table.cf td.group-end {
+    border-right: 2px solid var(--sand);
+}
+table.cf td.total-col {
+    font-weight: 600;
+    color: var(--brown-dark);
+}
+table.cf td.saldo-pos { color: #2a6635; font-weight: 500; }
+table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
+
+.cf-badge-mes {
+    display: inline-block;
+    background: var(--brown);
+    color: #FAF6F0;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 20px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-family: 'Inter', sans-serif;
+}
+
+.cf-updated {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 12px;
+    text-align: right;
+    letter-spacing: 0.3px;
+}
+</style>
+
+<div class="page-header">
+    <div class="page-header-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+    </div>
+    <div>
+        <h1>Cashflow 2026</h1>
+        <div class="page-header-sub">Moneda · MXN</div>
+    </div>
+</div>
+
+{% if meses %}
+<div class="cf-table-wrap" style="max-width:1100px;">
+    <table class="cf">
+        <thead>
+            <tr class="col-row">
+                <th style="text-align:left; min-width:90px;">Mes</th>
+                <th>Ingresos Totales</th>
+                <th>Gastos Totales</th>
+                <th>Saldo Final</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for m in meses %}
+            {% set gastos_total = m.gasto_caja + m.gasto_banco %}
+            {% set saldo_final = m.saldo_caja + m.saldo_banco %}
+            {% set es_futuro = m.mes > mes_actual %}
+            <tr class="{% if m.mes == mes_actual %}current-month{% elif es_futuro %}future{% endif %}">
+                <td class="mes-cell">
+                    {{ m.mes }}
+                    {% if m.mes == mes_actual %}
+                        <span class="cf-badge-mes">Actual</span>
+                    {% endif %}
+                </td>
+
+                <td class="total-col">{% if m.ing_total %}${{ '{:,.0f}'.format(m.ing_total) }}{% else %}—{% endif %}</td>
+                <td class="total-col">{% if gastos_total %}${{ '{:,.0f}'.format(gastos_total) }}{% else %}—{% endif %}</td>
+
+                <td class="total-col {% if saldo_final > 0 %}saldo-pos{% elif saldo_final < 0 %}saldo-neg{% endif %}">
+                    {% if saldo_final %}${{ '{:,.0f}'.format(saldo_final) }}{% else %}—{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center; padding:48px; color:var(--muted);">
+    No se pudieron cargar los datos. Verificá la conexión con la base de datos.
+</div>
+{% endif %}
+
+{% endblock %}

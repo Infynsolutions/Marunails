@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Inicio — MaruNails{% endblock %}
+{% block content %}
+
+<style>
+.home-hero {
+    text-align: center;
+    padding: 40px 20px 32px;
+}
+.home-hero-logo {
+    height: 130px;
+    width: auto;
+    max-width: 80%;
+    mix-blend-mode: multiply;
+    display: block;
+    margin: 0 auto 18px;
+    opacity: 0.92;
+    object-fit: contain;
+    object-position: center;
+}
+.home-hero-greeting {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 3.5px;
+    text-transform: uppercase;
+    color: var(--brown-mid);
+    margin-bottom: 6px;
+}
+.home-hero-divider {
+    width: 40px;
+    height: 1px;
+    background: var(--brown-mid);
+    margin: 14px auto 28px;
+    opacity: 0.35;
+}
+
+.quick-links-label {
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ─── MÉTRICAS DEL MES ─── */
+.home-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 34px;
+}
+@media (max-width: 600px) { .home-metrics { grid-template-columns: 1fr 1fr; } }
+.home-metric {
+    background: rgba(255,255,255,0.84);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(62,36,24,0.07);
+    text-align: center;
+}
+.home-metric-label {
+    font-size: 9px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+    font-weight: 500;
+}
+.home-metric-value {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 25px;
+    font-weight: 600;
+    color: var(--brown-dark);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.home-metrics-title {
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    font-family: 'Inter', sans-serif;
+}
+.home-metrics-title strong { color: var(--brown-mid); font-weight: 600; }
+
+.quick-link {
+    border-top: 2px solid var(--brown-pale);
+    transition: box-shadow 0.2s, transform 0.15s, border-color 0.2s;
+}
+.quick-link:hover {
+    border-top-color: var(--brown-mid);
+}
+
+@media (max-width: 600px) {
+    .home-hero-logo { height: 100px; }
+    .home-hero { padding: 28px 16px 20px; }
+    .quick-links { grid-template-columns: 1fr !important; }
+}
+</style>
+
+<div class="home-hero">
+    <img src="{{ url_for('static', filename='Logotipo principal-05.PNG') }}"
+         alt="MaruNails" class="home-hero-logo">
+    <div class="home-hero-greeting">Bienvenida</div>
+    <div class="home-hero-divider"></div>
+</div>
+
+{% if resumen and resumen.n %}
+<p class="home-metrics-title">Este mes · <strong>{{ mes_actual }}</strong></p>
+<div class="home-metrics">
+    <div class="home-metric">
+        <div class="home-metric-label">Facturación</div>
+        <div class="home-metric-value">${{ '{:,.0f}'.format(resumen.facturacion) }}</div>
+    </div>
+    <div class="home-metric">
+        <div class="home-metric-label">Servicios</div>
+        <div class="home-metric-value">{{ resumen.n }}</div>
+    </div>
+    <div class="home-metric">
+        <div class="home-metric-label">Ticket prom.</div>
+        <div class="home-metric-value">${{ '{:,.0f}'.format(resumen.ticket) }}</div>
+    </div>
+    <div class="home-metric">
+        <div class="home-metric-label">Top colaboradora</div>
+        <div class="home-metric-value" style="font-size:17px;">{{ resumen.staff[0].nombre if resumen.staff else '—' }}</div>
+    </div>
+</div>
+<div style="text-align:center; margin-bottom:34px;">
+    <a href="/reportes" style="font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--brown-mid); text-decoration:none; border-bottom:1px solid var(--sand); padding-bottom:2px;">Ver reportes completos →</a>
+</div>
+{% endif %}
+
+<p class="quick-links-label">¿Qué querés hacer?</p>
+
+<div class="quick-links" style="grid-template-columns: repeat(3, 1fr); --ql-cols: 3;">
+    <a href="/corte" class="quick-link">
+        <div class="quick-link-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/>
+            </svg>
+        </div>
+        <div class="quick-link-text">
+            <strong>Registrar Corte</strong>
+            <span>Cargar un servicio del día</span>
+        </div>
+    </a>
+    <a href="/gasto" class="quick-link">
+        <div class="quick-link-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>
+            </svg>
+        </div>
+        <div class="quick-link-text">
+            <strong>Registrar Gasto</strong>
+            <span>Cargar un gasto del negocio</span>
+        </div>
+    </a>
+    <a href="/reportes" class="quick-link">
+        <div class="quick-link-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+        </div>
+        <div class="quick-link-text">
+            <strong>Reportes</strong>
+            <span>Ventas, equipo y servicios</span>
+        </div>
+    </a>
+    <a href="/clientes" class="quick-link">
+        <div class="quick-link-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        </div>
+        <div class="quick-link-text">
+            <strong>Clientes</strong>
+            <span>Directorio y retención</span>
+        </div>
+    </a>
+    <a href="/retencion" class="quick-link">
+        <div class="quick-link-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+        </div>
+        <div class="quick-link-text">
+            <strong>Retención</strong>
+            <span>Clientes por volver</span>
+        </div>
+    </a>
+    <a href="/cashflow" class="quick-link">
+        <div class="quick-link-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+        </div>
+        <div class="quick-link-text">
+            <strong>Cashflow</strong>
+            <span>Ver ingresos, gastos y saldo</span>
+        </div>
+    </a>
+</div>
+
+{% endblock %}
