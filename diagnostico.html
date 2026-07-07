@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diagnóstico gratuito — INFYN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --verde-principal: #0F7B53;
+      --verde-oscuro: #0A3F2C;
+      --verde-acento: #2ED47A;
+      --fondo-oscuro: #060D09;
+      --gris-claro: #F5F7F6;
+      --blanco: #FFFFFF;
+      --surface-100: #0C1812;
+      --surface-200: #162818;
+      --surface-400: #527A62;
+      --surface-500: #7A9A88;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--fondo-oscuro);
+      color: var(--gris-claro);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── AURORA ─── */
+    .aurora-bg {
+      position: relative;
+    }
+    .aurora-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% -10%, rgba(46,212,122,0.13) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(15,123,83,0.10) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 40px;
+      border-bottom: 1px solid var(--surface-200);
+      position: relative;
+      z-index: 10;
+    }
+    .nav-logo {
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--gris-claro);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+    .nav-logo span { color: var(--verde-acento); }
+    .nav-back {
+      font-size: 13px;
+      color: var(--surface-500);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color .2s;
+    }
+    .nav-back:hover { color: var(--gris-claro); }
+
+    /* ─── HERO HEADER ─── */
+    .form-header {
+      text-align: center;
+      padding: 60px 24px 40px;
+      position: relative;
+      z-index: 1;
+    }
+    .form-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--verde-acento);
+      border: 1px solid rgba(46,212,122,0.3);
+      padding: 5px 14px;
+      border-radius: 100px;
+      margin-bottom: 20px;
+    }
+    .form-header h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+    }
+    .form-header p {
+      font-size: 16px;
+      color: var(--surface-500);
+      max-width: 460px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ─── PROGRESS ─── */
+    .progress-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 32px auto 0;
+      max-width: 320px;
+    }
+    .progress-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+    .step-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1.5px solid var(--surface-200);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--surface-400);
+      background: var(--surface-100);
+      flex-shrink: 0;
+      transition: all .3s;
+    }
+    .step-dot.active {
+      border-color: var(--verde-acento);
+      color: var(--verde-acento);
+      background: rgba(46,212,122,0.08);
+    }
+    .step-dot.done {
+      border-color: var(--verde-principal);
+      background: var(--verde-principal);
+      color: white;
+    }
+    .step-line {
+      flex: 1;
+      height: 1px;
+      background: var(--surface-200);
+      transition: background .3s;
+    }
+    .step-line.done { background: var(--verde-principal); }
+
+    /* ─── FORM CONTAINER ─── */
+    .form-container {
+      max-width: 580px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ─── STEPS ─── */
+    .step { display: none; }
+    .step.active { display: block; animation: fadeIn .3s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .step-sub {
+      font-size: 14px;
+      color: var(--surface-500);
+      margin-bottom: 28px;
+    }
+
+    /* ─── FIELDS ─── */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--surface-500);
+      letter-spacing: 0.3px;
+    }
+    label span.req { color: var(--verde-acento); margin-left: 2px; }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    select,
+    textarea {
+      background: var(--surface-100);
+      border: 1.5px solid var(--surface-200);
+      border-radius: 12px;
+      padding: 13px 16px;
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--gris-claro);
+      outline: none;
+      transition: border-color .2s;
+      width: 100%;
+      appearance: none;
+    }
+    input::placeholder, textarea::placeholder { color: var(--surface-400); }
+    input:focus, select:focus, textarea:focus {
+      border-color: rgba(46,212,122,0.5);
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23527A62' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+      cursor: pointer;
+    }
+    select option { background: #0C1812; color: var(--gris-claro); }
+    textarea { resize: none; line-height: 1.5; min-height: 100px; }
+
+    /* ─── CHECKBOX CARDS ─── */
+    .check-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .check-card {
+      position: relative;
+      cursor: pointer;
+    }
+    .check-card input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .check-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--surface-100);
+      border: 1.5px solid var(--surface-200);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--surface-500);
+      line-height: 1.4;
+      transition: all .2s;
+      cursor: pointer;
+    }
+    .check-card input:checked + .check-label {
+      border-color: rgba(46,212,122,0.5);
+      background: rgba(46,212,122,0.06);
+      color: var(--gris-claro);
+    }
+    .check-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1.5px solid var(--surface-200);
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .2s;
+    }
+    .check-card input:checked + .check-label .check-icon {
+      background: var(--verde-acento);
+      border-color: var(--verde-acento);
+    }
+    .check-card input:checked + .check-label .check-icon::after {
+      content: '';
+      width: 5px;
+      height: 9px;
+      border: 2px solid #060D09;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translateY(-1px);
+      display: block;
+    }
+
+    /* ─── RADIO CARDS ─── */
+    .radio-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .radio-card { position: relative; cursor: pointer; }
+    .radio-card input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface-100);
+      border: 1.5px solid var(--surface-200);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--surface-500);
+      transition: all .2s;
+      cursor: pointer;
+    }
+    .radio-card input:checked + .radio-label {
+      border-color: rgba(46,212,122,0.5);
+      background: rgba(46,212,122,0.06);
+      color: var(--gris-claro);
+    }
+    .radio-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid var(--surface-200);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .2s;
+    }
+    .radio-card input:checked + .radio-label .radio-dot {
+      border-color: var(--verde-acento);
+    }
+    .radio-card input:checked + .radio-label .radio-dot::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--verde-acento);
+      display: block;
+    }
+
+    /* ─── BUTTONS ─── */
+    .btn-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      gap: 12px;
+    }
+    .btn-primary {
+      background: var(--verde-principal);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary:hover { background: #0a6644; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary.full { width: 100%; justify-content: center; }
+
+    .btn-back {
+      background: transparent;
+      color: var(--surface-500);
+      border: 1.5px solid var(--surface-200);
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-back:hover {
+      border-color: var(--surface-400);
+      color: var(--gris-claro);
+    }
+
+    /* ─── DIVIDER ─── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--surface-200);
+      margin: 20px 0 24px;
+    }
+
+    /* ─── SUCCESS ─── */
+    #success {
+      display: none;
+      text-align: center;
+      padding: 60px 24px;
+      animation: fadeIn .4s ease;
+    }
+    .success-icon {
+      width: 72px;
+      height: 72px;
+      background: rgba(46,212,122,0.12);
+      border: 1.5px solid rgba(46,212,122,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+    .success-icon svg { color: var(--verde-acento); }
+    #success h2 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+    }
+    #success p {
+      font-size: 16px;
+      color: var(--surface-500);
+      max-width: 400px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
+    }
+    .success-detail {
+      background: var(--surface-100);
+      border: 1px solid var(--surface-200);
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-size: 13px;
+      color: var(--surface-500);
+      max-width: 380px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .success-detail strong { color: var(--verde-acento); }
+
+    @media (max-width: 540px) {
+      nav { padding: 16px 20px; }
+      .field-row { grid-template-columns: 1fr; }
+      .check-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="aurora-bg">
+
+  <!-- Nav -->
+  <nav>
+    <a href="/" class="nav-logo">INF<span>Y</span>N</a>
+    <a href="/" class="nav-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Volver al inicio
+    </a>
+  </nav>
+
+  <!-- Header -->
+  <div class="form-header">
+    <div class="form-tag">Sin costo · 30 minutos</div>
+    <h1>Diagnóstico gratuito</h1>
+    <p>Contanos sobre tu negocio. En 30 minutos te decimos exactamente qué necesitás y cómo podemos ayudarte.</p>
+
+    <!-- Progress indicator -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-step">
+        <div class="step-dot active" id="dot-1">1</div>
+        <div class="step-line" id="line-1"></div>
+      </div>
+      <div class="progress-step">
+        <div class="step-dot" id="dot-2">2</div>
+        <div class="step-line" id="line-2"></div>
+      </div>
+      <div class="progress-step">
+        <div class="step-dot" id="dot-3">3</div>
+        <div class="step-line" id="line-3"></div>
+      </div>
+      <div class="step-dot" id="dot-4">4</div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="form-container">
+    <form id="diagForm">
+      <!-- Hidden fields for Web3Forms -->
+      <input type="hidden" name="access_key" value="3117ae0d-7412-4981-a7ce-d1b9dffabb74" />
+      <input type="hidden" name="subject" value="Nuevo diagnóstico — INFYN" />
+      <input type="hidden" name="from_name" value="INFYN Formulario" />
+      <input type="checkbox" name="botcheck" style="display:none" />
+
+      <!-- ── STEP 1: Quién sos ── -->
+      <div class="step active" id="step-1">
+        <p class="step-title">¿Quién sos?</p>
+        <p class="step-sub">Paso 1 de 4 — Datos de contacto</p>
+
+        <div class="field-group">
+          <div class="field-row">
+            <label>
+              Nombre<span class="req">*</span>
+              <input type="text" name="nombre" placeholder="Tu nombre" required />
+            </label>
+            <label>
+              Apellido<span class="req">*</span>
+              <input type="text" name="apellido" placeholder="Tu apellido" required />
+            </label>
+          </div>
+          <label>
+            Email<span class="req">*</span>
+            <input type="email" name="email" placeholder="tu@empresa.com" required />
+          </label>
+          <label>
+            WhatsApp<span class="req">*</span>
+            <input type="tel" name="whatsapp" placeholder="+54 11 0000-0000" required />
+          </label>
+          <label>
+            País<span class="req">*</span>
+            <select name="pais" required>
+              <option value="" disabled selected>Seleccioná tu país</option>
+              <option>Argentina</option>
+              <option>Chile</option>
+              <option>México</option>
+              <option>Uruguay</option>
+              <option>Colombia</option>
+              <option>Otro</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="btn-row">
+          <span></span>
+          <button type="button" class="btn-primary" onclick="goTo(2)">
+            Continuar
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── STEP 2: Tu negocio ── -->
+      <div class="step" id="step-2">
+        <p class="step-title">Tu negocio</p>
+        <p class="step-sub">Paso 2 de 4 — Información de la empresa</p>
+
+        <div class="field-group">
+          <label>
+            Nombre de la empresa<span class="req">*</span>
+            <input type="text" name="empresa" placeholder="Ej: Café Aruba" required />
+          </label>
+          <label>
+            Rubro / industria<span class="req">*</span>
+            <input type="text" name="rubro" placeholder="Ej: Gastronomía, Retail, Servicios..." required />
+          </label>
+          <label>
+            ¿Cuántas personas trabajan en tu empresa?<span class="req">*</span>
+            <select name="empleados" required>
+              <option value="" disabled selected>Seleccioná una opción</option>
+              <option>Solo yo</option>
+              <option>2 a 5 personas</option>
+              <option>6 a 20 personas</option>
+              <option>21 a 50 personas</option>
+              <option>Más de 50 personas</option>
+            </select>
+          </label>
+          <label>
+            ¿Hace cuánto existe la empresa?<span class="req">*</span>
+            <select name="antiguedad" required>
+              <option value="" disabled selected>Seleccioná una opción</option>
+              <option>Menos de 1 año</option>
+              <option>1 a 3 años</option>
+              <option>3 a 10 años</option>
+              <option>Más de 10 años</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn-back" onclick="goTo(1)">← Atrás</button>
+          <button type="button" class="btn-primary" onclick="goTo(3)">
+            Continuar
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── STEP 3: Situación actual ── -->
+      <div class="step" id="step-3">
+        <p class="step-title">Tu situación hoy</p>
+        <p class="step-sub">Paso 3 de 4 — Podés marcar más de una opción</p>
+
+        <p style="font-size:13px; font-weight:600; color:var(--surface-500); margin-bottom:12px; letter-spacing:0.3px;">¿CUÁLES SON TUS MAYORES PROBLEMAS HOY?</p>
+        <div class="check-grid">
+          <label class="check-card">
+            <input type="checkbox" name="problemas" value="Dependencia del dueño" />
+            <span class="check-label">
+              <span class="check-icon"></span>
+              Mi negocio depende demasiado de mí
+            </span>
+          </label>
+          <label class="check-card">
+            <input type="checkbox" name="problemas" value="Sin procesos documentados" />
+            <span class="check-label">
+              <span class="check-icon"></span>
+              No tengo procesos documentados
+            </span>
+          </label>
+          <label class="check-card">
+            <input type="checkbox" name="problemas" value="Decisiones sin datos" />
+            <span class="check-label">
+              <span class="check-icon"></span>
+              Tomo decisiones sin datos confiables
+            </span>
+          </label>
+          <label class="check-card">
+            <input type="checkbox" name="problemas" value="Equipo no funciona solo" />
+            <span class="check-label">
+              <span class="check-icon"></span>
+              Mi equipo no funciona sin que yo esté
+            </span>
+          </label>
+          <label class="check-card">
+            <input type="checkbox" name="problemas" value="Crecimiento sin estructura" />
+            <span class="check-label">
+              <span class="check-icon"></span>
+              Crezco pero no puedo escalar
+            </span>
+          </label>
+          <label class="check-card">
+            <input type="checkbox" name="problemas" value="Otro" />
+            <span class="check-label">
+              <span class="check-icon"></span>
+              Otro
+            </span>
+          </label>
+        </div>
+
+        <hr class="divider" />
+
+        <p style="font-size:13px; font-weight:600; color:var(--surface-500); margin-bottom:12px; letter-spacing:0.3px;">¿EN QUÉ ETAPA ESTÁS?<span style="color:var(--verde-acento)">*</span></p>
+        <div class="radio-grid">
+          <label class="radio-card">
+            <input type="radio" name="etapa" value="Quiero ordenar el caos" required />
+            <span class="radio-label">
+              <span class="radio-dot"></span>
+              Estoy en el caos y quiero ordenarme
+            </span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="etapa" value="Tengo estructura, quiero optimizar" />
+            <span class="radio-label">
+              <span class="radio-dot"></span>
+              Tengo cierta estructura pero quiero optimizarla
+            </span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="etapa" value="Quiero sistematizar para delegar o vender" />
+            <span class="radio-label">
+              <span class="radio-dot"></span>
+              Quiero sistematizar para poder delegar o vender
+            </span>
+          </label>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn-back" onclick="goTo(2)">← Atrás</button>
+          <button type="button" class="btn-primary" onclick="goTo(4)">
+            Continuar
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── STEP 4: Qué buscás ── -->
+      <div class="step" id="step-4">
+        <p class="step-title">¿Qué buscás?</p>
+        <p class="step-sub">Paso 4 de 4 — Último paso</p>
+
+        <div class="field-group">
+          <label>
+            ¿Qué esperás lograr trabajando con INFYN?
+            <textarea name="expectativas" placeholder="Contanos con tus palabras qué cambio querés ver en tu negocio..."></textarea>
+          </label>
+          <label>
+            ¿Cuándo querás arrancar?<span class="req">*</span>
+            <select name="urgencia" required>
+              <option value="" disabled selected>Seleccioná una opción</option>
+              <option>Ahora, lo antes posible</option>
+              <option>En el próximo mes</option>
+              <option>En los próximos 3 meses</option>
+              <option>Todavía estoy explorando opciones</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn-back" onclick="goTo(3)">← Atrás</button>
+          <button type="submit" class="btn-primary" id="submitBtn">
+            Enviar diagnóstico
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z"/></svg>
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- SUCCESS -->
+    <div id="success">
+      <div class="success-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2>¡Listo, lo recibimos!</h2>
+      <p>Nos vamos a comunicar con vos en las próximas <strong style="color:var(--verde-acento)">24 horas</strong> para coordinar la primera conversación.</p>
+      <div class="success-detail">
+        <strong>Sin spam. Sin vendedores.</strong><br>
+        Una llamada directa con el equipo de INFYN para entender tu situación y decirte si podemos ayudarte.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const totalSteps = 4;
+    let currentStep = 1;
+
+    function updateProgress(step) {
+      for (let i = 1; i <= totalSteps; i++) {
+        const dot = document.getElementById(`dot-${i}`);
+        if (i < step) {
+          dot.className = 'step-dot done';
+          dot.innerHTML = '✓';
+        } else if (i === step) {
+          dot.className = 'step-dot active';
+          dot.textContent = i;
+        } else {
+          dot.className = 'step-dot';
+          dot.textContent = i;
+        }
+        if (i < totalSteps) {
+          const line = document.getElementById(`line-${i}`);
+          line.className = i < step ? 'step-line done' : 'step-line';
+        }
+      }
+    }
+
+    function validateStep(step) {
+      const el = document.getElementById(`step-${step}`);
+      const required = el.querySelectorAll('[required]');
+      for (const field of required) {
+        if (!field.value.trim()) {
+          field.focus();
+          field.style.borderColor = '#ef4444';
+          setTimeout(() => field.style.borderColor = '', 2000);
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function goTo(step) {
+      if (step > currentStep && !validateStep(currentStep)) return;
+      document.getElementById(`step-${currentStep}`).classList.remove('active');
+      currentStep = step;
+      document.getElementById(`step-${currentStep}`).classList.add('active');
+      updateProgress(currentStep);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Form submission via Web3Forms
+    document.getElementById('diagForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      btn.textContent = 'Enviando...';
+      btn.disabled = true;
+
+      const formData = new FormData(this);
+
+      // Collect checkboxes (multiple values)
+      const checkboxes = this.querySelectorAll('input[type="checkbox"][name="problemas"]:checked');
+      const problemas = Array.from(checkboxes).map(c => c.value).join(', ');
+      formData.set('problemas', problemas || 'Ninguno seleccionado');
+
+      try {
+        const res = await fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          document.getElementById('diagForm').style.display = 'none';
+          document.getElementById('success').style.display = 'block';
+          document.getElementById('progressWrap').style.display = 'none';
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (err) {
+        btn.textContent = 'Error al enviar. Intentá de nuevo.';
+        btn.disabled = false;
+        btn.style.background = '#ef4444';
+        setTimeout(() => {
+          btn.innerHTML = 'Enviar diagnóstico <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z"/></svg>';
+          btn.style.background = '';
+          btn.disabled = false;
+        }, 3000);
+      }
+    });
+  </script>
+</body>
+</html>

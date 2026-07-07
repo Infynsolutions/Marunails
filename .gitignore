@@ -2,13 +2,20 @@
 __pycache__/
 *.py[cod]
 *.pyo
-.env
 venv/
 .venv/
 env/
 
 # Datos sensibles
 *.csv
+
+# Secrets
+.env
+*.env
+*.pem
+*.key
+service-account.json
+google-credentials.json
 
 # Sistema
 .DS_Store
@@ -20,3 +27,19 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Claude / gstack internal
+.claude/
+
+# Vercel
+.vercel/
+.vercel
+
+# Assets grandes
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.docx
+*.pdf
+.gstack/
