@@ -1,4 +1,3 @@
 flask
 gunicorn
-gspread
-google-auth
+supabase

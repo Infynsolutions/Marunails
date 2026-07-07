@@ -1,18 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime, date
+from collections import defaultdict
 import os
-import json
-import traceback
 
-import gspread
-from google.oauth2.service_account import Credentials
+from supabase import create_client
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'marunails_secret_2026')
 
-SPREADSHEET_ID = '13z9C__dSAbudO_shv0K2uFgGVa51lTpWVTTkTdjYqbI'
+SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://dbhxrboacqppximbcokz.supabase.co')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHhyYm9hY3FwcHhpbWJjb2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Mjg1NDMsImV4cCI6MjA5OTAwNDU0M30.fcVl9hwRTACJrp4BH7CZdj5ZzPa7-VaAqJlUdHH-NKs')
+
 TC_USD = 17
-PCT_TARJETA = 0.0302
 
 STAFF = [
     {'nombre': 'FLOR',            'comision': 0.4},
@@ -44,6 +43,10 @@ MESES_ES = {
 }
 
 
+def get_sb():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
 def format_fecha(d):
     return f"{d.day:02d}-{MESES_ES[d.month]}-{d.year}"
 
@@ -53,26 +56,6 @@ def get_week_quincena(d):
     mes    = d.strftime('%Y-%m')
     q      = 'Q1' if d.day <= 15 else 'Q2'
     return semana, mes, f'{mes}-{q}'
-
-
-def get_sheets_client():
-    creds_json = os.environ.get('GOOGLE_CREDENTIALS')
-    if not creds_json:
-        raise RuntimeError('Variable GOOGLE_CREDENTIALS no configurada.')
-    info   = json.loads(creds_json)
-    scopes = ['https://www.googleapis.com/auth/spreadsheets']
-    creds  = Credentials.from_service_account_info(info, scopes=scopes)
-    return gspread.authorize(creds)
-
-
-def append_after_last_data(ws, row):
-    all_vals = ws.get_all_values()
-    last_row = 0
-    for i, r in enumerate(all_vals):
-        if any(c.strip() for c in r):
-            last_row = i + 1
-    next_row = last_row + 1
-    ws.update(f'A{next_row}', [row], value_input_option='USER_ENTERED')
 
 
 # ── DASHBOARD ──────────────────────────────────────────────────────────────────
@@ -99,35 +82,36 @@ def corte():
             flash('Completá todos los campos obligatorios.', 'error')
             return redirect(url_for('corte'))
 
-        d             = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-        tc            = TC_USD if moneda == 'USD' else 1
-        venta_neta    = total_cobrado - propina
-        total_mxn     = round(total_cobrado * tc, 2)
-        propina_mxn   = round(propina * tc, 2)
-        neto_mxn      = round(venta_neta * tc, 2)
+        d          = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        tc         = TC_USD if moneda == 'USD' else 1
+        venta_neta = total_cobrado - propina
         semana, mes, quincena = get_week_quincena(d)
 
-        row = [
-            format_fecha(d), cliente, staff_nombre, servicio, moneda,
-            total_cobrado, propina if propina else '', medio_pago, notas,
-            venta_neta, tc, total_mxn, propina_mxn, neto_mxn,
-            mes, semana, quincena,
-        ]
+        row = {
+            'fecha':         fecha_str,
+            'cliente':       cliente,
+            'staff':         staff_nombre,
+            'servicio':      servicio,
+            'moneda':        moneda,
+            'total_cobrado': total_cobrado,
+            'propina':       propina if propina else 0,
+            'medio_pago':    medio_pago,
+            'notas':         notas,
+            'venta_neta':    round(venta_neta, 2),
+            'tc':            tc,
+            'total_mxn':     round(total_cobrado * tc, 2),
+            'propina_mxn':   round(propina * tc, 2),
+            'neto_mxn':      round(venta_neta * tc, 2),
+            'mes':           mes,
+            'semana':        semana,
+            'quincena':      quincena,
+        }
 
         try:
-            print(f'[CORTE] Intentando escribir fila: {row}', flush=True)
-            gc = get_sheets_client()
-            sh = gc.open_by_key(SPREADSHEET_ID)
-            print(f'[CORTE] Sheet abierto: {sh.title}', flush=True)
-            ws = sh.worksheet('INPUT_CORTES')
-            print(f'[CORTE] Worksheet encontrado: {ws.title}', flush=True)
-            append_after_last_data(ws, row)
-            print(f'[CORTE] Fila escrita OK', flush=True)
+            get_sb().table('cortes').insert(row).execute()
             flash(f'Corte registrado — {staff_nombre} · {servicio} · ${total_cobrado:,.0f}', 'success')
         except Exception as e:
-            print(f'[CORTE] ERROR: {e}', flush=True)
-            print(traceback.format_exc(), flush=True)
-            flash(f'Error al guardar en Google Sheets: {e}', 'error')
+            flash(f'Error al guardar: {e}', 'error')
 
         return redirect(url_for('corte'))
 
@@ -156,24 +140,32 @@ def gasto():
             flash('Completá todos los campos obligatorios.', 'error')
             return redirect(url_for('gasto'))
 
-        d           = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-        tc          = TC_USD if moneda == 'USD' else 1
-        importe_mxn = round(importe * tc, 2)
+        d   = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        tc  = TC_USD if moneda == 'USD' else 1
         semana, mes, quincena = get_week_quincena(d)
 
-        row = [
-            format_fecha(d), categoria, subcategoria, proveedor, descripcion,
-            moneda, importe, medio_pago, notas,
-            tc, importe_mxn, mes, semana, quincena,
-        ]
+        row = {
+            'fecha':        fecha_str,
+            'categoria':    categoria,
+            'subcategoria': subcategoria,
+            'proveedor':    proveedor,
+            'descripcion':  descripcion,
+            'moneda':       moneda,
+            'importe':      importe,
+            'medio_pago':   medio_pago,
+            'notas':        notas,
+            'tc':           tc,
+            'importe_mxn':  round(importe * tc, 2),
+            'mes':          mes,
+            'semana':       semana,
+            'quincena':     quincena,
+        }
 
         try:
-            gc = get_sheets_client()
-            ws = gc.open_by_key(SPREADSHEET_ID).worksheet('INPUT_GASTOS')
-            append_after_last_data(ws, row)
+            get_sb().table('gastos').insert(row).execute()
             flash(f'Gasto registrado — {categoria} · ${importe:,.0f}', 'success')
         except Exception as e:
-            flash(f'Error al guardar en Google Sheets: {e}', 'error')
+            flash(f'Error al guardar: {e}', 'error')
 
         return redirect(url_for('gasto'))
 
@@ -186,37 +178,43 @@ def gasto():
 # ── CASHFLOW ───────────────────────────────────────────────────────────────────
 @app.route('/cashflow')
 def cashflow():
-    def parse_val(s):
-        if not s or not str(s).strip():
-            return 0.0
-        s = str(s).strip().replace('$', '').replace(' ', '').replace('\xa0', '')
-        if ',' in s:
-            s = s.replace('.', '').replace(',', '.')
-        try:
-            return float(s)
-        except Exception:
-            return 0.0
-
     meses = []
     try:
-        gc = get_sheets_client()
-        ws = gc.open_by_key(SPREADSHEET_ID).worksheet('CALC_CASHFLOW')
-        rows = ws.get_all_values()
-        for r in rows[5:17]:
-            if not r or not r[0].strip():
-                continue
-            def g(i):
-                return r[i] if len(r) > i else ''
-            meses.append({
-                'mes':         g(0),
-                'ing_caja':    parse_val(g(1)),
-                'ing_banco':   parse_val(g(2)),
-                'ing_total':   parse_val(g(4)),
-                'gasto_caja':  parse_val(g(5)),
-                'gasto_banco': parse_val(g(6)),
-                'saldo_caja':  parse_val(g(11)),
-                'saldo_banco': parse_val(g(12)),
-            })
+        sb = get_sb()
+        cortes_res = sb.table('cortes').select('mes,total_mxn,medio_pago').execute()
+        gastos_res = sb.table('gastos').select('mes,importe_mxn,medio_pago').execute()
+
+        data = defaultdict(lambda: {
+            'ing_caja': 0, 'ing_banco': 0, 'ing_total': 0,
+            'gasto_caja': 0, 'gasto_banco': 0,
+            'saldo_caja': 0, 'saldo_banco': 0,
+        })
+
+        for c in cortes_res.data:
+            mes = c.get('mes') or ''
+            mxn = float(c.get('total_mxn') or 0)
+            medio = c.get('medio_pago', '')
+            data[mes]['ing_total'] += mxn
+            if medio == 'Efectivo':
+                data[mes]['ing_caja'] += mxn
+            else:
+                data[mes]['ing_banco'] += mxn
+
+        for g in gastos_res.data:
+            mes = g.get('mes') or ''
+            mxn = float(g.get('importe_mxn') or 0)
+            medio = g.get('medio_pago', '')
+            if medio == 'Efectivo':
+                data[mes]['gasto_caja'] += mxn
+            else:
+                data[mes]['gasto_banco'] += mxn
+
+        for mes, d in sorted(data.items()):
+            d['mes'] = mes
+            d['saldo_caja']  = d['ing_caja']  - d['gasto_caja']
+            d['saldo_banco'] = d['ing_banco'] - d['gasto_banco']
+            meses.append(d)
+
     except Exception as e:
         flash(f'Error cargando cashflow: {e}', 'error')
 
