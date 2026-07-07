@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if c else 'Registrar' }} Corte — MaruNails{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div class="page-header-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/>
+        </svg>
+    </div>
+    <div>
+        <h1>{{ 'Editar' if c else 'Registrar' }} Corte</h1>
+        <div class="page-header-sub">{{ 'Corregí los datos del servicio' if c else 'Registrá el servicio del día' }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <form method="POST" action="{{ action or '/corte' }}">
+
+        <div class="form-grid">
+
+            <!-- Fecha -->
+            <div class="form-group">
+                <label>Fecha <span class="req">*</span></label>
+                <input type="date" name="fecha" value="{{ c.fecha if c else today }}" required>
+            </div>
+
+            <!-- Cliente -->
+            <div class="form-group">
+                <label>Cliente</label>
+                <input type="text" name="cliente" placeholder="Walk in" value="{{ c.cliente if c else '' }}">
+            </div>
+
+            <!-- Staff -->
+            <div class="form-group">
+                <label>Staff <span class="req">*</span></label>
+                <select name="staff" required>
+                    <option value="" disabled {% if not c %}selected{% endif %}>Seleccioná...</option>
+                    {% for s in staff %}
+                    <option value="{{ s.nombre }}" {% if c and c.staff == s.nombre %}selected{% endif %}>{{ s.nombre }} ({{ (s.comision * 100)|int }}%)</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Servicio -->
+            <div class="form-group">
+                <label>Servicio <span class="req">*</span></label>
+                <select name="servicio" required>
+                    <option value="" disabled {% if not c %}selected{% endif %}>Seleccioná...</option>
+                    {% for sv in servicios %}
+                    <option value="{{ sv }}" {% if c and c.servicio == sv %}selected{% endif %}>{{ sv }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Moneda -->
+            <div class="form-group">
+                <label>Moneda</label>
+                <div class="moneda-toggle">
+                    <input type="radio" name="moneda" id="mxn" value="MXN" {% if not c or c.moneda == 'MXN' %}checked{% endif %}>
+                    <label for="mxn">MXN $</label>
+                    <input type="radio" name="moneda" id="usd" value="USD" {% if c and c.moneda == 'USD' %}checked{% endif %}>
+                    <label for="usd">USD $</label>
+                </div>
+            </div>
+
+            <!-- Medio de pago -->
+            <div class="form-group">
+                <label>Medio de pago <span class="req">*</span></label>
+                <select name="medio_pago" required>
+                    <option value="" disabled {% if not c %}selected{% endif %}>Seleccioná...</option>
+                    {% for m in medios %}
+                    <option value="{{ m }}" {% if c and c.medio_pago == m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Total cobrado -->
+            <div class="form-group">
+                <label>Total cobrado <span class="req">*</span></label>
+                <input type="number" name="total_cobrado" min="0" step="1" placeholder="0" value="{{ c.total_cobrado if c else '' }}" required>
+            </div>
+
+            <!-- Propina -->
+            <div class="form-group">
+                <label>Propina</label>
+                <input type="number" name="propina" min="0" step="1" placeholder="0" value="{{ c.propina if c and c.propina else '' }}">
+            </div>
+
+            <!-- Color -->
+            <div class="form-group">
+                <label>Color aplicado</label>
+                <input type="text" name="color" placeholder="ej: Rojo #5, base francesa..." value="{{ c.color if c and c.color else '' }}">
+            </div>
+
+            <!-- Notas -->
+            <div class="form-group">
+                <label>Notas</label>
+                <input type="text" name="notas" placeholder="Opcional..." value="{{ c.notas if c else '' }}">
+            </div>
+
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {{ 'Guardar cambios' if c else 'Guardar corte' }}
+        </button>
+
+    </form>
+</div>
+
+{% endblock %}

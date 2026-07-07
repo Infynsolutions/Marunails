@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Cobros – Puñado Sano{% endblock %}
+{% block content %}
+
+<!-- Encabezado -->
+<div style="display:flex;align-items:center;gap:13px;margin-bottom:28px;">
+    <div style="width:42px;height:42px;background:linear-gradient(145deg,#526735,#38471f);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(56,71,31,0.32);flex-shrink:0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M16 8h-6a2 2 0 100 4h4a2 2 0 110 4H8"/><path d="M12 18V6"/>
+        </svg>
+    </div>
+    <div>
+        <h1 style="margin:0;line-height:1;">Cobros</h1>
+        <p style="font-size:12px;color:#888;margin-top:3px;font-family:'Inter',sans-serif;">Control de ventas cobradas y pendientes</p>
+    </div>
+</div>
+
+<!-- ── PENDIENTES ── -->
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+    <span style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;color:#92690a;">Falta cobrar</span>
+    {% if pendientes %}
+    <span style="background:#fff3cd;color:#92690a;font-size:11.5px;font-weight:700;padding:2px 10px;border-radius:20px;font-family:'Inter',sans-serif;">{{ pendientes|length }}</span>
+    {% endif %}
+</div>
+
+{% if not pendientes %}
+<div class="card" style="text-align:center;padding:30px;margin-bottom:28px;">
+    <div style="font-size:13px;font-weight:600;color:#2d6a3f;font-family:'Inter',sans-serif;">No hay ventas pendientes de cobro.</div>
+</div>
+{% else %}
+<div class="card" style="margin-bottom:28px;padding:0;overflow:hidden;border-top:3px solid #d9a215;">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Cliente / Nota</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in pendientes %}
+            <tr style="background:#fffdf4;">
+                <td style="color:#999;font-size:12px;white-space:nowrap;font-family:'Inter',sans-serif;">
+                    {{ v.fecha[:16] }}
+                </td>
+                <td style="font-family:'Inter',sans-serif;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <div>
+                            <div style="font-weight:600;color:#1a1a1a;">{{ v.nota }}</div>
+                            <div style="font-size:12.5px;color:#92690a;font-weight:700;margin-top:2px;font-family:'Space Grotesk',sans-serif;">
+                                ${{ '{:,}'.format(v.total_pesos).replace(',','.') }}
+                            </div>
+                        </div>
+                        <form method="POST" action="/cobros/marcar-pagado" style="flex-shrink:0;">
+                            <input type="hidden" name="nota"         value="{{ v.nota }}">
+                            <input type="hidden" name="fecha_minuto" value="{{ v.fecha[:16] }}">
+                            <button type="submit" class="btn btn-primary btn-sm"
+                                    style="font-size:11.5px;padding:5px 10px;white-space:nowrap;">
+                                Marcar cobrado
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        {%- set ns = namespace(total=0) -%}
+        {%- for v in pendientes -%}{%- set ns.total = ns.total + v.total_pesos -%}{%- endfor -%}
+        <tfoot>
+            <tr style="background:#fff8e1;">
+                <td style="text-align:right;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;color:#92690a;padding:11px 15px;font-family:'Inter',sans-serif;">
+                    Total pendiente:
+                </td>
+                <td style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:#92690a;padding:11px 15px;">
+                    ${{ '{:,}'.format(ns.total).replace(',','.') }}
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endif %}
+
+<!-- ── YA COBRADAS ── -->
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+    <span style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;color:#1e6a3a;">Ya cobradas</span>
+    <span style="font-size:11px;font-weight:400;color:#bbb;font-family:'Inter',sans-serif;">(últimas 50)</span>
+</div>
+
+{% if not cobradas %}
+<div class="card" style="text-align:center;padding:30px;">
+    <div style="font-size:13px;color:#aaa;font-family:'Inter',sans-serif;">Sin ventas cobradas todavía.</div>
+</div>
+{% else %}
+<div class="card" style="padding:0;overflow:hidden;border-top:3px solid #4a5c30;">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Cliente / Nota</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in cobradas %}
+            <tr>
+                <td style="color:#999;font-size:12px;white-space:nowrap;font-family:'Inter',sans-serif;">
+                    {{ v.fecha[:16] }}
+                </td>
+                <td style="font-family:'Inter',sans-serif;">
+                    <div style="font-weight:600;color:#1a1a1a;">{{ v.nota }}</div>
+                    <div style="font-size:12.5px;color:#1e6a3a;font-weight:700;margin-top:2px;font-family:'Space Grotesk',sans-serif;">
+                        ${{ '{:,}'.format(v.total_pesos).replace(',','.') }}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

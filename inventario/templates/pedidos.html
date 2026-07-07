@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Pedidos – Puñado Sano{% endblock %}
+{% block content %}
+
+<!-- Encabezado -->
+<div style="display:flex;align-items:center;gap:13px;margin-bottom:28px;">
+    <div style="width:42px;height:42px;background:linear-gradient(145deg,#526735,#38471f);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(56,71,31,0.32);flex-shrink:0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+        </svg>
+    </div>
+    <div>
+        <h1 style="margin:0;line-height:1;">Pedidos pendientes</h1>
+        <p style="font-size:12px;color:#888;margin-top:3px;font-family:'Inter',sans-serif;">Productos con stock en o por debajo del mínimo</p>
+    </div>
+</div>
+
+{% if not pedidos %}
+<div class="card" style="text-align:center;padding:48px 24px;">
+    <div style="width:52px;height:52px;background:#daf0e3;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1e6a3a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:#2d6a3f;margin-bottom:6px;">Todo en orden</div>
+    <div style="font-size:13px;color:#aaa;font-family:'Inter',sans-serif;">No hay pedidos pendientes. Todo el stock está en nivel óptimo.</div>
+</div>
+
+{% else %}
+
+{% for proveedor, productos in pedidos.items() %}
+<div class="card" style="margin-bottom:18px;padding:0;overflow:hidden;">
+    <!-- Header del proveedor -->
+    <div style="background:linear-gradient(135deg,#38471f,#526735);padding:14px 22px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:28px;height:28px;background:rgba(255,255,255,0.15);border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13.5px;color:white;letter-spacing:0.3px;">{{ proveedor }}</span>
+        </div>
+        <span style="background:rgba(255,255,255,0.18);color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'Inter',sans-serif;">
+            {{ productos|length }} producto{% if productos|length != 1 %}s{% endif %}
+        </span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Presentación</th>
+                <th style="text-align:center;">Stock actual</th>
+                <th style="text-align:center;">Mínimo</th>
+                <th style="text-align:center;">Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in productos %}
+            <tr>
+                <td style="font-weight:600;font-family:'Inter',sans-serif;">{{ p.nombre }}</td>
+                <td style="color:#888;font-size:12.5px;">{{ p.presentacion or '—' }}</td>
+                <td style="text-align:center;font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;
+                    {% if p.stock_actual == 0 %}color:#c0392b;{% else %}color:#92690a;{% endif %}">
+                    {{ p.stock_actual }}
+                </td>
+                <td style="text-align:center;color:#bbb;font-size:13px;font-family:'Space Grotesk',sans-serif;">{{ p.stock_minimo }}</td>
+                <td style="text-align:center;">
+                    {% if p.stock_actual == 0 %}
+                        <span class="badge badge-out">Sin stock</span>
+                    {% else %}
+                        <span class="badge badge-low">Stock bajo</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Reportes — MaruNails{% endblock %}
+{% block content %}
+
+<style>
+.rp-main { max-width: 1000px; }
+
+/* ─── SELECTOR DE MES ─── */
+.rp-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+.rp-mes-form { display: flex; align-items: center; gap: 10px; }
+.rp-mes-form select { min-width: 150px; }
+
+/* ─── METRIC CARDS ─── */
+.rp-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+}
+@media (max-width: 700px) { .rp-metrics { grid-template-columns: 1fr 1fr; } }
+
+.rp-metric {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(62,36,24,0.07);
+    border-top: 2px solid var(--brown-pale);
+}
+.rp-metric-label {
+    font-size: 9px;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+.rp-metric-value {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 27px;
+    font-weight: 600;
+    color: var(--brown-dark);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.rp-metric-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+/* ─── SECCIÓN ─── */
+.rp-section { margin-bottom: 30px; }
+.rp-section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 19px;
+    color: var(--brown-dark);
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+
+/* ─── TABLA ─── */
+.rp-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(62,36,24,0.07);
+}
+table.rp {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card-bg);
+    font-size: 13px;
+}
+table.rp thead th {
+    background: var(--brown);
+    color: rgba(245,237,230,0.78);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    text-align: right;
+    white-space: nowrap;
+}
+table.rp thead th:first-child { text-align: left; }
+table.rp tbody tr { border-bottom: 1px solid var(--sand); transition: background 0.15s; }
+table.rp tbody tr:last-child { border-bottom: none; }
+table.rp tbody tr:hover { background: var(--brown-pale); }
+table.rp td {
+    padding: 12px 16px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+}
+table.rp td:first-child {
+    text-align: left;
+    font-weight: 500;
+    color: var(--brown-dark);
+}
+table.rp td.num-strong { font-weight: 600; color: var(--brown-dark); }
+.rp-rank {
+    display: inline-block;
+    width: 20px; height: 20px;
+    line-height: 20px;
+    text-align: center;
+    background: var(--brown-pale);
+    color: var(--brown-mid);
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+/* ─── MEDIOS DE PAGO (barras) ─── */
+.rp-medios { display: flex; flex-direction: column; gap: 10px; }
+.rp-medio-row { display: flex; align-items: center; gap: 12px; }
+.rp-medio-name { width: 110px; font-size: 12px; color: var(--brown-dark); font-weight: 500; flex-shrink: 0; }
+.rp-medio-bar-track { flex: 1; background: var(--brown-pale); border-radius: 20px; height: 20px; overflow: hidden; }
+.rp-medio-bar { height: 100%; background: var(--brown); border-radius: 20px; }
+.rp-medio-val { width: 130px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--brown-dark); flex-shrink: 0; }
+
+.rp-empty { text-align: center; padding: 48px; color: var(--muted); }
+</style>
+
+<div class="page-header">
+    <div class="page-header-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+    </div>
+    <div>
+        <h1>Reportes</h1>
+        <div class="page-header-sub">Ventas · Equipo · Servicios</div>
+    </div>
+</div>
+
+<div class="rp-main">
+
+<div class="rp-toolbar">
+    <form method="get" action="/reportes" class="rp-mes-form">
+        <label style="margin:0;">Mes</label>
+        <select name="mes" onchange="this.form.submit()">
+            {% for m in meses %}
+            <option value="{{ m }}" {% if m == mes_sel %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if resumen and resumen.n %}
+
+<div class="rp-metrics">
+    <div class="rp-metric">
+        <div class="rp-metric-label">Facturación</div>
+        <div class="rp-metric-value">${{ '{:,.0f}'.format(resumen.facturacion) }}</div>
+        <div class="rp-metric-sub">MXN en el mes</div>
+    </div>
+    <div class="rp-metric">
+        <div class="rp-metric-label">Servicios</div>
+        <div class="rp-metric-value">{{ resumen.n }}</div>
+        <div class="rp-metric-sub">cortes registrados</div>
+    </div>
+    <div class="rp-metric">
+        <div class="rp-metric-label">Ticket promedio</div>
+        <div class="rp-metric-value">${{ '{:,.0f}'.format(resumen.ticket) }}</div>
+        <div class="rp-metric-sub">por servicio</div>
+    </div>
+    <div class="rp-metric">
+        <div class="rp-metric-label">Propinas</div>
+        <div class="rp-metric-value">${{ '{:,.0f}'.format(resumen.propinas) }}</div>
+        <div class="rp-metric-sub">total del mes</div>
+    </div>
+</div>
+
+<div class="rp-section">
+    <div class="rp-section-title">Medios de pago</div>
+    <div class="card" style="padding:24px 26px;">
+        <div class="rp-medios">
+            {% for medio, val in resumen.por_medio | dictsort(by='value', reverse=true) %}
+            <div class="rp-medio-row">
+                <div class="rp-medio-name">{{ medio }}</div>
+                <div class="rp-medio-bar-track">
+                    <div class="rp-medio-bar" style="width: {{ (val / resumen.facturacion * 100) if resumen.facturacion else 0 }}%;"></div>
+                </div>
+                <div class="rp-medio-val">${{ '{:,.0f}'.format(val) }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="rp-section">
+    <div class="rp-section-title">Por colaboradora</div>
+    <div class="rp-table-wrap">
+        <table class="rp">
+            <thead>
+                <tr>
+                    <th>Colaboradora</th>
+                    <th>Clientas</th>
+                    <th>Facturación</th>
+                    <th>Ticket prom.</th>
+                    <th>Propinas</th>
+                    <th>Comisión %</th>
+                    <th>Comisión $</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in resumen.staff %}
+                <tr>
+                    <td>{{ s.nombre }}</td>
+                    <td>{{ s.clientas }}</td>
+                    <td class="num-strong">${{ '{:,.0f}'.format(s.facturacion) }}</td>
+                    <td>${{ '{:,.0f}'.format(s.ticket) }}</td>
+                    <td>${{ '{:,.0f}'.format(s.propinas) }}</td>
+                    <td>{{ (s.comision_pct * 100) | int }}%</td>
+                    <td class="num-strong">${{ '{:,.0f}'.format(s.comision_mxn) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="rp-section">
+    <div class="rp-section-title">Servicios más vendidos</div>
+    <div class="rp-table-wrap">
+        <table class="rp">
+            <thead>
+                <tr>
+                    <th>Servicio</th>
+                    <th>Cantidad</th>
+                    <th>Facturación</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in resumen.servicios %}
+                <tr>
+                    <td><span class="rp-rank">{{ loop.index }}</span>{{ s.nombre }}</td>
+                    <td class="num-strong">{{ s.cantidad }}</td>
+                    <td>${{ '{:,.0f}'.format(s.facturacion) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="card rp-empty">
+    No hay cortes registrados en este mes.
+</div>
+{% endif %}
+
+</div>
+
+{% endblock %}

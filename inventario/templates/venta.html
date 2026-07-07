@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}Registrar Venta – Puñado Sano{% endblock %}
+{% block content %}
+
+<style>
+.carrito-vacio {
+    text-align: center;
+    padding: 28px 16px;
+    color: #aaa;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+}
+.carrito-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 0;
+    border-bottom: 1px solid #f0e9d8;
+}
+.carrito-item:last-child { border-bottom: none; }
+.carrito-item-info { flex: 1; min-width: 0; }
+.carrito-item-nombre {
+    font-weight: 600;
+    font-size: 13.5px;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.carrito-item-sub {
+    font-size: 11.5px;
+    color: #888;
+    margin-top: 2px;
+}
+.carrito-item-precio {
+    font-weight: 700;
+    font-size: 13.5px;
+    color: #38471f;
+    white-space: nowrap;
+}
+.carrito-item-qty {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.qty-btn {
+    width: 28px; height: 28px;
+    border: 1.5px solid #d5ccb5;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    color: #38471f;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+    flex-shrink: 0;
+}
+.qty-btn:hover { background: #eef3e6; }
+.qty-num {
+    min-width: 26px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+}
+.btn-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #c0392b;
+    opacity: 0.6;
+    padding: 4px;
+    border-radius: 5px;
+    display: flex; align-items: center;
+    transition: opacity 0.12s, background 0.12s;
+    flex-shrink: 0;
+}
+.btn-remove:hover { opacity: 1; background: #fde8e8; }
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0 0;
+    margin-top: 4px;
+    border-top: 2px solid #e8e0cc;
+}
+.total-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #777;
+    font-family: 'Inter', sans-serif;
+}
+.total-valor {
+    font-size: 20px;
+    font-weight: 700;
+    color: #38471f;
+    font-family: 'Space Grotesk', sans-serif;
+}
+.add-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+.add-row .form-group { margin-bottom: 0; }
+.add-row .select-wrap { flex: 1; min-width: 0; }
+.add-row .qty-wrap { width: 90px; flex-shrink: 0; }
+@media (max-width: 700px) {
+    .add-row { flex-wrap: wrap; }
+    .add-row .select-wrap { flex: 1 1 100%; }
+    .add-row .qty-wrap { width: 90px; }
+}
+</style>
+
+<!-- Encabezado -->
+<div style="display:flex;align-items:center;gap:13px;margin-bottom:28px;">
+    <div style="width:42px;height:42px;background:linear-gradient(145deg,#526735,#38471f);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(56,71,31,0.32);flex-shrink:0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+    </div>
+    <div>
+        <h1 style="margin:0;line-height:1;">Registrar venta</h1>
+        <p style="font-size:12px;color:#888;margin-top:3px;font-family:'Inter',sans-serif;">Armá el pedido del cliente y registralo todo junto</p>
+    </div>
+</div>
+
+<!-- Datos del cliente -->
+<div class="card" style="max-width:600px;padding:22px 24px;margin-bottom:16px;">
+    <h2 style="margin-bottom:14px;">Cliente y pago</h2>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="form-group" style="flex:1;min-width:180px;margin-bottom:0;">
+            <label>Cliente / Nota</label>
+            <input type="text" id="inputCliente" placeholder="Ej: Laura, feria, pedido online…" autocomplete="off">
+        </div>
+        <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0;">
+            <label>Estado del pago</label>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+                <label id="lblPagado" style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid #d5ccb5;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;color:#1e6a3a;font-family:'Inter',sans-serif;background:#fff;transition:border-color 0.15s,background 0.15s;">
+                    <input type="radio" name="cobrado_ui" value="1" id="radioPagado" style="width:auto;accent-color:#4a5c30;">
+                    Ya fue pagado
+                </label>
+                <label id="lblPendiente" style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid #d5ccb5;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;color:#92690a;font-family:'Inter',sans-serif;background:#fff;transition:border-color 0.15s,background 0.15s;">
+                    <input type="radio" name="cobrado_ui" value="0" id="radioPendiente" checked style="width:auto;accent-color:#d9a215;">
+                    Falta cobrar
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agregar productos -->
+<div class="card" style="max-width:600px;padding:22px 24px;margin-bottom:16px;">
+    <h2 style="margin-bottom:14px;">Agregar productos al pedido</h2>
+    <div class="add-row">
+        <div class="form-group select-wrap">
+            <label>Producto</label>
+            <select id="selectProducto">
+                <option value="" disabled selected>Seleccioná un producto…</option>
+                {% for categoria, productos in categorias.items() %}
+                <optgroup label="{{ categoria }}">
+                    {% for p in productos %}
+                    <option value="{{ p.id }}"
+                            data-nombre="{{ p.nombre }}{% if p.presentacion %} – {{ p.presentacion }}{% endif %}"
+                            data-precio="{{ p.precio }}"
+                            data-stock="{{ p.stock_actual }}">
+                        {{ p.nombre }}{% if p.presentacion %} – {{ p.presentacion }}{% endif %}
+                        &nbsp;·&nbsp; stock: {{ p.stock_actual }}
+                    </option>
+                    {% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group qty-wrap">
+            <label>Cantidad</label>
+            <input type="number" id="inputCantidad" min="1" value="1">
+        </div>
+        <div class="form-group" style="margin-bottom:0;flex-shrink:0;">
+            <label style="visibility:hidden;">-</label>
+            <button type="button" class="btn btn-primary" id="btnAgregar" style="height:42px;padding:0 18px;white-space:nowrap;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Agregar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Carrito / resumen del pedido -->
+<div class="card" style="max-width:600px;padding:22px 24px;margin-bottom:20px;" id="carritoCard">
+    <h2 style="margin-bottom:4px;">Pedido</h2>
+    <div id="carritoLista">
+        <div class="carrito-vacio" id="carritoVacio">
+            Todavía no agregaste productos.<br>Usá el selector de arriba para armar el pedido.
+        </div>
+    </div>
+    <div class="total-row" id="totalRow" style="display:none;">
+        <span class="total-label">Total del pedido</span>
+        <span class="total-valor" id="totalValor">$0</span>
+    </div>
+</div>
+
+<!-- Botón registrar -->
+<div style="max-width:600px;">
+    <form method="POST" id="formVenta">
+        <div id="hiddenInputs"></div>
+        <button type="submit" class="btn btn-primary" id="btnRegistrar" style="width:100%;padding:13px;font-size:14px;" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Registrar pedido
+        </button>
+    </form>
+</div>
+
+<script>
+// Carrito: [{id, nombre, precio, stock, cantidad}]
+let carrito = [];
+
+const lista      = document.getElementById('carritoLista');
+const vacio      = document.getElementById('carritoVacio');
+const totalRow   = document.getElementById('totalRow');
+const totalValor = document.getElementById('totalValor');
+const hiddenInp  = document.getElementById('hiddenInputs');
+const btnReg     = document.getElementById('btnRegistrar');
+
+function fmt(n) {
+    return '$' + n.toLocaleString('es-AR');
+}
+
+function render() {
+    // Limpiar items (dejar el vacio)
+    Array.from(lista.querySelectorAll('.carrito-item')).forEach(el => el.remove());
+
+    if (carrito.length === 0) {
+        vacio.style.display = '';
+        totalRow.style.display = 'none';
+        btnReg.disabled = true;
+        hiddenInp.innerHTML = '';
+        return;
+    }
+
+    vacio.style.display = 'none';
+    totalRow.style.display = 'flex';
+    btnReg.disabled = false;
+
+    let total = 0;
+    carrito.forEach((item, idx) => {
+        const subtotal = item.precio * item.cantidad;
+        total += subtotal;
+
+        const div = document.createElement('div');
+        div.className = 'carrito-item';
+        div.innerHTML = `
+            <div class="carrito-item-info">
+                <div class="carrito-item-nombre">${item.nombre}</div>
+                <div class="carrito-item-sub">${fmt(item.precio)} c/u · stock disponible: ${item.stock}</div>
+            </div>
+            <div class="carrito-item-qty">
+                <button class="qty-btn" data-idx="${idx}" data-action="menos">−</button>
+                <span class="qty-num">${item.cantidad}</span>
+                <button class="qty-btn" data-idx="${idx}" data-action="mas">+</button>
+            </div>
+            <div class="carrito-item-precio">${fmt(subtotal)}</div>
+            <button class="btn-remove" data-idx="${idx}" title="Quitar">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        `;
+        lista.insertBefore(div, vacio);
+    });
+
+    totalValor.textContent = fmt(total);
+
+    // Actualizar hidden inputs
+    const cliente  = document.getElementById('inputCliente').value.trim();
+    const cobrado  = document.querySelector('input[name="cobrado_ui"]:checked').value;
+    hiddenInp.innerHTML = '';
+
+    carrito.forEach(item => {
+        const pi = document.createElement('input');
+        pi.type = 'hidden'; pi.name = 'producto_id'; pi.value = item.id;
+        const ci = document.createElement('input');
+        ci.type = 'hidden'; ci.name = 'cantidad'; ci.value = item.cantidad;
+        hiddenInp.appendChild(pi);
+        hiddenInp.appendChild(ci);
+    });
+
+    const ni = document.createElement('input');
+    ni.type = 'hidden'; ni.name = 'nota'; ni.value = cliente;
+    const cbi = document.createElement('input');
+    cbi.type = 'hidden'; cbi.name = 'cobrado'; cbi.value = cobrado;
+    hiddenInp.appendChild(ni);
+    hiddenInp.appendChild(cbi);
+}
+
+// Botón agregar
+document.getElementById('btnAgregar').addEventListener('click', () => {
+    const sel = document.getElementById('selectProducto');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) { alert('Seleccioná un producto primero.'); return; }
+
+    const id      = parseInt(opt.value);
+    const nombre  = opt.dataset.nombre;
+    const precio  = parseInt(opt.dataset.precio) || 0;
+    const stock   = parseInt(opt.dataset.stock)  || 0;
+    const cant    = parseInt(document.getElementById('inputCantidad').value) || 1;
+
+    if (cant < 1) { alert('La cantidad debe ser al menos 1.'); return; }
+
+    // Si ya está en el carrito, sumar cantidad
+    const existing = carrito.find(i => i.id === id);
+    const totalCant = existing ? existing.cantidad + cant : cant;
+
+    if (totalCant > stock) {
+        alert(`Stock insuficiente. Solo hay ${stock} unidades disponibles de ese producto.`);
+        return;
+    }
+
+    if (existing) {
+        existing.cantidad += cant;
+    } else {
+        carrito.push({ id, nombre, precio, stock, cantidad: cant });
+    }
+
+    // Reset selector
+    sel.selectedIndex = 0;
+    document.getElementById('inputCantidad').value = 1;
+
+    render();
+});
+
+// Clics en el carrito (+ - x)
+lista.addEventListener('click', e => {
+    const btn = e.target.closest('[data-idx]');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.idx);
+    const action = btn.dataset.action;
+
+    if (action === 'mas') {
+        if (carrito[idx].cantidad < carrito[idx].stock) {
+            carrito[idx].cantidad++;
+        } else {
+            alert(`Stock máximo disponible: ${carrito[idx].stock} unidades.`);
+        }
+    } else if (action === 'menos') {
+        if (carrito[idx].cantidad > 1) {
+            carrito[idx].cantidad--;
+        } else {
+            carrito.splice(idx, 1);
+        }
+    } else {
+        // botón X (remove)
+        carrito.splice(idx, 1);
+    }
+    render();
+});
+
+// Actualizar hidden inputs cuando cambian cliente o cobrado
+document.getElementById('inputCliente').addEventListener('input', render);
+document.querySelectorAll('input[name="cobrado_ui"]').forEach(r => r.addEventListener('change', render));
+
+// Validar antes de enviar
+document.getElementById('formVenta').addEventListener('submit', e => {
+    if (carrito.length === 0) { e.preventDefault(); alert('Agregá al menos un producto al pedido.'); }
+    render(); // asegurar hidden inputs actualizados
+});
+
+render();
+</script>
+
+{% endblock %}
