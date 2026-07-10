@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 import os
@@ -823,6 +823,682 @@ def borrar_gasto(gid):
     except Exception as e:
         flash(f'Error al borrar: {e}', 'error')
     return redirect(url_for('movimientos'))
+
+
+# ── SISTEMA DE TURNOS — PÚBLICO ────────────────────────────────────────────────
+
+@app.route('/reservar')
+def reservar():
+    return render_template('reservar.html')
+
+
+@app.route('/api/servicios')
+def api_servicios():
+    try:
+        sb = get_sb()
+        data = sb.table('servicios').select('*').eq('activo', True).order('categoria').order('orden').execute()
+        return jsonify(data.data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/colaboradoras')
+def api_colaboradoras():
+    try:
+        sb = get_sb()
+        servicio_id = request.args.get('servicio_id')
+        if servicio_id:
+            data = sb.table('colaboradora_servicios').select(
+                'colaboradoras(*)'
+            ).eq('servicio_id', servicio_id).execute()
+            colabs = [r['colaboradoras'] for r in data.data
+                      if r.get('colaboradoras') and r['colaboradoras'].get('activa')]
+        else:
+            colabs = sb.table('colaboradoras').select('*').eq('activa', True).execute().data
+        return jsonify(colabs)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/slots')
+def api_slots():
+    try:
+        sb = get_sb()
+        colaboradora_id = request.args.get('colaboradora_id', 'any')
+        servicio_id = request.args.get('servicio_id')
+        fecha_str = request.args.get('fecha')
+
+        if not servicio_id or not fecha_str:
+            return jsonify([])
+
+        servicio = sb.table('servicios').select('duracion_min').eq('id', servicio_id).limit(1).execute()
+        if not servicio.data:
+            return jsonify([])
+        duracion = servicio.data[0]['duracion_min']
+
+        fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
+        dia_semana = fecha_dt.weekday()  # 0=lunes
+
+        if colaboradora_id == 'any':
+            colabs = sb.table('colaboradoras').select('id').eq('activa', True).execute().data
+            colab_ids = [c['id'] for c in colabs]
+        else:
+            colab_ids = [int(colaboradora_id)]
+
+        slots = []
+        for colab_id in colab_ids:
+            schedule = sb.table('disponibilidad').select('hora_inicio,hora_fin').eq(
+                'colaboradora_id', colab_id).eq('dia_semana', dia_semana).execute()
+            if not schedule.data:
+                continue
+
+            bloqueos = sb.table('bloqueos').select('*').eq(
+                'colaboradora_id', colab_id).eq('fecha', fecha_str).execute()
+            if bloqueos.data and any(b.get('todo_el_dia') for b in bloqueos.data):
+                continue
+
+            turnos_dia = sb.table('turnos').select('hora_inicio,hora_fin').eq(
+                'colaboradora_id', colab_id).eq('fecha', fecha_str).execute()
+            ocupados = []
+            for t in turnos_dia.data:
+                h_ini = t['hora_inicio'][:5]
+                h_fin = t['hora_fin'][:5]
+                ocupados.append((h_ini, h_fin))
+
+            for sched in schedule.data:
+                h_start = sched['hora_inicio'][:5]
+                h_end = sched['hora_fin'][:5]
+                cur = datetime.strptime(f"{fecha_str} {h_start}", '%Y-%m-%d %H:%M')
+                end = datetime.strptime(f"{fecha_str} {h_end}", '%Y-%m-%d %H:%M')
+                slot_dur = timedelta(minutes=duracion)
+                interval = timedelta(minutes=30)
+
+                now = datetime.now()
+                min_hora = now + timedelta(hours=2) if fecha_dt.date() == now.date() else None
+
+                while cur + slot_dur <= end:
+                    slot_end = cur + slot_dur
+                    s_str = cur.strftime('%H:%M')
+                    e_str = slot_end.strftime('%H:%M')
+                    if min_hora and cur < min_hora:
+                        cur += interval
+                        continue
+                    conflict = any(
+                        s_str < o_fin and e_str > o_ini
+                        for o_ini, o_fin in ocupados
+                    )
+                    if not conflict:
+                        slots.append({'colaboradora_id': colab_id, 'hora': s_str, 'hora_fin': e_str})
+                    cur += interval
+
+        if colaboradora_id == 'any':
+            seen = set()
+            unique = []
+            for s in sorted(slots, key=lambda x: x['hora']):
+                if s['hora'] not in seen:
+                    seen.add(s['hora'])
+                    unique.append(s)
+            slots = unique
+        else:
+            slots = sorted(slots, key=lambda x: x['hora'])
+
+        return jsonify(slots)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/reservar', methods=['POST'])
+def api_reservar():
+    try:
+        sb = get_sb()
+        data = request.json
+
+        existing = sb.table('clientes_reservas').select('id,bloqueado').eq(
+            'telefono', data['telefono']).limit(1).execute()
+        es_recurrente = bool(existing.data)
+        if existing.data:
+            if existing.data[0].get('bloqueado'):
+                return jsonify({'error': 'No es posible completar la reserva online. Por favor contactá directamente al salón.'}), 403
+            cliente_id = existing.data[0]['id']
+        else:
+            insert_data = {
+                'nombre': data['nombre'],
+                'apellido': data.get('apellido', ''),
+                'telefono': data['telefono'],
+                'email': data.get('email', ''),
+                'idioma': data.get('idioma', 'es'),
+                'acepto_politicas': data.get('acepto_politicas', False),
+                'notas': data.get('notas', ''),
+                'es_recurrente': False,
+            }
+            if data.get('fecha_nacimiento'):
+                insert_data['fecha_nacimiento'] = data['fecha_nacimiento']
+            cliente = sb.table('clientes_reservas').insert(insert_data).execute()
+            cliente_id = cliente.data[0]['id']
+
+        servicio = sb.table('servicios').select(
+            'precio_desde,duracion_min').eq('id', data['servicio_id']).limit(1).execute()
+        if not servicio.data:
+            return jsonify({'error': 'Servicio no encontrado'}), 400
+
+        duracion = servicio.data[0]['duracion_min']
+        hora_ini = data['hora']
+        hora_fin_dt = datetime.strptime(hora_ini, '%H:%M') + timedelta(minutes=duracion)
+        hora_fin = hora_fin_dt.strftime('%H:%M')
+
+        colaboradora_id = data.get('colaboradora_id')
+        if not colaboradora_id or colaboradora_id == 'any':
+            # Asignar primera colaboradora disponible en ese horario
+            colab_slots = sb.table('disponibilidad').select('colaboradora_id').eq(
+                'dia_semana', datetime.strptime(data['fecha'], '%Y-%m-%d').weekday()
+            ).execute()
+            for row in colab_slots.data:
+                cid = row['colaboradora_id']
+                conflicto = sb.table('turnos').select('id').eq(
+                    'colaboradora_id', cid).eq('fecha', data['fecha']).execute()
+                ocupados = [(t['hora_inicio'][:5], t['hora_fin'][:5]) for t in conflicto.data]
+                if not any(hora_ini < o_fin and hora_fin > o_ini for o_ini, o_fin in ocupados):
+                    colaboradora_id = cid
+                    break
+
+        turno = sb.table('turnos').insert({
+            'cliente_id': cliente_id,
+            'colaboradora_id': colaboradora_id,
+            'servicio_id': int(data['servicio_id']),
+            'fecha': data['fecha'],
+            'hora_inicio': hora_ini,
+            'hora_fin': hora_fin,
+            'estado': 'pendiente',
+            'precio': servicio.data[0]['precio_desde'],
+            'notas': data.get('notas', ''),
+            'canal': 'web',
+        }).execute()
+
+        return jsonify({'success': True, 'turno_id': turno.data[0]['id']})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── SISTEMA DE TURNOS — INTERNO ─────────────────────────────────────────────────
+
+@app.route('/agenda')
+def agenda():
+    return render_template('agenda.html')
+
+
+@app.route('/api/agenda')
+def api_agenda():
+    try:
+        sb = get_sb()
+        desde = request.args.get('desde')
+        hasta = request.args.get('hasta')
+        fecha = request.args.get('fecha', date.today().isoformat())
+        query = sb.table('turnos').select(
+            'id,fecha,hora_inicio,hora_fin,estado,precio,notas,canal,'
+            'clientes_reservas(id,nombre,apellido,telefono),'
+            'colaboradoras(nombre),'
+            'servicios(nombre,duracion_min)'
+        )
+        if desde and hasta:
+            query = query.gte('fecha', desde).lte('fecha', hasta)
+        else:
+            query = query.eq('fecha', fecha)
+        data = query.order('fecha').order('hora_inicio').execute()
+        return jsonify(data.data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/cliente/<int:cid>/historial')
+def api_cliente_historial(cid):
+    try:
+        sb = get_sb()
+        cliente = sb.table('clientes_reservas').select('*').eq('id', cid).limit(1).execute()
+        if not cliente.data:
+            return jsonify({'error': 'Cliente no encontrado'}), 404
+        turnos = sb.table('turnos').select(
+            'id,fecha,hora_inicio,hora_fin,estado,precio,notas,'
+            'colaboradoras(nombre),servicios(nombre)'
+        ).eq('cliente_id', cid).order('fecha', desc=True).execute()
+        return jsonify({'cliente': cliente.data[0], 'turnos': turnos.data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/turno/<int:tid>/estado', methods=['POST'])
+def cambiar_estado_turno(tid):
+    try:
+        sb = get_sb()
+        estado = request.json.get('estado')
+        sb.table('turnos').update({'estado': estado}).eq('id', tid).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/walkin', methods=['POST'])
+def api_walkin():
+    try:
+        sb = get_sb()
+        data = request.json
+        nombre    = (data.get('nombre') or 'Walk in').strip() or 'Walk in'
+        telefono  = (data.get('telefono') or '').strip()
+        serv_id   = data.get('servicio_id')
+        colab_id  = data.get('colaboradora_id')
+        hora_ini  = data.get('hora') or datetime.now().strftime('%H:%M')
+        notas     = data.get('notas', '').strip()
+        fecha_hoy = date.today().isoformat()
+
+        if not serv_id or not colab_id:
+            return jsonify({'error': 'Servicio y colaboradora son obligatorios'}), 400
+
+        servicio = sb.table('servicios').select('precio_desde,duracion_min,nombre').eq(
+            'id', serv_id).limit(1).execute()
+        if not servicio.data:
+            return jsonify({'error': 'Servicio no encontrado'}), 400
+        duracion = servicio.data[0]['duracion_min']
+        hora_fin = (datetime.strptime(hora_ini, '%H:%M') + timedelta(minutes=duracion)).strftime('%H:%M')
+
+        # Buscar o crear cliente
+        if telefono:
+            existing = sb.table('clientes_reservas').select('id').eq('telefono', telefono).limit(1).execute()
+        else:
+            existing = type('R', (), {'data': []})()
+
+        if existing.data:
+            cliente_id = existing.data[0]['id']
+        else:
+            cli = sb.table('clientes_reservas').insert({
+                'nombre': nombre,
+                'apellido': '',
+                'telefono': telefono or '',
+                'email': '',
+                'idioma': 'es',
+                'acepto_politicas': False,
+                'notas': '',
+                'es_recurrente': bool(telefono and existing.data),
+            }).execute()
+            cliente_id = cli.data[0]['id']
+
+        turno = sb.table('turnos').insert({
+            'cliente_id':     cliente_id,
+            'colaboradora_id': int(colab_id),
+            'servicio_id':    int(serv_id),
+            'fecha':          fecha_hoy,
+            'hora_inicio':    hora_ini,
+            'hora_fin':       hora_fin,
+            'estado':         'llegó',
+            'precio':         servicio.data[0]['precio_desde'],
+            'notas':          notas,
+            'canal':          'walk-in',
+        }).execute()
+
+        return jsonify({'success': True, 'turno_id': turno.data[0]['id']})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── ADMIN PANEL ────────────────────────────────────────────────────────────────
+
+@app.route('/admin')
+def admin():
+    return render_template('admin.html')
+
+
+# ─ Servicios ─
+@app.route('/admin/api/servicios')
+def admin_api_servicios():
+    sb = get_sb()
+    data = sb.table('servicios').select('*').order('categoria').order('orden').execute()
+    return jsonify(data.data)
+
+
+@app.route('/admin/api/servicio', methods=['POST'])
+def admin_crear_servicio():
+    try:
+        sb = get_sb()
+        d = request.json
+        row = {
+            'nombre':       d['nombre'].strip(),
+            'categoria':    d['categoria'].strip(),
+            'descripcion':  d.get('descripcion', '').strip(),
+            'precio_desde': int(d['precio_desde']),
+            'precio_hasta': int(d['precio_hasta']) if d.get('precio_hasta') else None,
+            'duracion_min': int(d['duracion_min']),
+            'activo':       True,
+            'orden':        int(d.get('orden', 0)),
+        }
+        res = sb.table('servicios').insert(row).execute()
+        return jsonify(res.data[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/servicio/<int:sid>', methods=['PUT'])
+def admin_editar_servicio(sid):
+    try:
+        sb = get_sb()
+        d = request.json
+        row = {
+            'nombre':       d['nombre'].strip(),
+            'categoria':    d['categoria'].strip(),
+            'descripcion':  d.get('descripcion', '').strip(),
+            'precio_desde': int(d['precio_desde']),
+            'precio_hasta': int(d['precio_hasta']) if d.get('precio_hasta') else None,
+            'duracion_min': int(d['duracion_min']),
+            'orden':        int(d.get('orden', 0)),
+        }
+        res = sb.table('servicios').update(row).eq('id', sid).execute()
+        return jsonify(res.data[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/servicio/<int:sid>/toggle', methods=['POST'])
+def admin_toggle_servicio(sid):
+    try:
+        sb = get_sb()
+        cur = sb.table('servicios').select('activo').eq('id', sid).limit(1).execute()
+        nuevo = not cur.data[0]['activo']
+        sb.table('servicios').update({'activo': nuevo}).eq('id', sid).execute()
+        return jsonify({'activo': nuevo})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ─ Colaboradoras ─
+@app.route('/admin/api/colaboradoras-full')
+def admin_api_colaboradoras_full():
+    try:
+        sb = get_sb()
+        colabs = sb.table('colaboradoras').select('*').order('nombre').execute()
+        result = []
+        for c in colabs.data:
+            cs = sb.table('colaboradora_servicios').select('servicio_id').eq(
+                'colaboradora_id', c['id']).execute()
+            c['servicio_ids'] = [r['servicio_id'] for r in cs.data]
+            result.append(c)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/colaboradora', methods=['POST'])
+def admin_crear_colaboradora():
+    try:
+        sb = get_sb()
+        d = request.json
+        row = {
+            'nombre':   d['nombre'].strip().upper(),
+            'rol':      d.get('rol', '').strip(),
+            'comision': float(d.get('comision', 0.4)),
+            'activa':   True,
+        }
+        res = sb.table('colaboradoras').insert(row).execute()
+        return jsonify(res.data[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/colaboradora/<int:cid>', methods=['PUT'])
+def admin_editar_colaboradora(cid):
+    try:
+        sb = get_sb()
+        d = request.json
+        row = {
+            'nombre':   d['nombre'].strip().upper(),
+            'rol':      d.get('rol', '').strip(),
+            'comision': float(d.get('comision', 0.4)),
+        }
+        res = sb.table('colaboradoras').update(row).eq('id', cid).execute()
+        return jsonify(res.data[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/colaboradora/<int:cid>/toggle', methods=['POST'])
+def admin_toggle_colaboradora(cid):
+    try:
+        sb = get_sb()
+        cur = sb.table('colaboradoras').select('activa').eq('id', cid).limit(1).execute()
+        nuevo = not cur.data[0]['activa']
+        sb.table('colaboradoras').update({'activa': nuevo}).eq('id', cid).execute()
+        return jsonify({'activa': nuevo})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/colaboradora/<int:cid>/servicios', methods=['PUT'])
+def admin_servicios_colaboradora(cid):
+    try:
+        sb = get_sb()
+        servicio_ids = request.json.get('servicio_ids', [])
+        sb.table('colaboradora_servicios').delete().eq('colaboradora_id', cid).execute()
+        if servicio_ids:
+            rows = [{'colaboradora_id': cid, 'servicio_id': int(sid)} for sid in servicio_ids]
+            sb.table('colaboradora_servicios').insert(rows).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ─ Disponibilidad ─
+@app.route('/admin/api/disponibilidad/<int:cid>')
+def admin_get_disponibilidad(cid):
+    try:
+        sb = get_sb()
+        data = sb.table('disponibilidad').select('*').eq(
+            'colaboradora_id', cid).order('dia_semana').execute()
+        sched = {}
+        for row in data.data:
+            sched[str(row['dia_semana'])] = {
+                'hora_inicio': str(row['hora_inicio'])[:5],
+                'hora_fin':    str(row['hora_fin'])[:5],
+            }
+        return jsonify(sched)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/disponibilidad/<int:cid>', methods=['PUT'])
+def admin_set_disponibilidad(cid):
+    try:
+        sb = get_sb()
+        dias = request.json
+        sb.table('disponibilidad').delete().eq('colaboradora_id', cid).execute()
+        rows = []
+        for dia_str, horario in dias.items():
+            if horario:
+                rows.append({
+                    'colaboradora_id': cid,
+                    'dia_semana':      int(dia_str),
+                    'hora_inicio':     horario['hora_inicio'],
+                    'hora_fin':        horario['hora_fin'],
+                })
+        if rows:
+            sb.table('disponibilidad').insert(rows).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── TURNOS — ESTADÍSTICAS ─────────────────────────────────────────────────────
+@app.route('/api/turnos/reportes')
+def api_turnos_reportes():
+    try:
+        sb    = get_sb()
+        desde = request.args.get('desde', date.today().strftime('%Y-%m-01'))
+        hasta = request.args.get('hasta', date.today().isoformat())
+
+        turnos = sb.table('turnos').select(
+            'id,fecha,hora_inicio,estado,precio,canal,'
+            'clientes_reservas(id),'
+            'colaboradoras(nombre),'
+            'servicios(nombre)'
+        ).gte('fecha', desde).lte('fecha', hasta).execute().data
+
+        por_estado   = defaultdict(int)
+        por_servicio = defaultdict(int)
+        por_colab    = defaultdict(int)
+        por_hora     = defaultdict(int)
+        cli_ids      = []
+        facturado    = 0
+
+        for t in turnos:
+            estado = t.get('estado') or 'pendiente'
+            por_estado[estado] += 1
+            if t.get('servicios') and t['servicios'].get('nombre'):
+                por_servicio[t['servicios']['nombre']] += 1
+            if t.get('colaboradoras') and t['colaboradoras'].get('nombre'):
+                por_colab[t['colaboradoras']['nombre']] += 1
+            hora = (t.get('hora_inicio') or '')[:2]
+            if hora.isdigit():
+                por_hora[hora] += 1
+            if t.get('clientes_reservas') and t['clientes_reservas'].get('id'):
+                cli_ids.append(t['clientes_reservas']['id'])
+            if estado == 'finalizado':
+                facturado += (t.get('precio') or 0)
+
+        unique_clis = list(set(cli_ids))
+        nuevos_count = 0
+        recurrentes_count = 0
+        if unique_clis:
+            prev_rows = sb.table('turnos').select('cliente_id').lt('fecha', desde).execute().data
+            previo_ids = {r['cliente_id'] for r in prev_rows if r.get('cliente_id')}
+            recurrentes_count = sum(1 for cid in unique_clis if cid in previo_ids)
+            nuevos_count = len(unique_clis) - recurrentes_count
+
+        return jsonify({
+            'total':        len(turnos),
+            'facturado':    facturado,
+            'por_estado':   dict(sorted(por_estado.items(), key=lambda x: x[1], reverse=True)),
+            'por_servicio': dict(sorted(por_servicio.items(), key=lambda x: x[1], reverse=True)[:10]),
+            'por_colab':    dict(sorted(por_colab.items(), key=lambda x: x[1], reverse=True)),
+            'por_hora':     dict(sorted(por_hora.items())),
+            'clientes': {
+                'total_unicos': len(unique_clis),
+                'nuevos':       nuevos_count,
+                'recurrentes':  recurrentes_count,
+            },
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── LISTA DE ESPERA ─────────────────────────────────────────────────────────────
+@app.route('/api/lista-espera')
+def api_lista_espera():
+    try:
+        sb   = get_sb()
+        data = sb.table('lista_espera').select(
+            '*,servicios(nombre),colaboradoras(nombre)'
+        ).eq('estado', 'activo').order('created_at').execute()
+        return jsonify(data.data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/lista-espera', methods=['POST'])
+def api_agregar_espera():
+    try:
+        sb       = get_sb()
+        d        = request.json
+        nombre   = (d.get('nombre') or '').strip()
+        telefono = (d.get('telefono') or '').strip()
+        if not nombre and not telefono:
+            return jsonify({'error': 'Nombre o teléfono son obligatorios'}), 400
+
+        cliente_id = None
+        if telefono:
+            existing = sb.table('clientes_reservas').select('id').eq('telefono', telefono).limit(1).execute()
+            if existing.data:
+                cliente_id = existing.data[0]['id']
+
+        row = {
+            'nombre':          nombre or None,
+            'telefono':        telefono or None,
+            'cliente_id':      cliente_id,
+            'servicio_id':     int(d['servicio_id']) if d.get('servicio_id') else None,
+            'colaboradora_id': int(d['colaboradora_id']) if d.get('colaboradora_id') else None,
+            'fecha_preferida': d.get('fecha_preferida') or None,
+            'hora_preferida':  d.get('hora_preferida') or None,
+            'notas':           d.get('notas', '').strip() or None,
+            'estado':          'activo',
+        }
+        res = sb.table('lista_espera').insert(row).execute()
+        return jsonify({'success': True, 'id': res.data[0]['id']})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/lista-espera/<int:eid>/estado', methods=['POST'])
+def api_estado_espera(eid):
+    try:
+        sb    = get_sb()
+        estado = request.json.get('estado')
+        sb.table('lista_espera').update({'estado': estado}).eq('id', eid).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── CLIENTE — PERFIL (alergias / bloqueo) ─────────────────────────────────────
+@app.route('/api/cliente/<int:cid>/perfil', methods=['POST'])
+def api_actualizar_perfil_cliente(cid):
+    try:
+        sb  = get_sb()
+        d   = request.json
+        upd = {}
+        if 'alergias' in d:
+            upd['alergias'] = d['alergias'].strip() or None
+        if 'bloqueado' in d:
+            upd['bloqueado'] = bool(d['bloqueado'])
+        if 'motivo_bloqueo' in d:
+            upd['motivo_bloqueo'] = d['motivo_bloqueo'].strip() or None
+        if upd:
+            sb.table('clientes_reservas').update(upd).eq('id', cid).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── ADMIN — CLIENTES ──────────────────────────────────────────────────────────
+@app.route('/admin/api/clientes')
+def admin_api_clientes():
+    try:
+        sb       = get_sb()
+        clientes = sb.table('clientes_reservas').select(
+            'id,nombre,apellido,telefono,bloqueado,motivo_bloqueo,alergias,created_at'
+        ).order('nombre').execute().data
+
+        noshows  = sb.table('turnos').select('cliente_id').eq('estado', 'no_show').execute().data
+        ns_count = defaultdict(int)
+        for row in noshows:
+            if row.get('cliente_id'):
+                ns_count[row['cliente_id']] += 1
+        for c in clientes:
+            c['no_shows'] = ns_count.get(c['id'], 0)
+
+        return jsonify(clientes)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── SALÓN — PÁGINA PÚBLICA ────────────────────────────────────────────────────
+@app.route('/salon')
+def salon():
+    servicios, colabs = [], []
+    try:
+        sb = get_sb()
+        servicios = sb.table('servicios').select(
+            'nombre,categoria,precio_desde,precio_hasta,duracion_min,descripcion'
+        ).eq('activo', True).order('categoria').order('orden').execute().data
+        colabs = sb.table('colaboradoras').select(
+            'nombre,rol,foto_url'
+        ).eq('activa', True).order('nombre').execute().data
+    except Exception:
+        pass
+    return render_template('salon.html', servicios=servicios, colabs=colabs)
 
 
 if __name__ == '__main__':
