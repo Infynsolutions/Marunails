@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}Retención — MaruNails{% endblock %}
+{% block content %}
+
+<style>
+.rt-main { max-width: 1000px; }
+
+/* ─── SECCIÓN ─── */
+.rt-section { margin-bottom: 34px; }
+.rt-section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px; font-weight: 500;
+    color: var(--brown-dark); margin-bottom: 14px;
+}
+.rt-section-sub {
+    font-size: 12px; color: var(--muted);
+    margin-top: -10px; margin-bottom: 14px;
+}
+
+/* ─── TABLA GENERAL ─── */
+.rt-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(62,36,24,0.07);
+}
+table.rt {
+    width: 100%; border-collapse: collapse;
+    background: var(--card-bg); font-size: 13px;
+}
+table.rt thead th {
+    background: var(--brown);
+    color: rgba(245,237,230,0.78);
+    font-size: 9px; font-weight: 500; letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 10px 16px;
+    text-align: right; white-space: nowrap;
+}
+table.rt thead th:first-child { text-align: left; }
+table.rt tbody tr { border-bottom: 1px solid var(--sand); transition: background 0.15s; }
+table.rt tbody tr:last-child { border-bottom: none; }
+table.rt tbody tr:hover { background: var(--brown-pale); }
+table.rt td { padding: 12px 16px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+table.rt td:first-child { text-align: left; font-weight: 500; color: var(--brown-dark); }
+table.rt td.num-strong { font-weight: 600; color: var(--brown-dark); }
+table.rt td.tasa-high { color: #2a6635; font-weight: 600; }
+table.rt td.tasa-mid  { color: #9a7b2e; font-weight: 600; }
+table.rt td.tasa-low  { color: var(--red); font-weight: 600; }
+
+/* ─── BARRA DE RETENCIÓN ─── */
+.rt-bar-wrap { display: flex; align-items: center; gap: 10px; }
+.rt-bar-track {
+    flex: 1; height: 8px; background: var(--brown-pale);
+    border-radius: 20px; overflow: hidden; min-width: 80px;
+}
+.rt-bar-fill { height: 100%; border-radius: 20px; background: var(--brown); }
+.rt-bar-pct { font-size: 12px; font-weight: 600; min-width: 38px; text-align: right; }
+
+/* ─── TABLA POR VOLVER ─── */
+table.rt td.nombre-cell { text-align: left; }
+.pv-nombre {
+    font-weight: 500; color: var(--brown-dark);
+    display: inline-flex; align-items: center; gap: 8px;
+    cursor: pointer; text-decoration: none;
+}
+.pv-nombre:hover { color: var(--brown-mid); }
+.pv-dias {
+    display: inline-block; font-size: 10px; padding: 2px 8px;
+    border-radius: 20px; font-weight: 600; letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.pv-dias.hoy     { background: #fdf0e6; color: #c47b1a; }
+.pv-dias.pronto  { background: #eef4ee; color: #2a6635; }
+.pv-dias.pasado  { background: var(--red-light); color: var(--red); }
+
+.rt-empty { text-align: center; padding: 40px; color: var(--muted); }
+</style>
+
+<div class="page-header">
+    <div class="page-header-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+        </svg>
+    </div>
+    <div>
+        <h1>Retención</h1>
+        <div class="page-header-sub">Tendencia mensual · Clientes por volver</div>
+    </div>
+</div>
+
+<div class="rt-main">
+
+<!-- ─── SECCIÓN 1: POR VOLVER ─── -->
+<div class="rt-section">
+    <div class="rt-section-title">A punto de volver</div>
+    <div class="rt-section-sub">Clientes cuya próxima visita estimada cae en los próximos 21 días (según su frecuencia habitual)</div>
+
+    {% if por_volver %}
+    <div class="rt-table-wrap">
+        <table class="rt">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Visitas</th>
+                    <th>Última visita</th>
+                    <th>Frecuencia</th>
+                    <th>Próxima estimada</th>
+                    <th>Staff habitual</th>
+                    <th>Ticket</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in por_volver %}
+                <tr>
+                    <td class="nombre-cell">
+                        <a href="{{ url_for('cliente_detalle', c=c.key) }}" class="pv-nombre">
+                            {{ c.nombre }}
+                        </a>
+                        {% if c.dias_proxima < 0 %}
+                            <span class="pv-dias pasado">hace {{ c.dias_proxima | abs }}d</span>
+                        {% elif c.dias_proxima == 0 %}
+                            <span class="pv-dias hoy">hoy</span>
+                        {% elif c.dias_proxima <= 7 %}
+                            <span class="pv-dias hoy">en {{ c.dias_proxima }}d</span>
+                        {% else %}
+                            <span class="pv-dias pronto">en {{ c.dias_proxima }}d</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ c.visitas }}</td>
+                    <td>{{ c.ultima }}</td>
+                    <td>cada ~{{ c.frecuencia }}d</td>
+                    <td class="num-strong">{{ c.proxima }}</td>
+                    <td>{{ c.staff_fav }}</td>
+                    <td>${{ '{:,.0f}'.format(c.ticket) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card rt-empty">No hay clientes con visita estimada en los próximos 21 días.</div>
+    {% endif %}
+</div>
+
+<!-- ─── SECCIÓN 2: CLIENTES PERDIDAS ─── -->
+<div class="rt-section">
+    <div class="rt-section-title">Clientes perdidas</div>
+    <div class="rt-section-sub">2+ visitas, sin volver hace más de {{ DIAS_PERDIDA }} días</div>
+
+    {% if perdidas %}
+    <div class="rt-table-wrap">
+        <table class="rt">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Visitas</th>
+                    <th>Última visita</th>
+                    <th>Días sin volver</th>
+                    <th>Staff habitual</th>
+                    <th>Total gastado</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in perdidas %}
+                <tr>
+                    <td><a href="{{ url_for('cliente_detalle', c=c.key) }}" class="pv-nombre">{{ c.nombre }}</a></td>
+                    <td>{{ c.visitas }}</td>
+                    <td>{{ c.ultima }}</td>
+                    <td><span class="pv-dias pasado">{{ c.dias_ultima }}d</span></td>
+                    <td>{{ c.staff_fav }}</td>
+                    <td>${{ '{:,.0f}'.format(c.total) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card rt-empty">No hay clientes perdidas registradas.</div>
+    {% endif %}
+</div>
+
+<!-- ─── SECCIÓN 3: CLIENTES RECUPERADAS ─── -->
+<div class="rt-section">
+    <div class="rt-section-title">Clientes recuperadas</div>
+    <div class="rt-section-sub">Tuvieron un gap de más de {{ DIAS_PERDIDA }} días pero volvieron</div>
+
+    {% if recuperadas %}
+    <div class="rt-table-wrap">
+        <table class="rt">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Visitas</th>
+                    <th>Última visita</th>
+                    <th>Frecuencia</th>
+                    <th>Staff habitual</th>
+                    <th>Total gastado</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in recuperadas %}
+                <tr>
+                    <td><a href="{{ url_for('cliente_detalle', c=c.key) }}" class="pv-nombre">{{ c.nombre }}</a></td>
+                    <td>{{ c.visitas }}</td>
+                    <td>{{ c.ultima }}</td>
+                    <td>{% if c.frecuencia %}cada ~{{ c.frecuencia }}d{% else %}—{% endif %}</td>
+                    <td>{{ c.staff_fav }}</td>
+                    <td>${{ '{:,.0f}'.format(c.total) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card rt-empty">No hay clientes recuperadas registradas.</div>
+    {% endif %}
+</div>
+
+<!-- ─── SECCIÓN 4: TENDENCIA MENSUAL ─── -->
+<div class="rt-section">
+    <div class="rt-section-title">Retención por mes</div>
+    <div class="rt-section-sub">Clientas únicas que visitaron ese mes — cuántas eran nuevas vs ya conocidas</div>
+
+    {% if por_mes %}
+    <div class="rt-table-wrap">
+        <table class="rt">
+            <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Total clientas</th>
+                    <th>Nuevas</th>
+                    <th>Recurrentes</th>
+                    <th>Tasa retención</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for m in por_mes %}
+                {% set tasa_class = 'tasa-high' if m.tasa >= 60 else ('tasa-mid' if m.tasa >= 40 else 'tasa-low') %}
+                <tr>
+                    <td>{{ m.mes }}</td>
+                    <td class="num-strong">{{ m.total }}</td>
+                    <td style="color: #2a6635; font-weight:500;">{{ m.nuevas }}</td>
+                    <td style="color: var(--brown-mid); font-weight:500;">{{ m.recurrentes }}</td>
+                    <td>
+                        <div class="rt-bar-wrap">
+                            <div class="rt-bar-track">
+                                <div class="rt-bar-fill" style="width: {{ m.tasa }}%;"></div>
+                            </div>
+                            <span class="rt-bar-pct {{ tasa_class }}">{{ m.tasa }}%</span>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card rt-empty">No hay datos suficientes para calcular retención.</div>
+    {% endif %}
+</div>
+
+</div>
+
+{% endblock %}

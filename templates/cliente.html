@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+{% block title %}{{ cli.nombre }} — MaruNails{% endblock %}
+{% block content %}
+
+<style>
+.cd-main { max-width: 960px; }
+
+.cd-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--muted); font-size: 12px; text-decoration: none;
+    margin-bottom: 16px; transition: color 0.15s;
+}
+.cd-back:hover { color: var(--brown-mid); }
+
+.cd-head {
+    display: flex; align-items: center; gap: 18px;
+    margin-bottom: 26px; flex-wrap: wrap;
+}
+.cd-avatar {
+    width: 58px; height: 58px; border-radius: 50%;
+    background: var(--brown); color: #FAF6F0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600;
+    flex-shrink: 0;
+}
+.cd-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 30px; font-weight: 600; color: var(--brown-dark); line-height: 1.1;
+}
+.cd-badges { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.cd-badge {
+    display: inline-block; font-size: 8px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 20px; font-weight: 600;
+}
+.cd-badge.nuevo      { background: #eef4ee; color: #2a6635; }
+.cd-badge.recurrente { background: var(--brown-pale); color: var(--brown-mid); }
+.cd-badge.vip        { background: #f4ecdd; color: #9a7b2e; }
+.cd-badge.riesgo     { background: var(--red-light); color: var(--red); }
+
+/* ─── MÉTRICAS ─── */
+.cd-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 14px; margin-bottom: 24px;
+}
+@media (max-width: 700px) { .cd-metrics { grid-template-columns: 1fr 1fr; } }
+.cd-metric {
+    background: var(--card-bg); border-radius: var(--radius-lg);
+    padding: 18px 20px; box-shadow: var(--shadow);
+    border: 1px solid rgba(62,36,24,0.07);
+}
+.cd-metric-label {
+    font-size: 9px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 7px; font-weight: 500;
+}
+.cd-metric-value {
+    font-family: 'Cormorant Garamond', serif; font-size: 24px;
+    font-weight: 600; color: var(--brown-dark); line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.cd-metric-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+/* ─── DOS COLUMNAS ─── */
+.cd-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+@media (max-width: 650px) { .cd-cols { grid-template-columns: 1fr; } }
+
+.cd-card {
+    background: var(--card-bg); border-radius: var(--radius-lg);
+    padding: 22px 24px; box-shadow: var(--shadow);
+    border: 1px solid rgba(62,36,24,0.07);
+}
+.cd-card-title {
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); font-weight: 500; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.cd-edit-btn {
+    font-size: 10px; color: var(--brown-mid); cursor: pointer;
+    text-decoration: underline; border: none; background: none; padding: 0;
+    font-family: 'Inter', sans-serif;
+}
+.cd-edit-btn:hover { color: var(--brown-dark); }
+
+.cd-info-row {
+    display: flex; justify-content: space-between;
+    align-items: baseline; gap: 14px;
+    padding: 8px 0; border-bottom: 1px solid var(--sand);
+}
+.cd-info-row:last-child { border-bottom: none; }
+.cd-info-label { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.cd-info-val   { font-size: 13px; color: var(--brown-dark); font-weight: 500; text-align: right; }
+.cd-info-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+
+/* ─── FORM DE EDICIÓN ─── */
+.cd-edit-form { display: none; }
+.cd-edit-form.open { display: block; }
+.cd-form-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;
+}
+@media (max-width: 500px) { .cd-form-grid { grid-template-columns: 1fr; } }
+.cd-form-group { display: flex; flex-direction: column; gap: 4px; }
+.cd-form-group label { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
+.cd-form-group input, .cd-form-group select, .cd-form-group textarea {
+    padding: 8px 10px; border: 1px solid var(--sand);
+    border-radius: var(--radius-sm); font-size: 13px;
+    font-family: 'Inter', sans-serif; color: var(--text);
+    background: var(--bg);
+}
+.cd-form-group textarea { resize: vertical; min-height: 60px; }
+.cd-form-group.full { grid-column: 1 / -1; }
+.cd-form-actions { display: flex; gap: 8px; margin-top: 14px; }
+.cd-btn-save {
+    padding: 9px 18px; background: var(--brown); color: #FAF6F0;
+    border: none; border-radius: var(--radius); font-size: 12px;
+    font-family: 'Inter', sans-serif; cursor: pointer; font-weight: 500;
+}
+.cd-btn-cancel {
+    padding: 9px 18px; background: transparent; color: var(--muted);
+    border: 1px solid var(--sand); border-radius: var(--radius); font-size: 12px;
+    font-family: 'Inter', sans-serif; cursor: pointer;
+}
+
+/* ─── TEXTAREA NOTAS ─── */
+.cd-textarea {
+    width: 100%; margin-top: 10px; padding: 10px 12px;
+    border: 1px solid var(--sand); border-radius: var(--radius-sm);
+    font-size: 13px; font-family: 'Inter', sans-serif; color: var(--text);
+    background: var(--bg); resize: vertical; min-height: 70px;
+    box-sizing: border-box;
+}
+
+/* ─── HISTORIAL ─── */
+.cd-section-title {
+    font-family: 'Cormorant Garamond', serif; font-size: 19px;
+    color: var(--brown-dark); margin-bottom: 12px; font-weight: 500;
+}
+.cd-table-wrap {
+    overflow-x: auto; border-radius: var(--radius-lg);
+    box-shadow: var(--shadow); border: 1px solid rgba(62,36,24,0.07);
+    margin-bottom: 30px;
+}
+table.cd {
+    width: 100%; border-collapse: collapse;
+    background: var(--card-bg); font-size: 13px;
+}
+table.cd thead th {
+    background: var(--brown); color: rgba(245,237,230,0.78);
+    font-size: 9px; font-weight: 500; letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 10px 16px;
+    text-align: right; white-space: nowrap;
+}
+table.cd thead th:first-child { text-align: left; }
+table.cd tbody tr { border-bottom: 1px solid var(--sand); }
+table.cd tbody tr:last-child { border-bottom: none; }
+table.cd tbody tr:hover { background: var(--brown-pale); }
+table.cd td { padding: 11px 16px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+table.cd td:first-child { text-align: left; color: var(--muted); font-size: 12px; white-space: nowrap; }
+table.cd td.serv { text-align: left; color: var(--brown-dark); font-weight: 500; }
+table.cd td.num-strong { font-weight: 600; color: var(--brown-dark); }
+.cd-color-chip {
+    display: inline-block; font-size: 10px; background: var(--brown-pale);
+    color: var(--brown-mid); padding: 2px 7px; border-radius: 10px;
+    margin-top: 2px; font-style: italic;
+}
+</style>
+
+<div class="cd-main">
+
+<a href="{{ url_for('clientes') }}" class="cd-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Volver a clientes
+</a>
+
+<div class="cd-head">
+    <div class="cd-avatar">{{ cli.nombre[0] | upper }}</div>
+    <div>
+        <div class="cd-name">{{ cli.nombre }}</div>
+        <div class="cd-badges">
+            <span class="cd-badge {{ cli.categoria }}">
+                {% if cli.categoria == 'vip' %}VIP{% elif cli.categoria == 'nuevo' %}Nuevo{% else %}Recurrente{% endif %}
+            </span>
+            {% if cli.en_riesgo %}<span class="cd-badge riesgo">En riesgo</span>{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ─── MÉTRICAS ─── -->
+<div class="cd-metrics">
+    <div class="cd-metric">
+        <div class="cd-metric-label">Visitas</div>
+        <div class="cd-metric-value">{{ cli.visitas }}</div>
+        <div class="cd-metric-sub">servicios totales</div>
+    </div>
+    <div class="cd-metric">
+        <div class="cd-metric-label">Lifetime Value</div>
+        <div class="cd-metric-value">${{ '{:,.0f}'.format(cli.total) }}</div>
+        <div class="cd-metric-sub">MXN acumulado</div>
+    </div>
+    <div class="cd-metric">
+        <div class="cd-metric-label">Ticket promedio</div>
+        <div class="cd-metric-value">${{ '{:,.0f}'.format(cli.ticket) }}</div>
+        <div class="cd-metric-sub">por visita</div>
+    </div>
+    <div class="cd-metric">
+        <div class="cd-metric-label">Propinas</div>
+        <div class="cd-metric-value">${{ '{:,.0f}'.format(cli.propinas) }}</div>
+        <div class="cd-metric-sub">dejadas en total</div>
+    </div>
+</div>
+
+<!-- ─── DOS COLUMNAS ─── -->
+<div class="cd-cols">
+
+    <!-- Datos de visitas -->
+    <div class="cd-card">
+        <div class="cd-card-title">Comportamiento</div>
+        <div class="cd-info-row">
+            <span class="cd-info-label">Primera visita</span>
+            <span class="cd-info-val">{{ cli.primera }}</span>
+        </div>
+        <div class="cd-info-row">
+            <span class="cd-info-label">Última visita</span>
+            <span class="cd-info-val">{{ cli.ultima }}{% if cli.dias_ultima is not none %} · hace {{ cli.dias_ultima }}d{% endif %}</span>
+        </div>
+        <div class="cd-info-row">
+            <span class="cd-info-label">Frecuencia</span>
+            <span class="cd-info-val">{% if cli.frecuencia is not none %}cada ~{{ cli.frecuencia }} días{% else %}—{% endif %}</span>
+        </div>
+        <div class="cd-info-row">
+            <span class="cd-info-label">Servicio favorito</span>
+            <span class="cd-info-val">{{ cli.servicio_fav }}</span>
+        </div>
+        <div class="cd-info-row">
+            <span class="cd-info-label">Colaboradora habitual</span>
+            <span class="cd-info-val">{{ cli.staff_fav }}</span>
+        </div>
+    </div>
+
+    <!-- Datos de contacto (editables) -->
+    <div class="cd-card">
+        <div class="cd-card-title">
+            Datos de contacto
+            <button class="cd-edit-btn" onclick="toggleEdit('contacto')">Editar</button>
+        </div>
+
+        <!-- Vista -->
+        <div id="contacto-view">
+            <div class="cd-info-row">
+                <span class="cd-info-label">Teléfono</span>
+                <span class="cd-info-val">{{ info.telefono if info.telefono else '<span class="cd-info-empty">—</span>' }}</span>
+            </div>
+            <div class="cd-info-row">
+                <span class="cd-info-label">Cumpleaños</span>
+                <span class="cd-info-val">{{ info.cumpleanos if info.cumpleanos else '<span class="cd-info-empty">—</span>' }}</span>
+            </div>
+            <div class="cd-info-row">
+                <span class="cd-info-label">Idioma</span>
+                <span class="cd-info-val">{{ info.idioma if info.idioma else '<span class="cd-info-empty">—</span>' }}</span>
+            </div>
+            <div class="cd-info-row">
+                <span class="cd-info-label">Canal de adquisición</span>
+                <span class="cd-info-val">{{ info.canal if info.canal else '<span class="cd-info-empty">—</span>' }}</span>
+            </div>
+        </div>
+
+        <!-- Formulario de edición -->
+        <form id="contacto-form" class="cd-edit-form"
+              method="POST" action="{{ url_for('editar_info_cliente', key=cli.key) }}">
+            <div class="cd-form-grid">
+                <div class="cd-form-group">
+                    <label>Teléfono</label>
+                    <input type="tel" name="telefono" value="{{ info.telefono or '' }}" placeholder="+52 ...">
+                </div>
+                <div class="cd-form-group">
+                    <label>Cumpleaños</label>
+                    <input type="date" name="cumpleanos" value="{{ info.cumpleanos or '' }}">
+                </div>
+                <div class="cd-form-group">
+                    <label>Idioma</label>
+                    <select name="idioma">
+                        <option value="">—</option>
+                        {% for lang in ['Español', 'Inglés', 'Español e inglés', 'Otro'] %}
+                        <option value="{{ lang }}" {% if info.idioma == lang %}selected{% endif %}>{{ lang }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="cd-form-group">
+                    <label>Canal de adquisición</label>
+                    <select name="canal">
+                        <option value="">—</option>
+                        {% for canal in ['Instagram', 'Fresha', 'Referido', 'Walk in', 'Google', 'WhatsApp', 'Otro'] %}
+                        <option value="{{ canal }}" {% if info.canal == canal %}selected{% endif %}>{{ canal }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Preserve other fields -->
+                <input type="hidden" name="observaciones" value="{{ info.observaciones or '' }}">
+                <input type="hidden" name="preferencias" value="{{ info.preferencias or '' }}">
+            </div>
+            <div class="cd-form-actions">
+                <button type="submit" class="cd-btn-save">Guardar</button>
+                <button type="button" class="cd-btn-cancel" onclick="toggleEdit('contacto')">Cancelar</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<!-- ─── PREFERENCIAS Y OBSERVACIONES ─── -->
+<div class="cd-cols">
+
+    <div class="cd-card">
+        <div class="cd-card-title">
+            Preferencias
+            <button class="cd-edit-btn" onclick="toggleEdit('pref')">Editar</button>
+        </div>
+        <div id="pref-view">
+            {% if info.preferencias %}
+            <p style="font-size:13px; color:var(--text); margin:0; white-space:pre-wrap;">{{ info.preferencias }}</p>
+            {% else %}
+            <p class="cd-info-empty">Sin preferencias registradas.</p>
+            {% endif %}
+        </div>
+        <form id="pref-form" class="cd-edit-form"
+              method="POST" action="{{ url_for('editar_info_cliente', key=cli.key) }}">
+            <input type="hidden" name="telefono"   value="{{ info.telefono or '' }}">
+            <input type="hidden" name="cumpleanos" value="{{ info.cumpleanos or '' }}">
+            <input type="hidden" name="idioma"     value="{{ info.idioma or '' }}">
+            <input type="hidden" name="canal"      value="{{ info.canal or '' }}">
+            <input type="hidden" name="observaciones" value="{{ info.observaciones or '' }}">
+            <textarea name="preferencias" class="cd-textarea" placeholder="ej: prefiere lima, sin brillo, uñas cortas...">{{ info.preferencias or '' }}</textarea>
+            <div class="cd-form-actions">
+                <button type="submit" class="cd-btn-save">Guardar</button>
+                <button type="button" class="cd-btn-cancel" onclick="toggleEdit('pref')">Cancelar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="cd-card">
+        <div class="cd-card-title">
+            Observaciones
+            <button class="cd-edit-btn" onclick="toggleEdit('obs')">Editar</button>
+        </div>
+        <div id="obs-view">
+            {% if info.observaciones %}
+            <p style="font-size:13px; color:var(--text); margin:0; white-space:pre-wrap;">{{ info.observaciones }}</p>
+            {% else %}
+            <p class="cd-info-empty">Sin observaciones registradas.</p>
+            {% endif %}
+        </div>
+        <form id="obs-form" class="cd-edit-form"
+              method="POST" action="{{ url_for('editar_info_cliente', key=cli.key) }}">
+            <input type="hidden" name="telefono"   value="{{ info.telefono or '' }}">
+            <input type="hidden" name="cumpleanos" value="{{ info.cumpleanos or '' }}">
+            <input type="hidden" name="idioma"     value="{{ info.idioma or '' }}">
+            <input type="hidden" name="canal"      value="{{ info.canal or '' }}">
+            <input type="hidden" name="preferencias" value="{{ info.preferencias or '' }}">
+            <textarea name="observaciones" class="cd-textarea" placeholder="ej: sensible en mano izquierda, alergia a esmalte X...">{{ info.observaciones or '' }}</textarea>
+            <div class="cd-form-actions">
+                <button type="submit" class="cd-btn-save">Guardar</button>
+                <button type="button" class="cd-btn-cancel" onclick="toggleEdit('obs')">Cancelar</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<!-- ─── HISTORIAL ─── -->
+<div class="cd-section-title">Historial de visitas</div>
+<div class="cd-table-wrap">
+    <table class="cd">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Servicio</th>
+                <th>Color</th>
+                <th>Colaboradora</th>
+                <th>Total</th>
+                <th>Propina</th>
+                <th>Pago</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in historial %}
+            <tr>
+                <td>{{ c.fecha }}</td>
+                <td class="serv">{{ c.servicio }}</td>
+                <td style="text-align:left;">
+                    {% if c.color %}<span class="cd-color-chip">{{ c.color }}</span>{% else %}—{% endif %}
+                </td>
+                <td style="text-align:right;">{{ c.staff }}</td>
+                <td class="num-strong">${{ '{:,.0f}'.format(c.total_mxn or 0) }}</td>
+                <td>${{ '{:,.0f}'.format(c.propina_mxn or 0) }}</td>
+                <td>{{ c.medio_pago }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+</div>
+
+<script>
+function toggleEdit(section) {
+    var view = document.getElementById(section + '-view');
+    var form = document.getElementById(section + '-form');
+    var isOpen = form.classList.contains('open');
+    if (isOpen) {
+        form.classList.remove('open');
+        if (view) view.style.display = '';
+    } else {
+        form.classList.add('open');
+        if (view) view.style.display = 'none';
+    }
+}
+</script>
+
+{% endblock %}
