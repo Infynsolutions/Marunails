@@ -545,7 +545,7 @@ def logout():
 
 
 # ── DASHBOARD ──────────────────────────────────────────────────────────────────
-@app.route('/')
+@app.route('/sistema')
 @require_admin
 def index():
     mes_actual = date.today().strftime('%Y-%m')
@@ -1884,6 +1884,7 @@ def admin_api_clientes():
 
 
 # ── SALÓN — PÁGINA PÚBLICA ────────────────────────────────────────────────────
+@app.route('/')
 @app.route('/salon')
 def salon():
     servicios, colabs = [], []
