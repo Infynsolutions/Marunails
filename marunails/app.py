@@ -862,47 +862,63 @@ def gasto():
 @require_admin
 def cashflow():
     meses = []
+    dias  = []
     try:
         sb = get_sb()
-        cortes_all = fetch_all(sb, 'cortes', 'mes,total_mxn,medio_pago')
-        gastos_all = fetch_all(sb, 'gastos', 'mes,importe_mxn,medio_pago')
+        cortes_all = fetch_all(sb, 'cortes', 'fecha,mes,total_mxn,medio_pago')
+        gastos_all = fetch_all(sb, 'gastos', 'fecha,mes,importe_mxn,medio_pago')
 
-        data = defaultdict(lambda: {
-            'ing_caja': 0, 'ing_banco': 0, 'ing_total': 0,
-            'gasto_caja': 0, 'gasto_banco': 0,
-            'saldo_caja': 0, 'saldo_banco': 0,
-        })
+        def _empty():
+            return {'ing_caja': 0, 'ing_banco': 0, 'ing_total': 0,
+                    'gasto_caja': 0, 'gasto_banco': 0,
+                    'saldo_caja': 0, 'saldo_banco': 0}
+
+        data_mes = defaultdict(_empty)
+        data_dia = defaultdict(_empty)
 
         for c in cortes_all:
-            mes = c.get('mes') or ''
-            mxn = float(c.get('total_mxn') or 0)
+            mes   = c.get('mes') or ''
+            fecha = c.get('fecha') or ''
+            mxn   = float(c.get('total_mxn') or 0)
             medio = c.get('medio_pago', '')
-            data[mes]['ing_total'] += mxn
-            if medio == 'Efectivo':
-                data[mes]['ing_caja'] += mxn
-            else:
-                data[mes]['ing_banco'] += mxn
+            for d in (data_mes[mes], data_dia[fecha]):
+                d['ing_total'] += mxn
+                if medio == 'Efectivo':
+                    d['ing_caja'] += mxn
+                else:
+                    d['ing_banco'] += mxn
 
         for g in gastos_all:
-            mes = g.get('mes') or ''
-            mxn = float(g.get('importe_mxn') or 0)
+            mes   = g.get('mes') or ''
+            fecha = g.get('fecha') or ''
+            mxn   = float(g.get('importe_mxn') or 0)
             medio = g.get('medio_pago', '')
-            if medio == 'Efectivo':
-                data[mes]['gasto_caja'] += mxn
-            else:
-                data[mes]['gasto_banco'] += mxn
+            for d in (data_mes[mes], data_dia[fecha]):
+                if medio == 'Efectivo':
+                    d['gasto_caja'] += mxn
+                else:
+                    d['gasto_banco'] += mxn
 
-        for mes, d in sorted(data.items()):
+        for mes, d in sorted(data_mes.items()):
             d['mes'] = mes
             d['saldo_caja']  = d['ing_caja']  - d['gasto_caja']
             d['saldo_banco'] = d['ing_banco'] - d['gasto_banco']
             meses.append(d)
 
+        for fecha, d in sorted(data_dia.items(), reverse=True):
+            d['fecha'] = fecha
+            d['saldo_caja']  = d['ing_caja']  - d['gasto_caja']
+            d['saldo_banco'] = d['ing_banco'] - d['gasto_banco']
+            dias.append(d)
+
     except Exception as e:
         flash(f'Error cargando cashflow: {e}', 'error')
 
-    mes_actual = date.today().strftime('%Y-%m')
-    return render_template('cashflow.html', meses=meses, mes_actual=mes_actual)
+    mes_actual    = date.today().strftime('%Y-%m')
+    hoy           = date.today().isoformat()
+    meses_dias    = sorted({d['fecha'][:7] for d in dias}, reverse=True)
+    return render_template('cashflow.html', meses=meses, dias=dias,
+                           mes_actual=mes_actual, hoy=hoy, meses_dias=meses_dias)
 
 
 # ── MOVIMIENTOS (editar / borrar) ───────────────────────────────────────────────

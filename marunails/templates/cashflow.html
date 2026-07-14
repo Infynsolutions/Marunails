@@ -5,6 +5,36 @@
 <style>
 .cf-main { max-width: 1100px; }
 
+/* ── tabs ── */
+.cf-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border: 1px solid var(--sand);
+    border-radius: var(--radius);
+    overflow: hidden;
+    width: fit-content;
+}
+.cf-tab {
+    padding: 9px 28px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    background: var(--card-bg);
+    color: var(--muted);
+    border: none;
+    transition: background 0.15s, color 0.15s;
+    font-family: 'Inter', sans-serif;
+}
+.cf-tab:not(:last-child) { border-right: 1px solid var(--sand); }
+.cf-tab.active {
+    background: var(--brown);
+    color: #FAF6F0;
+}
+
+/* ── table ── */
 .cf-table-wrap {
     overflow-x: auto;
     border-radius: var(--radius-lg);
@@ -17,22 +47,6 @@ table.cf {
     border-collapse: collapse;
     background: var(--card-bg);
     font-size: 13px;
-}
-
-table.cf thead tr.group-row th {
-    background: var(--brown-dark);
-    color: rgba(245,237,230,0.85);
-    font-size: 9px;
-    font-weight: 500;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 10px 16px 8px;
-    text-align: center;
-    border-right: 2px solid rgba(255,255,255,0.08);
-}
-table.cf thead tr.group-row th:first-child {
-    text-align: left;
-    border-right: 2px solid rgba(255,255,255,0.15);
 }
 
 table.cf thead tr.col-row th {
@@ -51,9 +65,6 @@ table.cf thead tr.col-row th:first-child {
     text-align: left;
     border-right: 2px solid rgba(255,255,255,0.15);
 }
-table.cf thead tr.col-row th.group-end {
-    border-right: 2px solid rgba(255,255,255,0.15);
-}
 
 table.cf tbody tr {
     border-bottom: 1px solid var(--sand);
@@ -61,10 +72,10 @@ table.cf tbody tr {
 }
 table.cf tbody tr:last-child { border-bottom: none; }
 table.cf tbody tr:hover { background: var(--brown-pale); }
-table.cf tbody tr.current-month {
+table.cf tbody tr.highlight {
     background: #fdf5ec;
 }
-table.cf tbody tr.current-month td.mes-cell {
+table.cf tbody tr.highlight td.key-cell {
     font-weight: 600;
     color: var(--brown-dark);
 }
@@ -77,7 +88,7 @@ table.cf td {
     border-right: 1px solid rgba(226,213,203,0.5);
     color: var(--text);
 }
-table.cf td.mes-cell {
+table.cf td.key-cell {
     text-align: left;
     font-weight: 500;
     color: var(--brown-dark);
@@ -86,17 +97,11 @@ table.cf td.mes-cell {
     border-right: 2px solid var(--sand);
     white-space: nowrap;
 }
-table.cf td.group-end {
-    border-right: 2px solid var(--sand);
-}
-table.cf td.total-col {
-    font-weight: 600;
-    color: var(--brown-dark);
-}
+table.cf td.total-col { font-weight: 600; color: var(--brown-dark); }
 table.cf td.saldo-pos { color: #2a6635; font-weight: 500; }
 table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
 
-.cf-badge-mes {
+.cf-badge {
     display: inline-block;
     background: var(--brown);
     color: #FAF6F0;
@@ -110,12 +115,30 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
     font-family: 'Inter', sans-serif;
 }
 
-.cf-updated {
+/* filtro de mes para vista diaria */
+.cf-day-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.cf-day-filter label {
     font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     color: var(--muted);
-    margin-top: 12px;
-    text-align: right;
-    letter-spacing: 0.3px;
+}
+.cf-day-filter select {
+    padding: 7px 14px;
+    border: 1px solid var(--sand);
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    color: var(--brown-dark);
+    background: var(--card-bg);
+    cursor: pointer;
 }
 </style>
 
@@ -131,6 +154,14 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
     </div>
 </div>
 
+<!-- Tabs -->
+<div class="cf-tabs">
+    <button class="cf-tab active" onclick="showTab('mensual', this)">Mensual</button>
+    <button class="cf-tab"       onclick="showTab('diario',  this)">Diario</button>
+</div>
+
+<!-- ── VISTA MENSUAL ── -->
+<div id="tab-mensual">
 {% if meses %}
 <div class="cf-table-wrap" style="max-width:1100px;">
     <table class="cf">
@@ -147,17 +178,15 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
             {% set gastos_total = m.gasto_caja + m.gasto_banco %}
             {% set saldo_final = m.saldo_caja + m.saldo_banco %}
             {% set es_futuro = m.mes > mes_actual %}
-            <tr class="{% if m.mes == mes_actual %}current-month{% elif es_futuro %}future{% endif %}">
-                <td class="mes-cell">
+            <tr class="{% if m.mes == mes_actual %}highlight{% elif es_futuro %}future{% endif %}">
+                <td class="key-cell">
                     {{ m.mes }}
                     {% if m.mes == mes_actual %}
-                        <span class="cf-badge-mes">Actual</span>
+                        <span class="cf-badge">Actual</span>
                     {% endif %}
                 </td>
-
                 <td class="total-col">{% if m.ing_total %}${{ '{:,.0f}'.format(m.ing_total) }}{% else %}—{% endif %}</td>
                 <td class="total-col">{% if gastos_total %}${{ '{:,.0f}'.format(gastos_total) }}{% else %}—{% endif %}</td>
-
                 <td class="total-col {% if saldo_final > 0 %}saldo-pos{% elif saldo_final < 0 %}saldo-neg{% endif %}">
                     {% if saldo_final %}${{ '{:,.0f}'.format(saldo_final) }}{% else %}—{% endif %}
                 </td>
@@ -171,5 +200,80 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
     No se pudieron cargar los datos. Verificá la conexión con la base de datos.
 </div>
 {% endif %}
+</div>
+
+<!-- ── VISTA DIARIA ── -->
+<div id="tab-diario" style="display:none;">
+{% if dias %}
+
+<div class="cf-day-filter">
+    <label>Filtrar por mes</label>
+    <select id="filtroDia" onchange="filtrarDias()">
+        <option value="todos">Todos</option>
+        {% for mes_d in meses_dias %}
+        <option value="{{ mes_d }}" {% if mes_d == mes_actual %}selected{% endif %}>{{ mes_d }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+<div class="cf-table-wrap" style="max-width:1100px;">
+    <table class="cf" id="tablaDiaria">
+        <thead>
+            <tr class="col-row">
+                <th style="text-align:left; min-width:110px;">Fecha</th>
+                <th>Ingresos</th>
+                <th>Gastos</th>
+                <th>Saldo del día</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for d in dias %}
+            {% set gastos_total = d.gasto_caja + d.gasto_banco %}
+            {% set saldo_final  = d.saldo_caja + d.saldo_banco %}
+            <tr class="dia-row {% if d.fecha == hoy %}highlight{% endif %}"
+                data-mes="{{ d.fecha[:7] }}">
+                <td class="key-cell">
+                    {{ d.fecha }}
+                    {% if d.fecha == hoy %}<span class="cf-badge">Hoy</span>{% endif %}
+                </td>
+                <td class="total-col">{% if d.ing_total %}${{ '{:,.0f}'.format(d.ing_total) }}{% else %}—{% endif %}</td>
+                <td class="total-col">{% if gastos_total %}${{ '{:,.0f}'.format(gastos_total) }}{% else %}—{% endif %}</td>
+                <td class="total-col {% if saldo_final > 0 %}saldo-pos{% elif saldo_final < 0 %}saldo-neg{% endif %}">
+                    {% if saldo_final %}${{ '{:,.0f}'.format(saldo_final) }}{% else %}—{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="card" style="text-align:center; padding:48px; color:var(--muted);">
+    No hay datos diarios disponibles.
+</div>
+{% endif %}
+</div>
+
+<script>
+function showTab(tab, btn) {
+    document.getElementById('tab-mensual').style.display = tab === 'mensual' ? '' : 'none';
+    document.getElementById('tab-diario').style.display  = tab === 'diario'  ? '' : 'none';
+    document.querySelectorAll('.cf-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function filtrarDias() {
+    const val = document.getElementById('filtroDia').value;
+    document.querySelectorAll('.dia-row').forEach(function(row) {
+        row.style.display = (val === 'todos' || row.dataset.mes === val) ? '' : 'none';
+    });
+}
+
+// Al cargar: aplicar filtro del mes actual si existe
+document.addEventListener('DOMContentLoaded', function() {
+    const sel = document.getElementById('filtroDia');
+    if (sel && sel.value !== 'todos') filtrarDias();
+});
+</script>
 
 {% endblock %}
