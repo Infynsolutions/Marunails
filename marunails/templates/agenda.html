@@ -901,26 +901,31 @@ async function abrirWalkin() {
     document.getElementById('wiHora').value =
         `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
-    // Cargar servicios si no están
-    if (!wiServicios.length) {
-        const r = await fetch('/api/servicios');
-        wiServicios = await r.json();
+    // Cargar servicios y colaboradoras en paralelo
+    const [rServ] = await Promise.all([
+        wiServicios.length ? null : fetch('/api/servicios'),
+        wiCargarColabs(),
+    ]);
+    if (rServ) {
+        wiServicios = await rServ.json();
         const sel = document.getElementById('wiServicio');
         sel.innerHTML = '<option value="">— Seleccionar —</option>' +
             wiServicios.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
     }
-    document.getElementById('wiColab').innerHTML = '<option value="">— Seleccionar servicio primero —</option>';
     document.getElementById('walkinOverlay').classList.add('open');
     document.getElementById('wiServicio').focus();
 }
 
 async function wiCargarColabs() {
-    const servId = document.getElementById('wiServicio').value;
     const sel = document.getElementById('wiColab');
-    if (!servId) { sel.innerHTML = '<option value="">— Seleccionar servicio primero —</option>'; return; }
     sel.innerHTML = '<option value="">Cargando...</option>';
-    const r = await fetch(`/api/colaboradoras?servicio_id=${servId}`);
+    const fecha = isoFecha(new Date());
+    const r = await fetch(`/api/colaboradoras/disponibles?fecha=${fecha}`);
     const colabs = await r.json();
+    if (!colabs.length) {
+        sel.innerHTML = '<option value="">Sin colaboradoras disponibles hoy</option>';
+        return;
+    }
     sel.innerHTML = '<option value="">— Seleccionar —</option>' +
         colabs.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
 }

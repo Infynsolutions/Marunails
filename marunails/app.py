@@ -1,7 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from functools import wraps
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 import os
+import base64
+import anthropic as _anthropic
 
 from supabase import create_client
 
@@ -10,6 +13,8 @@ app.secret_key = os.environ.get('SECRET_KEY', 'marunails_secret_2026')
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://dbhxrboacqppximbcokz.supabase.co')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHhyYm9hY3FwcHhpbWJjb2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Mjg1NDMsImV4cCI6MjA5OTAwNDU0M30.fcVl9hwRTACJrp4BH7CZdj5ZzPa7-VaAqJlUdHH-NKs')
+
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Marunailstulum123')
 
 TC_USD = 17
 
@@ -33,6 +38,24 @@ SERVICIOS = [
 
 MEDIOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia', 'USD cash', 'Otro']
 
+CAPACIDAD_ESTACIONES = {
+    'manicura': 2,
+    'pedicura': 2,
+    'estetica': 1,
+}
+
+CATEGORIA_A_ESTACION = {
+    'Manicure':       'manicura',
+    'Pedicure':       'pedicura',
+    'Glow Up Facial': 'estetica',
+    'Brows & Lashes': 'estetica',
+    'Additional':     'manicura',
+}
+
+
+def estacion_de_categoria(categoria):
+    return CATEGORIA_A_ESTACION.get(categoria)
+
 CATEGORIAS_GASTO = [
     'Productos', 'Renta', 'Servicios', 'Sueldos/Comisiones', 'Marketing',
     'Impuestos', 'Otros', 'Gastos Operativos', 'Retiros -Mariana',
@@ -43,6 +66,15 @@ MESES_ES = {
     1: 'ene', 2: 'feb', 3: 'mar', 4: 'abr', 5: 'may', 6: 'jun',
     7: 'jul', 8: 'ago', 9: 'sep', 10: 'oct', 11: 'nov', 12: 'dic',
 }
+
+
+def require_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('admin_logged_in'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
 
 
 def get_sb():
@@ -491,15 +523,36 @@ def clientes_por_volver(cortes, ventana=21):
     return resultado
 
 
+# ── AUTH ───────────────────────────────────────────────────────────────────────
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get('admin_logged_in'):
+        return redirect(url_for('index'))
+    error = None
+    if request.method == 'POST':
+        if request.form.get('password') == ADMIN_PASSWORD:
+            session['admin_logged_in'] = True
+            session.permanent = False
+            return redirect(url_for('index'))
+        error = 'Contraseña incorrecta'
+    return render_template('login.html', error=error)
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('salon'))
+
+
 # ── DASHBOARD ──────────────────────────────────────────────────────────────────
 @app.route('/')
+@require_admin
 def index():
     mes_actual = date.today().strftime('%Y-%m')
     mes_mostrado = mes_actual
     resumen = None
     try:
         sb = get_sb()
-        # Mostrar el mes actual; si no tiene cortes, el último mes con data
         _, ultimo_mes = rango_meses_cortes(sb)
         if ultimo_mes and mes_actual > ultimo_mes:
             mes_mostrado = ultimo_mes
@@ -515,6 +568,7 @@ def index():
 
 # ── REPORTES ────────────────────────────────────────────────────────────────────
 @app.route('/reportes')
+@require_admin
 def reportes():
     resumen = None
     meses = []
@@ -545,6 +599,7 @@ def reportes():
 
 # ── CLIENTES ────────────────────────────────────────────────────────────────────
 @app.route('/clientes')
+@require_admin
 def clientes():
     resumen = None
     try:
@@ -557,6 +612,7 @@ def clientes():
 
 
 @app.route('/cliente')
+@require_admin
 def cliente_detalle():
     key = cliente_key(request.args.get('c', ''))
     if not key:
@@ -595,6 +651,7 @@ def cliente_detalle():
 
 
 @app.route('/cliente/<path:key>/info', methods=['POST'])
+@require_admin
 def editar_info_cliente(key):
     try:
         sb  = get_sb()
@@ -611,6 +668,7 @@ def editar_info_cliente(key):
 
 # ── RETENCIÓN ────────────────────────────────────────────────────────────────────
 @app.route('/retencion')
+@require_admin
 def retencion():
     por_mes     = []
     por_volver  = []
@@ -631,6 +689,7 @@ def retencion():
 
 # ── REGISTRAR CORTE ────────────────────────────────────────────────────────────
 @app.route('/corte', methods=['GET', 'POST'])
+@require_admin
 def corte():
     if request.method == 'POST':
         row = corte_row_from_form(request.form)
@@ -653,8 +712,130 @@ def corte():
                            today=date.today().isoformat())
 
 
+# ── IMPORTAR PLANILLA DESDE FOTO ───────────────────────────────────────────────
+@app.route('/api/parse-planilla', methods=['POST'])
+@require_admin
+def api_parse_planilla():
+    """Recibe una imagen de la planilla de caja y devuelve las filas extraídas con IA."""
+    try:
+        if 'imagen' not in request.files:
+            return jsonify({'error': 'No se recibió imagen'}), 400
+        f = request.files['imagen']
+        if not f.filename:
+            return jsonify({'error': 'Archivo vacío'}), 400
+
+        img_bytes  = f.read()
+        img_b64    = base64.standard_b64encode(img_bytes).decode('utf-8')
+        media_type = f.content_type or 'image/jpeg'
+
+        api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        if not api_key:
+            return jsonify({'error': 'ANTHROPIC_API_KEY no configurada'}), 500
+
+        client = _anthropic.Anthropic(api_key=api_key)
+
+        prompt = """Esta es una planilla de caja de un salón de belleza llamado Maru Nails.
+Extraé TODAS las filas con datos (ignorá filas vacías).
+Para cada fila devolvé un objeto JSON con exactamente estas claves:
+- "cliente": nombre del cliente (string, "Walk in" si está vacío o ilegible)
+- "staff": nombre del colaborador/a tal como aparece (string)
+- "servicio": nombre del servicio (string)
+- "total": monto total cobrado (número sin símbolos, puede ser decimal con coma o punto)
+- "propina": propina si la hay (número, 0 si no hay)
+- "medio_pago": forma de pago — mapeá a uno de: "Efectivo", "Tarjeta", "Transferencia", "USD cash", "Otro"
+
+Si la imagen muestra una fecha (por ej. "DÍA: 29/6"), incluila en el campo "fecha_planilla" en el primer objeto (formato DD/MM).
+
+Respondé ÚNICAMENTE con un array JSON válido, sin texto extra, sin markdown, sin explicaciones.
+Ejemplo: [{"cliente":"Mayra","staff":"Fanny","servicio":"refilAcrilico","total":630,"propina":0,"medio_pago":"Tarjeta"}]"""
+
+        msg = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=1024,
+            messages=[{
+                'role': 'user',
+                'content': [
+                    {'type': 'image', 'source': {'type': 'base64', 'media_type': media_type, 'data': img_b64}},
+                    {'type': 'text',  'text': prompt},
+                ],
+            }],
+        )
+
+        import json as _json
+        texto = msg.content[0].text.strip()
+        # Limpiar posibles markdown code fences
+        if texto.startswith('```'):
+            texto = texto.split('```')[1]
+            if texto.startswith('json'):
+                texto = texto[4:]
+        filas = _json.loads(texto.strip())
+        return jsonify({'filas': filas})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/import-cortes', methods=['POST'])
+@require_admin
+def api_import_cortes():
+    """Recibe un array JSON de filas de corte y las inserta en bulk."""
+    try:
+        import json as _json
+        data  = request.get_json(force=True)
+        filas = data.get('filas', [])
+        fecha = data.get('fecha', date.today().isoformat())
+        if not filas:
+            return jsonify({'error': 'Sin filas'}), 400
+
+        rows = []
+        errores = []
+        for i, f in enumerate(filas):
+            try:
+                total   = float(str(f.get('total', 0)).replace(',', '.') or 0)
+                propina = float(str(f.get('propina', 0)).replace(',', '.') or 0)
+                staff   = (f.get('staff') or '').strip().upper()
+                servicio  = (f.get('servicio') or '').strip()
+                medio_pago = f.get('medio_pago') or 'Otro'
+                cliente   = (f.get('cliente') or 'Walk in').strip() or 'Walk in'
+                if not staff or not servicio or total <= 0:
+                    errores.append(f"Fila {i+1}: datos incompletos")
+                    continue
+                d = datetime.strptime(fecha, '%Y-%m-%d').date()
+                semana, mes, quincena = get_week_quincena(d)
+                rows.append({
+                    'fecha':         fecha,
+                    'cliente':       cliente,
+                    'staff':         staff,
+                    'servicio':      servicio,
+                    'moneda':        'MXN',
+                    'total_cobrado': total,
+                    'propina':       propina,
+                    'medio_pago':    medio_pago,
+                    'notas':         '',
+                    'color':         None,
+                    'venta_neta':    round(total - propina, 2),
+                    'tc':            1,
+                    'total_mxn':     round(total, 2),
+                    'propina_mxn':   round(propina, 2),
+                    'neto_mxn':      round(total - propina, 2),
+                    'mes':           mes,
+                    'semana':        semana,
+                    'quincena':      quincena,
+                })
+            except Exception as ex:
+                errores.append(f"Fila {i+1}: {ex}")
+
+        if rows:
+            get_sb().table('cortes').insert(rows).execute()
+
+        return jsonify({'insertados': len(rows), 'errores': errores})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ── REGISTRAR GASTO ────────────────────────────────────────────────────────────
 @app.route('/gasto', methods=['GET', 'POST'])
+@require_admin
 def gasto():
     if request.method == 'POST':
         row = gasto_row_from_form(request.form)
@@ -678,6 +859,7 @@ def gasto():
 
 # ── CASHFLOW ───────────────────────────────────────────────────────────────────
 @app.route('/cashflow')
+@require_admin
 def cashflow():
     meses = []
     try:
@@ -725,6 +907,7 @@ def cashflow():
 
 # ── MOVIMIENTOS (editar / borrar) ───────────────────────────────────────────────
 @app.route('/movimientos')
+@require_admin
 def movimientos():
     cortes, gastos = [], []
     try:
@@ -741,6 +924,7 @@ def movimientos():
 
 
 @app.route('/corte/<int:cid>/editar', methods=['GET', 'POST'])
+@require_admin
 def editar_corte(cid):
     sb = get_sb()
     if request.method == 'POST':
@@ -774,6 +958,7 @@ def editar_corte(cid):
 
 
 @app.route('/corte/<int:cid>/borrar', methods=['POST'])
+@require_admin
 def borrar_corte(cid):
     try:
         get_sb().table('cortes').delete().eq('id', cid).execute()
@@ -784,6 +969,7 @@ def borrar_corte(cid):
 
 
 @app.route('/gasto/<int:gid>/editar', methods=['GET', 'POST'])
+@require_admin
 def editar_gasto(gid):
     sb = get_sb()
     if request.method == 'POST':
@@ -816,6 +1002,7 @@ def editar_gasto(gid):
 
 
 @app.route('/gasto/<int:gid>/borrar', methods=['POST'])
+@require_admin
 def borrar_gasto(gid):
     try:
         get_sb().table('gastos').delete().eq('id', gid).execute()
@@ -842,17 +1029,76 @@ def api_servicios():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/colaboradoras/disponibles')
+def api_colaboradoras_disponibles():
+    """Colaboradoras activas disponibles para una fecha dada (respeta horarios y bloqueos)."""
+    try:
+        sb = get_sb()
+        fecha_str = request.args.get('fecha')
+        if not fecha_str:
+            from datetime import date
+            fecha_str = date.today().isoformat()
+
+        fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
+        dia_semana = fecha_dt.weekday()  # 0=lunes
+
+        todas = sb.table('colaboradoras').select('*').eq('activa', True).execute().data
+
+        bloqueadas_hoy = {
+            b['colaboradora_id']
+            for b in sb.table('bloqueos').select('colaboradora_id').eq('fecha', fecha_str).eq('todo_el_dia', True).execute().data
+        }
+
+        con_horario = {
+            d['colaboradora_id']
+            for d in sb.table('disponibilidad').select('colaboradora_id').eq('dia_semana', dia_semana).execute().data
+        }
+
+        disponibles = [
+            c for c in todas
+            if c['id'] not in bloqueadas_hoy and c['id'] in con_horario
+        ]
+
+        # Si ninguna tiene horario cargado, devolver todas las activas (evita quedarse sin opciones)
+        if not disponibles:
+            disponibles = [c for c in todas if c['id'] not in bloqueadas_hoy]
+
+        return jsonify(disponibles)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/colaboradoras')
 def api_colaboradoras():
     try:
         sb = get_sb()
+        servicio_ids_str = request.args.get('servicio_ids', '')
         servicio_id = request.args.get('servicio_id')
-        if servicio_id:
+
+        if servicio_ids_str:
+            ids = [int(x) for x in servicio_ids_str.split(',') if x.strip()]
+            if ids:
+                colab_sets = []
+                for sid in ids:
+                    rows = sb.table('colaboradora_servicios').select('colaboradora_id').eq('servicio_id', sid).execute()
+                    colab_sets.append({r['colaboradora_id'] for r in rows.data})
+                valid_ids = colab_sets[0]
+                for s in colab_sets[1:]:
+                    valid_ids = valid_ids.intersection(s)
+                if valid_ids:
+                    colabs = sb.table('colaboradoras').select('*').in_('id', list(valid_ids)).eq('activa', True).execute().data
+                else:
+                    colabs = sb.table('colaboradoras').select('*').eq('activa', True).execute().data
+            else:
+                colabs = sb.table('colaboradoras').select('*').eq('activa', True).execute().data
+        elif servicio_id:
             data = sb.table('colaboradora_servicios').select(
                 'colaboradoras(*)'
             ).eq('servicio_id', servicio_id).execute()
             colabs = [r['colaboradoras'] for r in data.data
                       if r.get('colaboradoras') and r['colaboradoras'].get('activa')]
+            if not colabs:
+                colabs = sb.table('colaboradoras').select('*').eq('activa', True).execute().data
         else:
             colabs = sb.table('colaboradoras').select('*').eq('activa', True).execute().data
         return jsonify(colabs)
@@ -865,22 +1111,61 @@ def api_slots():
     try:
         sb = get_sb()
         colaboradora_id = request.args.get('colaboradora_id', 'any')
-        servicio_id = request.args.get('servicio_id')
         fecha_str = request.args.get('fecha')
 
-        if not servicio_id or not fecha_str:
+        if not fecha_str:
             return jsonify([])
 
-        servicio = sb.table('servicios').select('duracion_min').eq('id', servicio_id).limit(1).execute()
-        if not servicio.data:
-            return jsonify([])
-        duracion = servicio.data[0]['duracion_min']
+        # Parse services: prefer servicio_ids list, fallback to legacy params
+        servicio_ids_str = request.args.get('servicio_ids', '')
+        servicio_id      = request.args.get('servicio_id')
+        duracion_total_p = request.args.get('duracion_total')
 
-        fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
-        dia_semana = fecha_dt.weekday()  # 0=lunes
+        servicios_info = []  # [{duracion_min, tipo_estacion}, ...]
+        duracion = 0
+
+        if servicio_ids_str:
+            for sid in (int(x) for x in servicio_ids_str.split(',') if x.strip()):
+                srv = sb.table('servicios').select('duracion_min,categoria').eq('id', sid).limit(1).execute()
+                if srv.data:
+                    cat = srv.data[0]['categoria']
+                    servicios_info.append({
+                        'duracion_min':   srv.data[0]['duracion_min'],
+                        'tipo_estacion':  estacion_de_categoria(cat),
+                    })
+                    duracion += srv.data[0]['duracion_min']
+        elif duracion_total_p:
+            duracion = int(duracion_total_p)
+        elif servicio_id:
+            srv = sb.table('servicios').select('duracion_min,categoria').eq('id', servicio_id).limit(1).execute()
+            if not srv.data:
+                return jsonify([])
+            cat = srv.data[0]['categoria']
+            servicios_info = [{'duracion_min': srv.data[0]['duracion_min'], 'tipo_estacion': estacion_de_categoria(cat)}]
+            duracion = srv.data[0]['duracion_min']
+        else:
+            return jsonify([])
+
+        if not duracion:
+            return jsonify([])
+
+        fecha_dt   = datetime.strptime(fecha_str, '%Y-%m-%d')
+        dia_semana = fecha_dt.weekday()
+
+        # Fetch all turnos for this date with their station type (for capacity check)
+        all_turnos_dia = []
+        if servicios_info:
+            raw = sb.table('turnos').select('hora_inicio,hora_fin,servicios(categoria)').eq('fecha', fecha_str).execute().data
+            for t in raw:
+                cat = t.get('servicios', {}).get('categoria') if t.get('servicios') else None
+                all_turnos_dia.append({
+                    'hora_inicio':    t['hora_inicio'][:5],
+                    'hora_fin':       t['hora_fin'][:5],
+                    'tipo_estacion':  estacion_de_categoria(cat) if cat else None,
+                })
 
         if colaboradora_id == 'any':
-            colabs = sb.table('colaboradoras').select('id').eq('activa', True).execute().data
+            colabs    = sb.table('colaboradoras').select('id').eq('activa', True).execute().data
             colab_ids = [c['id'] for c in colabs]
         else:
             colab_ids = [int(colaboradora_id)]
@@ -897,43 +1182,60 @@ def api_slots():
             if bloqueos.data and any(b.get('todo_el_dia') for b in bloqueos.data):
                 continue
 
-            turnos_dia = sb.table('turnos').select('hora_inicio,hora_fin').eq(
+            turnos_colab = sb.table('turnos').select('hora_inicio,hora_fin').eq(
                 'colaboradora_id', colab_id).eq('fecha', fecha_str).execute()
-            ocupados = []
-            for t in turnos_dia.data:
-                h_ini = t['hora_inicio'][:5]
-                h_fin = t['hora_fin'][:5]
-                ocupados.append((h_ini, h_fin))
+            ocupados = [(t['hora_inicio'][:5], t['hora_fin'][:5]) for t in turnos_colab.data]
+
+            now      = datetime.now()
+            min_hora = now + timedelta(hours=2) if fecha_dt.date() == now.date() else None
 
             for sched in schedule.data:
-                h_start = sched['hora_inicio'][:5]
-                h_end = sched['hora_fin'][:5]
-                cur = datetime.strptime(f"{fecha_str} {h_start}", '%Y-%m-%d %H:%M')
-                end = datetime.strptime(f"{fecha_str} {h_end}", '%Y-%m-%d %H:%M')
+                h_start  = sched['hora_inicio'][:5]
+                h_end    = sched['hora_fin'][:5]
+                cur      = datetime.strptime(f"{fecha_str} {h_start}", '%Y-%m-%d %H:%M')
+                end      = datetime.strptime(f"{fecha_str} {h_end}",   '%Y-%m-%d %H:%M')
                 slot_dur = timedelta(minutes=duracion)
                 interval = timedelta(minutes=30)
 
-                now = datetime.now()
-                min_hora = now + timedelta(hours=2) if fecha_dt.date() == now.date() else None
-
                 while cur + slot_dur <= end:
-                    slot_end = cur + slot_dur
                     s_str = cur.strftime('%H:%M')
-                    e_str = slot_end.strftime('%H:%M')
+                    e_str = (cur + slot_dur).strftime('%H:%M')
+
                     if min_hora and cur < min_hora:
                         cur += interval
                         continue
-                    conflict = any(
-                        s_str < o_fin and e_str > o_ini
-                        for o_ini, o_fin in ocupados
-                    )
-                    if not conflict:
+
+                    # 1. Colaboradora libre durante toda la franja
+                    if any(s_str < o_fin and e_str > o_ini for o_ini, o_fin in ocupados):
+                        cur += interval
+                        continue
+
+                    # 2. Estaciones disponibles para cada servicio en secuencia
+                    station_ok   = True
+                    hora_cursor  = cur
+                    for srv_info in servicios_info:
+                        srv_s   = hora_cursor.strftime('%H:%M')
+                        hora_cursor += timedelta(minutes=srv_info['duracion_min'])
+                        srv_e   = hora_cursor.strftime('%H:%M')
+                        estacion = srv_info['tipo_estacion']
+                        if estacion and estacion in CAPACIDAD_ESTACIONES:
+                            cap       = CAPACIDAD_ESTACIONES[estacion]
+                            ocupacion = sum(
+                                1 for t in all_turnos_dia
+                                if t['tipo_estacion'] == estacion
+                                and t['hora_inicio'] < srv_e
+                                and t['hora_fin']    > srv_s
+                            )
+                            if ocupacion >= cap:
+                                station_ok = False
+                                break
+
+                    if station_ok:
                         slots.append({'colaboradora_id': colab_id, 'hora': s_str, 'hora_fin': e_str})
                     cur += interval
 
         if colaboradora_id == 'any':
-            seen = set()
-            unique = []
+            seen, unique = set(), []
             for s in sorted(slots, key=lambda x: x['hora']):
                 if s['hora'] not in seen:
                     seen.add(s['hora'])
@@ -976,19 +1278,27 @@ def api_reservar():
             cliente = sb.table('clientes_reservas').insert(insert_data).execute()
             cliente_id = cliente.data[0]['id']
 
-        servicio = sb.table('servicios').select(
-            'precio_desde,duracion_min').eq('id', data['servicio_id']).limit(1).execute()
-        if not servicio.data:
-            return jsonify({'error': 'Servicio no encontrado'}), 400
+        servicio_ids = data.get('servicio_ids') or []
+        if not servicio_ids and data.get('servicio_id'):
+            servicio_ids = [data['servicio_id']]
+        if not servicio_ids:
+            return jsonify({'error': 'Servicio requerido'}), 400
 
-        duracion = servicio.data[0]['duracion_min']
+        servicios_data = []
+        duracion_total = 0
+        for sid in servicio_ids:
+            srv = sb.table('servicios').select('precio_desde,duracion_min').eq('id', sid).limit(1).execute()
+            if not srv.data:
+                return jsonify({'error': f'Servicio {sid} no encontrado'}), 400
+            servicios_data.append(srv.data[0])
+            duracion_total += srv.data[0]['duracion_min']
+
         hora_ini = data['hora']
-        hora_fin_dt = datetime.strptime(hora_ini, '%H:%M') + timedelta(minutes=duracion)
-        hora_fin = hora_fin_dt.strftime('%H:%M')
+        hora_fin_total_dt = datetime.strptime(hora_ini, '%H:%M') + timedelta(minutes=duracion_total)
+        hora_fin_total = hora_fin_total_dt.strftime('%H:%M')
 
         colaboradora_id = data.get('colaboradora_id')
         if not colaboradora_id or colaboradora_id == 'any':
-            # Asignar primera colaboradora disponible en ese horario
             colab_slots = sb.table('disponibilidad').select('colaboradora_id').eq(
                 'dia_semana', datetime.strptime(data['fecha'], '%Y-%m-%d').weekday()
             ).execute()
@@ -997,24 +1307,33 @@ def api_reservar():
                 conflicto = sb.table('turnos').select('id').eq(
                     'colaboradora_id', cid).eq('fecha', data['fecha']).execute()
                 ocupados = [(t['hora_inicio'][:5], t['hora_fin'][:5]) for t in conflicto.data]
-                if not any(hora_ini < o_fin and hora_fin > o_ini for o_ini, o_fin in ocupados):
-                    colaboradora_id = cid
-                    break
+                if not any(hora_ini < o_fin and hora_fin_total < o_ini or hora_fin_total > o_fin and hora_ini > o_fin for o_ini, o_fin in ocupados):
+                    if not any(hora_ini < o_fin and hora_fin_total > o_ini for o_ini, o_fin in ocupados):
+                        colaboradora_id = cid
+                        break
 
-        turno = sb.table('turnos').insert({
-            'cliente_id': cliente_id,
-            'colaboradora_id': colaboradora_id,
-            'servicio_id': int(data['servicio_id']),
-            'fecha': data['fecha'],
-            'hora_inicio': hora_ini,
-            'hora_fin': hora_fin,
-            'estado': 'pendiente',
-            'precio': servicio.data[0]['precio_desde'],
-            'notas': data.get('notas', ''),
-            'canal': 'web',
-        }).execute()
+        turnos_creados = []
+        hora_cursor = datetime.strptime(hora_ini, '%H:%M')
+        for i, sid in enumerate(servicio_ids):
+            srv_dur = servicios_data[i]['duracion_min']
+            t_ini = hora_cursor.strftime('%H:%M')
+            hora_cursor += timedelta(minutes=srv_dur)
+            t_fin = hora_cursor.strftime('%H:%M')
+            turno = sb.table('turnos').insert({
+                'cliente_id': cliente_id,
+                'colaboradora_id': colaboradora_id,
+                'servicio_id': int(sid),
+                'fecha': data['fecha'],
+                'hora_inicio': t_ini,
+                'hora_fin': t_fin,
+                'estado': 'pendiente',
+                'precio': servicios_data[i]['precio_desde'],
+                'notas': data.get('notas', ''),
+                'canal': 'web',
+            }).execute()
+            turnos_creados.append(turno.data[0]['id'])
 
-        return jsonify({'success': True, 'turno_id': turno.data[0]['id']})
+        return jsonify({'success': True, 'turno_ids': turnos_creados})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1022,11 +1341,13 @@ def api_reservar():
 # ── SISTEMA DE TURNOS — INTERNO ─────────────────────────────────────────────────
 
 @app.route('/agenda')
+@require_admin
 def agenda():
     return render_template('agenda.html')
 
 
 @app.route('/api/agenda')
+@require_admin
 def api_agenda():
     try:
         sb = get_sb()
@@ -1050,6 +1371,7 @@ def api_agenda():
 
 
 @app.route('/api/cliente/<int:cid>/historial')
+@require_admin
 def api_cliente_historial(cid):
     try:
         sb = get_sb()
@@ -1066,6 +1388,7 @@ def api_cliente_historial(cid):
 
 
 @app.route('/api/turno/<int:tid>/estado', methods=['POST'])
+@require_admin
 def cambiar_estado_turno(tid):
     try:
         sb = get_sb()
@@ -1077,6 +1400,7 @@ def cambiar_estado_turno(tid):
 
 
 @app.route('/api/walkin', methods=['POST'])
+@require_admin
 def api_walkin():
     try:
         sb = get_sb()
@@ -1141,12 +1465,14 @@ def api_walkin():
 # ── ADMIN PANEL ────────────────────────────────────────────────────────────────
 
 @app.route('/admin')
+@require_admin
 def admin():
     return render_template('admin.html')
 
 
 # ─ Servicios ─
 @app.route('/admin/api/servicios')
+@require_admin
 def admin_api_servicios():
     sb = get_sb()
     data = sb.table('servicios').select('*').order('categoria').order('orden').execute()
@@ -1154,6 +1480,7 @@ def admin_api_servicios():
 
 
 @app.route('/admin/api/servicio', methods=['POST'])
+@require_admin
 def admin_crear_servicio():
     try:
         sb = get_sb()
@@ -1175,6 +1502,7 @@ def admin_crear_servicio():
 
 
 @app.route('/admin/api/servicio/<int:sid>', methods=['PUT'])
+@require_admin
 def admin_editar_servicio(sid):
     try:
         sb = get_sb()
@@ -1195,6 +1523,7 @@ def admin_editar_servicio(sid):
 
 
 @app.route('/admin/api/servicio/<int:sid>/toggle', methods=['POST'])
+@require_admin
 def admin_toggle_servicio(sid):
     try:
         sb = get_sb()
@@ -1208,6 +1537,7 @@ def admin_toggle_servicio(sid):
 
 # ─ Colaboradoras ─
 @app.route('/admin/api/colaboradoras-full')
+@require_admin
 def admin_api_colaboradoras_full():
     try:
         sb = get_sb()
@@ -1224,6 +1554,7 @@ def admin_api_colaboradoras_full():
 
 
 @app.route('/admin/api/colaboradora', methods=['POST'])
+@require_admin
 def admin_crear_colaboradora():
     try:
         sb = get_sb()
@@ -1241,6 +1572,7 @@ def admin_crear_colaboradora():
 
 
 @app.route('/admin/api/colaboradora/<int:cid>', methods=['PUT'])
+@require_admin
 def admin_editar_colaboradora(cid):
     try:
         sb = get_sb()
@@ -1257,6 +1589,7 @@ def admin_editar_colaboradora(cid):
 
 
 @app.route('/admin/api/colaboradora/<int:cid>/toggle', methods=['POST'])
+@require_admin
 def admin_toggle_colaboradora(cid):
     try:
         sb = get_sb()
@@ -1269,6 +1602,7 @@ def admin_toggle_colaboradora(cid):
 
 
 @app.route('/admin/api/colaboradora/<int:cid>/servicios', methods=['PUT'])
+@require_admin
 def admin_servicios_colaboradora(cid):
     try:
         sb = get_sb()
@@ -1282,8 +1616,52 @@ def admin_servicios_colaboradora(cid):
         return jsonify({'error': str(e)}), 500
 
 
+# ─ Bloqueos por fecha (público — para el calendario de reserva) ─
+@app.route('/api/bloqueos/<int:cid>')
+def api_bloqueos_colab(cid):
+    try:
+        sb = get_sb()
+        mes = request.args.get('mes')  # YYYY-MM
+        q = sb.table('bloqueos').select('id,fecha,motivo,todo_el_dia').eq(
+            'colaboradora_id', cid).eq('todo_el_dia', True)
+        if mes:
+            q = q.gte('fecha', f'{mes}-01').lte('fecha', f'{mes}-31')
+        return jsonify(q.execute().data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/bloqueos', methods=['POST'])
+@require_admin
+def admin_create_bloqueo():
+    try:
+        sb = get_sb()
+        data = request.json
+        result = sb.table('bloqueos').insert({
+            'colaboradora_id': data['colaboradora_id'],
+            'fecha': data['fecha'],
+            'motivo': data.get('motivo', ''),
+            'todo_el_dia': True,
+        }).execute()
+        return jsonify({'success': True, 'id': result.data[0]['id']})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/bloqueos/<int:bid>', methods=['DELETE'])
+@require_admin
+def admin_delete_bloqueo(bid):
+    try:
+        sb = get_sb()
+        sb.table('bloqueos').delete().eq('id', bid).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ─ Disponibilidad ─
 @app.route('/admin/api/disponibilidad/<int:cid>')
+@require_admin
 def admin_get_disponibilidad(cid):
     try:
         sb = get_sb()
@@ -1301,6 +1679,7 @@ def admin_get_disponibilidad(cid):
 
 
 @app.route('/admin/api/disponibilidad/<int:cid>', methods=['PUT'])
+@require_admin
 def admin_set_disponibilidad(cid):
     try:
         sb = get_sb()
@@ -1324,6 +1703,7 @@ def admin_set_disponibilidad(cid):
 
 # ── TURNOS — ESTADÍSTICAS ─────────────────────────────────────────────────────
 @app.route('/api/turnos/reportes')
+@require_admin
 def api_turnos_reportes():
     try:
         sb    = get_sb()
@@ -1432,6 +1812,7 @@ def api_agregar_espera():
 
 
 @app.route('/api/lista-espera/<int:eid>/estado', methods=['POST'])
+@require_admin
 def api_estado_espera(eid):
     try:
         sb    = get_sb()
@@ -1444,6 +1825,7 @@ def api_estado_espera(eid):
 
 # ── CLIENTE — PERFIL (alergias / bloqueo) ─────────────────────────────────────
 @app.route('/api/cliente/<int:cid>/perfil', methods=['POST'])
+@require_admin
 def api_actualizar_perfil_cliente(cid):
     try:
         sb  = get_sb()
@@ -1464,6 +1846,7 @@ def api_actualizar_perfil_cliente(cid):
 
 # ── ADMIN — CLIENTES ──────────────────────────────────────────────────────────
 @app.route('/admin/api/clientes')
+@require_admin
 def admin_api_clientes():
     try:
         sb       = get_sb()

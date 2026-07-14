@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maru Nails · Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:   #FAF6F0;
+      --sand:    #EDE0D4;
+      --brown:   #5C3826;
+      --brown-d: #3E2418;
+      --brown-m: #7A4F38;
+      --muted:   #9E8878;
+      --text:    #2A1F1A;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--cream);
+      position: relative;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Monograma de fondo — watermark grande */
+    .bg-watermark {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-watermark img {
+      width: min(90vw, 700px);
+      height: min(90vw, 700px);
+      object-fit: contain;
+      opacity: 0.35;
+    }
+
+    /* Textura sutil */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 60% at 20% 10%, rgba(224,210,196,0.4) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 80% 90%, rgba(196,172,150,0.25) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .login-wrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      padding: 24px;
+    }
+
+    .card {
+      background: rgba(250,246,240,0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(92,56,38,0.12);
+      border-radius: 20px;
+      padding: 52px 44px 44px;
+      box-shadow:
+        0 4px 24px rgba(62,36,24,0.08),
+        0 1px 0 rgba(255,255,255,0.8) inset;
+    }
+
+    /* Logo principal */
+    .logo-area {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .logo-area img {
+      width: 200px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .divider {
+      width: 40px;
+      height: 1px;
+      background: var(--sand);
+      margin: 20px auto 0;
+    }
+
+    /* Form */
+    .field-label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 9px;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 16px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(92,56,38,0.18);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="password"]:focus {
+      border-color: var(--brown-m);
+      box-shadow: 0 0 0 3px rgba(92,56,38,0.08);
+    }
+
+    input[type="password"]::placeholder { color: var(--sand); }
+
+    .btn-ingresar {
+      width: 100%;
+      margin-top: 22px;
+      padding: 14px;
+      background: var(--brown);
+      border: none;
+      border-radius: 10px;
+      color: var(--cream);
+      font-size: 0.78rem;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-ingresar:hover { background: var(--brown-d); }
+    .btn-ingresar:active { transform: scale(0.98); }
+
+    .error-msg {
+      margin-top: 16px;
+      padding: 11px 16px;
+      background: rgba(168,50,50,0.07);
+      border: 1px solid rgba(168,50,50,0.2);
+      border-radius: 8px;
+      color: #7a2020;
+      font-size: 0.82rem;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+    }
+
+    .back-link:hover { color: var(--brown); }
+
+    /* Tagline debajo de la card */
+    .tagline {
+      text-align: center;
+      margin-top: 28px;
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 1rem;
+      color: var(--brown-m);
+      opacity: 0.6;
+      letter-spacing: 0.04em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Monograma decorativo de fondo -->
+  <div class="bg-watermark">
+    <img src="{{ url_for('static', filename='Maru 2-04.PNG') }}" alt="">
+  </div>
+
+  <div class="login-wrap">
+    <div class="card">
+
+      <!-- Logo Maru Nails negro completo -->
+      <div class="logo-area">
+        <img src="{{ url_for('static', filename='Logotipo principal-03.PNG') }}" alt="Maru Nails">
+        <div class="divider"></div>
+      </div>
+
+      <form method="POST">
+        <label class="field-label" for="password">Contraseña</label>
+        <input type="password" id="password" name="password" autofocus placeholder="············">
+        <button type="submit" class="btn-ingresar">Ingresar al panel</button>
+      </form>
+
+      {% if error %}
+      <div class="error-msg">{{ error }}</div>
+      {% endif %}
+
+      <a href="{{ url_for('salon') }}" class="back-link">← Volver al salón</a>
+    </div>
+
+    <p class="tagline">beauty & well being balance</p>
+  </div>
+
+</body>
+</html>

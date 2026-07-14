@@ -461,7 +461,8 @@ body {
     <div class="step active" id="step1">
         <div class="step-header">
             <div class="step-label">Paso 1 de 5</div>
-            <div class="step-title">¿Qué servicio buscás?</div>
+            <div class="step-title">¿Qué servicios querés?</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:6px">Podés elegir más de uno</div>
         </div>
         <div class="cat-tabs" id="catTabs"></div>
         <div class="service-list" id="serviceList">
@@ -597,8 +598,10 @@ let state = {
     currentStep: 1,
     servicios: [],
     catActiva: null,
-    servicioSel: null,
+    serviciosSel: [],
     colaboradoraSel: null,
+    colabDias: null,
+    colabBloqueos: new Set(),
     fechaSel: null,
     horaSel: null,
     slotsData: [],
@@ -632,11 +635,17 @@ function selectCat(cat) {
     renderServices();
 }
 
+function totalDuration() {
+    return state.serviciosSel.reduce((sum, s) => sum + s.duracion_min, 0);
+}
+
 function renderServices() {
     const filtered = state.servicios.filter(s => s.categoria === state.catActiva);
     const el = document.getElementById('serviceList');
-    el.innerHTML = filtered.map(s => `
-        <div class="service-card ${state.servicioSel?.id === s.id ? 'selected' : ''}"
+    el.innerHTML = filtered.map(s => {
+        const isSel = state.serviciosSel.some(sel => sel.id === s.id);
+        return `
+        <div class="service-card ${isSel ? 'selected' : ''}"
              onclick="selectService(${s.id})">
             <div>
                 <div class="service-name">${s.nombre}</div>
@@ -644,22 +653,46 @@ function renderServices() {
                     <span>${durStr(s.duracion_min)}</span>
                 </div>
             </div>
-            <div class="service-price">${s.precio_hasta ? 'desde ' : ''}$${s.precio_desde.toLocaleString()} MXN</div>
-        </div>
-    `).join('');
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                <div class="service-price">${s.precio_hasta ? 'desde ' : ''}$${s.precio_desde.toLocaleString()} MXN</div>
+                ${isSel ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brown)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+            </div>
+        </div>`;
+    }).join('');
+    renderServiciosSummary();
+}
+
+function renderServiciosSummary() {
+    let el = document.getElementById('serviciosSummary');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'serviciosSummary';
+        el.style.cssText = 'margin-top:14px;padding:12px 16px;background:var(--brown-pale);border-radius:8px;font-size:13px;display:none';
+        document.getElementById('serviceList').after(el);
+    }
+    if (state.serviciosSel.length === 0) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    const total = totalDuration();
+    el.innerHTML = `<div style="font-weight:500;color:var(--brown-dark);margin-bottom:6px">Servicios seleccionados (${state.serviciosSel.length})</div>`
+        + state.serviciosSel.map(s => `<div style="display:flex;justify-content:space-between;color:var(--text);padding:2px 0"><span>${s.nombre}</span><span style="color:var(--muted)">${durStr(s.duracion_min)}</span></div>`).join('')
+        + `<div style="border-top:1px solid var(--sand);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:500;color:var(--brown-dark)"><span>Duración total</span><span>${durStr(total)}</span></div>`;
 }
 
 function selectService(id) {
-    state.servicioSel = state.servicios.find(s => s.id === id);
+    const srv = state.servicios.find(s => s.id === id);
+    const idx = state.serviciosSel.findIndex(s => s.id === id);
+    if (idx >= 0) state.serviciosSel.splice(idx, 1);
+    else state.serviciosSel.push(srv);
     renderServices();
-    document.getElementById('btnStep1').disabled = false;
+    document.getElementById('btnStep1').disabled = state.serviciosSel.length === 0;
 }
 
 // ─── STAFF ───
 async function loadStaff() {
     const el = document.getElementById('staffList');
     el.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando...</div>';
-    const res = await fetch(`/api/colaboradoras`);
+    const ids = state.serviciosSel.map(s => s.id).join(',');
+    const res = await fetch(`/api/colaboradoras?servicio_ids=${ids}`);
     const colabs = await res.json();
     el.innerHTML = `
         <div class="staff-card staff-any ${state.colaboradoraSel === 'any' ? 'selected' : ''}"
@@ -682,12 +715,35 @@ async function loadStaff() {
     `).join('');
 }
 
-function selectStaff(id, nombre) {
+async function selectStaff(id, nombre) {
     state.colaboradoraSel = id;
     state.colaboradoraNombre = nombre;
+    state.fechaSel = null;
+    state.horaSel = null;
     document.querySelectorAll('.staff-card').forEach(c => c.classList.remove('selected'));
     event.currentTarget.classList.add('selected');
     document.getElementById('btnStep2').disabled = false;
+
+    if (id !== 'any') {
+        const res = await fetch(`/admin/api/disponibilidad/${id}`);
+        const sched = await res.json();
+        state.colabDias = new Set(Object.keys(sched).map(Number));
+        await cargarBloqueosReservar();
+    } else {
+        state.colabDias = null;
+        state.colabBloqueos = new Set();
+    }
+}
+
+async function cargarBloqueosReservar() {
+    if (!state.colaboradoraSel || state.colaboradoraSel === 'any') {
+        state.colabBloqueos = new Set();
+        return;
+    }
+    const mes = `${state.calYear}-${String(state.calMonth+1).padStart(2,'0')}`;
+    const r = await fetch(`/api/bloqueos/${state.colaboradoraSel}?mes=${mes}`);
+    const data = await r.json();
+    state.colabBloqueos = new Set(data.map(b => b.fecha));
 }
 
 // ─── CALENDAR ───
@@ -711,11 +767,14 @@ function renderCal() {
         const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + 60);
         const isPast = dt < today;
-        const isSun = dt.getDay() === 0;
         const isTooFar = dt > maxDate;
         const isToday = dt.toDateString() === today.toDateString();
         const isSel = state.fechaSel === iso;
-        const disabled = isPast || isSun || isTooFar;
+        const jsDay = dt.getDay();
+        const diaSemana = jsDay === 0 ? 6 : jsDay - 1;
+        const sinDisponibilidad = state.colabDias !== null && !state.colabDias.has(diaSemana);
+        const isBlocked = state.colabBloqueos.has(iso);
+        const disabled = isPast || isTooFar || sinDisponibilidad || isBlocked;
         let cls = 'cal-day';
         if (disabled) cls += ' disabled';
         else if (isSel) cls += ' selected';
@@ -725,14 +784,16 @@ function renderCal() {
     grid.innerHTML = html;
 }
 
-function prevMonth() {
+async function prevMonth() {
     if (state.calMonth === 0) { state.calMonth = 11; state.calYear--; }
     else state.calMonth--;
+    await cargarBloqueosReservar();
     renderCal();
 }
-function nextMonth() {
+async function nextMonth() {
     if (state.calMonth === 11) { state.calMonth = 0; state.calYear++; }
     else state.calMonth++;
+    await cargarBloqueosReservar();
     renderCal();
 }
 function selectDate(iso) {
@@ -748,7 +809,7 @@ async function loadSlots() {
     document.getElementById('btnStep4').disabled = true;
 
     const params = new URLSearchParams({
-        servicio_id: state.servicioSel.id,
+        servicio_ids: state.serviciosSel.map(s => s.id).join(','),
         colaboradora_id: state.colaboradoraSel,
         fecha: state.fechaSel,
     });
@@ -778,12 +839,17 @@ function renderSummary() {
     const fecha = new Date(state.fechaSel + 'T12:00:00');
     const fechaStr = fecha.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const colab = state.colaboradoraSel === 'any' ? 'Cualquiera disponible' : state.colaboradoraNombre;
+    const serviciosHtml = state.serviciosSel.map(s =>
+        `<div class="summary-row"><span class="label" style="padding-left:8px">· ${s.nombre}</span><span class="val">${durStr(s.duracion_min)}</span></div>`
+    ).join('');
+    const precioTotal = state.serviciosSel.reduce((sum, s) => sum + s.precio_desde, 0);
     document.getElementById('summaryBox').innerHTML = `
-        <div class="summary-row"><span class="label">Servicio</span><span class="val">${state.servicioSel.nombre}</span></div>
+        <div class="summary-row"><span class="label">Servicio${state.serviciosSel.length > 1 ? 's' : ''}</span><span class="val">${state.serviciosSel.length > 1 ? state.serviciosSel.length + ' servicios' : state.serviciosSel[0].nombre}</span></div>
+        ${state.serviciosSel.length > 1 ? serviciosHtml : ''}
         <div class="summary-row"><span class="label">Profesional</span><span class="val">${colab}</span></div>
         <div class="summary-row"><span class="label">Fecha</span><span class="val">${fechaStr}</span></div>
-        <div class="summary-row"><span class="label">Horario</span><span class="val">${state.horaSel} hs · ${durStr(state.servicioSel.duracion_min)}</span></div>
-        <div class="summary-row"><span class="label">Precio</span><span class="val summary-price">desde $${state.servicioSel.precio_desde.toLocaleString()} MXN</span></div>
+        <div class="summary-row"><span class="label">Horario</span><span class="val">${state.horaSel} hs · ${durStr(totalDuration())}</span></div>
+        <div class="summary-row"><span class="label">Precio</span><span class="val summary-price">desde $${precioTotal.toLocaleString()} MXN</span></div>
     `;
 }
 
@@ -813,7 +879,7 @@ async function confirmar() {
                 fecha_nacimiento: document.getElementById('fNacimiento').value || null,
                 notas: document.getElementById('fNotas').value.trim(),
                 acepto_politicas: true,
-                servicio_id: state.servicioSel.id,
+                servicio_ids: state.serviciosSel.map(s => s.id),
                 colaboradora_id: state.colaboradoraFinalId || state.colaboradoraSel,
                 fecha: state.fechaSel,
                 hora: state.horaSel,
@@ -823,12 +889,13 @@ async function confirmar() {
         if (data.success) {
             const fecha = new Date(state.fechaSel + 'T12:00:00');
             const fechaStr = fecha.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+            const serviciosNombres = state.serviciosSel.map(s => s.nombre).join(', ');
             document.getElementById('confirmText').innerHTML =
-                `Tu turno para <strong>${state.servicioSel.nombre}</strong> fue registrado para el<br>
+                `Tu turno para <strong>${serviciosNombres}</strong> fue registrado para el<br>
                 <strong>${fechaStr} a las ${state.horaSel} hs</strong>.<br><br>
                 Te esperamos en Maru Nails — 27 Itzamna 12, Tulum.`;
             const waMsg = encodeURIComponent(
-                `Hola! Confirmé mi reserva para *${state.servicioSel.nombre}* el ${fechaStr} a las ${state.horaSel} hs. Gracias! 💅`
+                `Hola! Confirmé mi reserva para *${serviciosNombres}* el ${fechaStr} a las ${state.horaSel} hs. Gracias! 💅`
             );
             document.getElementById('btnWhatsapp').href = `https://wa.me/${SALON_WA}?text=${waMsg}`;
             goStep('ok');
@@ -845,7 +912,7 @@ async function confirmar() {
 }
 
 function nueva() {
-    state.servicioSel = null;
+    state.serviciosSel = [];
     state.colaboradoraSel = null;
     state.fechaSel = null;
     state.horaSel = null;

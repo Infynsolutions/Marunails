@@ -163,7 +163,17 @@ nav a.active::after {
 .nav-hamburger.open span:nth-child(2) { opacity: 0; }
 .nav-hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
 
-.nav-links { display: flex; align-items: center; gap: 2px; }
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex: 1;
+    min-width: 0;
+}
+.nav-links::-webkit-scrollbar { display: none; }
 
 /* ─── MOBILE MENU ─────────────────────────────────── */
 .nav-mobile-menu {
@@ -524,6 +534,12 @@ select {
             </svg>
             Salón
         </a>
+        <a href="/logout" style="opacity:0.6;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Salir
+        </a>
     </div>
 
     <button class="nav-hamburger" id="navHamburger" aria-label="Menú">
@@ -597,6 +613,12 @@ select {
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
         </svg>
         Salón
+    </a>
+    <a href="/logout" style="opacity:0.6;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Salir
     </a>
 </div>
 

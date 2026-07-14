@@ -207,6 +207,26 @@
 .horario-row input[type=time]:focus { outline: none; border-color: var(--brown-mid); }
 .horario-row input:disabled { background: #f9f5f1; color: var(--muted); cursor: not-allowed; }
 
+.bloqueo-cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.bloqueo-cal-title { font-size:13px; font-weight:500; color:var(--brown-dark); }
+.bloqueo-cal-nav {
+    background:none; border:1px solid var(--sand); border-radius:6px;
+    width:28px; height:28px; cursor:pointer; display:flex;
+    align-items:center; justify-content:center; color:var(--brown); font-size:16px; line-height:1;
+}
+.bloqueo-cal-nav:hover { background:var(--brown-pale); }
+.bloqueo-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; max-width:340px; }
+.bloqueo-day-label { text-align:center; font-size:9px; font-weight:600; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); padding:4px 0; }
+.bloqueo-day {
+    aspect-ratio:1; border-radius:6px; display:flex; align-items:center; justify-content:center;
+    font-size:12px; cursor:pointer; transition:all .15s; border:1.5px solid transparent; color:var(--text);
+}
+.bloqueo-day:hover:not(.empty):not(.past) { background:var(--brown-pale); border-color:var(--brown-mid); }
+.bloqueo-day.blocked { background:#fee2e2; color:#991b1b; border-color:#fca5a5; font-weight:500; }
+.bloqueo-day.past { color:var(--sand); cursor:default; }
+.bloqueo-day.empty { cursor:default; }
+.bloqueo-day.today { border-color:var(--brown-mid); color:var(--brown); font-weight:600; }
+
 /* ── MODAL ── */
 .amodal-overlay {
     display: none;
@@ -379,6 +399,13 @@
         <option value="">— Seleccionar colaboradora —</option>
     </select>
     <div id="horarioContent"></div>
+    <div id="bloqueoSection" style="display:none;margin-top:28px">
+        <div class="section-header" style="margin-top:0">
+            <div class="section-title">Días bloqueados</div>
+            <div class="section-sub">Marcá días específicos como no disponibles (vacaciones, libre, etc.)</div>
+        </div>
+        <div id="bloqueoCalContent"></div>
+    </div>
 </div>
 
 <!-- ── TAB ESTADÍSTICAS ── -->
@@ -807,12 +834,104 @@ async function cargarHorario() {
     <button class="btn-add" style="margin-top:16px" onclick="guardarHorario(${colabId})">Guardar horarios</button>
     <div class="aerror" id="horarioError" style="margin-top:8px"></div>`;
     el.innerHTML = html;
+
+    document.getElementById('bloqueoSection').style.display = 'block';
+    bloqueoCalYear  = new Date().getFullYear();
+    bloqueoCalMonth = new Date().getMonth();
+    cargarCalBloqueos();
 }
 
 function toggleDia(d) {
     const activo = document.getElementById(`hdia-${d}`).checked;
     document.getElementById(`hini-${d}`).disabled = !activo;
     document.getElementById(`hfin-${d}`).disabled = !activo;
+}
+
+// ── CALENDARIO DE BLOQUEOS ──
+const MESES_B = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS_B  = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+let bloqueoCalYear  = new Date().getFullYear();
+let bloqueoCalMonth = new Date().getMonth();
+let bloqueoMap = {};  // { 'YYYY-MM-DD': id }
+
+function prevBloqueoMes() {
+    if (bloqueoCalMonth === 0) { bloqueoCalMonth = 11; bloqueoCalYear--; }
+    else bloqueoCalMonth--;
+    cargarCalBloqueos();
+}
+function nextBloqueoMes() {
+    if (bloqueoCalMonth === 11) { bloqueoCalMonth = 0; bloqueoCalYear++; }
+    else bloqueoCalMonth++;
+    cargarCalBloqueos();
+}
+
+async function cargarCalBloqueos() {
+    const colabId = document.getElementById('horarioColabSel').value;
+    if (!colabId) return;
+    const mes = `${bloqueoCalYear}-${String(bloqueoCalMonth+1).padStart(2,'0')}`;
+    const r = await fetch(`/api/bloqueos/${colabId}?mes=${mes}`);
+    const data = await r.json();
+    bloqueoMap = {};
+    data.forEach(b => { bloqueoMap[b.fecha] = b.id; });
+    renderCalBloqueos();
+}
+
+function renderCalBloqueos() {
+    const el = document.getElementById('bloqueoCalContent');
+    if (!el) return;
+    const y = bloqueoCalYear, m = bloqueoCalMonth;
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    let html = `<div class="bloqueo-cal-header">
+        <button class="bloqueo-cal-nav" onclick="prevBloqueoMes()">&#8249;</button>
+        <div class="bloqueo-cal-title">${MESES_B[m]} ${y}</div>
+        <button class="bloqueo-cal-nav" onclick="nextBloqueoMes()">&#8250;</button>
+    </div><div class="bloqueo-cal-grid">`;
+
+    html += DIAS_B.map(d => `<div class="bloqueo-day-label">${d}</div>`).join('');
+
+    const first = new Date(y, m, 1);
+    let startDay = first.getDay(); startDay = startDay === 0 ? 6 : startDay - 1;
+    for (let i = 0; i < startDay; i++) html += `<div class="bloqueo-day empty"></div>`;
+
+    const days = new Date(y, m + 1, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+        const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dt  = new Date(y, m, d);
+        const isPast    = dt < today;
+        const isBlocked = iso in bloqueoMap;
+        const isToday   = dt.toDateString() === today.toDateString();
+        let cls = 'bloqueo-day';
+        if (isPast) cls += ' past';
+        else if (isBlocked) cls += ' blocked';
+        else if (isToday) cls += ' today';
+        const onclick = !isPast ? `onclick="toggleBloqueoFecha('${iso}')"` : '';
+        html += `<div class="${cls}" ${onclick} title="${isBlocked ? 'Clic para desbloquear' : 'Clic para bloquear'}">${d}${isBlocked ? ' ✕' : ''}</div>`;
+    }
+    html += `</div><div style="font-size:11px;color:var(--muted);margin-top:10px">
+        <span style="display:inline-block;width:12px;height:12px;background:#fee2e2;border:1px solid #fca5a5;border-radius:3px;vertical-align:middle;margin-right:4px"></span>Día bloqueado — clic para alternar
+    </div>`;
+    el.innerHTML = html;
+}
+
+async function toggleBloqueoFecha(iso) {
+    const colabId = document.getElementById('horarioColabSel').value;
+    if (!colabId) return;
+    if (iso in bloqueoMap) {
+        await fetch(`/admin/api/bloqueos/${bloqueoMap[iso]}`, { method: 'DELETE' });
+        delete bloqueoMap[iso];
+    } else {
+        const motivo = window.prompt('Motivo del bloqueo (opcional, podés dejar vacío):');
+        if (motivo === null) return;
+        const r = await fetch('/admin/api/bloqueos', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ colaboradora_id: Number(colabId), fecha: iso, motivo })
+        });
+        const data = await r.json();
+        if (data.id) bloqueoMap[iso] = data.id;
+    }
+    renderCalBloqueos();
 }
 
 async function guardarHorario(colabId) {
