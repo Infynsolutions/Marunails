@@ -614,23 +614,41 @@ async function init() {
     const res = await fetch('/api/servicios');
     state.servicios = await res.json();
     renderCats();
-    const cats = [...new Set(state.servicios.map(s => s.categoria))];
-    selectCat(cats[0]);
+    selectCat(orderedCats()[0]);
 }
 
 // ─── CATEGORÍAS ───
-function renderCats() {
+// Orden fijo de las etiquetas + etiquetas en español (MX)
+const CAT_ORDER = ['Manicure', 'Pedicure', 'Additional', 'Brows & Lashes', 'Glow Up Facial', 'Promos Locales', 'Beauty Packages'];
+const CAT_LABELS = {
+    'Manicure': 'Manicura',
+    'Pedicure': 'Pedicura',
+    'Additional': 'Adicionales',
+    'Brows & Lashes': 'Brows & Lashes',
+    'Glow Up Facial': 'Glow Up Facial',
+    'Promos Locales': 'Promos Locales',
+    'Beauty Packages': 'Beauty Packages',
+};
+
+function orderedCats() {
     const cats = [...new Set(state.servicios.map(s => s.categoria))];
+    return cats.slice().sort((a, b) => {
+        const ia = CAT_ORDER.indexOf(a), ib = CAT_ORDER.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+}
+
+function renderCats() {
     const el = document.getElementById('catTabs');
-    el.innerHTML = cats.map(c =>
-        `<div class="cat-tab" onclick="selectCat('${c}')">${c}</div>`
+    el.innerHTML = orderedCats().map(c =>
+        `<div class="cat-tab" data-cat="${c}" onclick="selectCat('${c}')">${CAT_LABELS[c] || c}</div>`
     ).join('');
 }
 
 function selectCat(cat) {
     state.catActiva = cat;
     document.querySelectorAll('.cat-tab').forEach(t => {
-        t.classList.toggle('active', t.textContent === cat);
+        t.classList.toggle('active', t.dataset.cat === cat);
     });
     renderServices();
 }
