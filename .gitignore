@@ -43,3 +43,8 @@ Thumbs.db
 *.docx
 *.pdf
 .gstack/
+
+# Excepción: los assets de la web pública deben versionarse (Vercel los sirve)
+!marunails/static/*.jpg
+!marunails/static/*.jpeg
+!marunails/static/*.png

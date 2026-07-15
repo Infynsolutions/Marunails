@@ -6,7 +6,16 @@
   <title>Maru Nails · Beauty & Well Being Balance · Tulum</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='apple-icon.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-icon.png') }}">
-  <meta name="description" content="Salón de belleza en Tulum. Uñas, pedicure, tratamientos faciales y más. Beauty & Well Being Balance.">
+  <meta name="description" content="Salón de belleza en Tulum. Uñas, pedicure, tratamientos faciales y más. El lujo de sentirte bien contigo misma.">
+
+  <!-- Open Graph / previews en WhatsApp e Instagram -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Maru Nails · Beauty & Well Being Balance · Tulum">
+  <meta property="og:description" content="El lujo de sentirte bien contigo misma. Un espacio en Tulum donde cada detalle está pensado para ti.">
+  <meta property="og:image" content="{{ url_for('static', filename='MARUNAILSSS.jpeg', _external=True) }}">
+  <meta property="og:locale" content="es_MX">
+  <meta name="twitter:card" content="summary_large_image">
+
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -22,6 +31,8 @@
       --muted:   #9E8878;
       --text:    #2A1F1A;
       --white:   #FFFFFF;
+      --orange:   #ED6F1D;  /* acento de marca — Virá brandbook */
+      --orange-l: #F18422;
     }
 
     html { scroll-behavior: smooth; }
@@ -72,7 +83,7 @@
       transition: color 0.2s;
     }
 
-    .pub-nav-links a:hover { color: var(--brown); }
+    .pub-nav-links a:hover { color: var(--orange); }
 
     .btn-nav-cta {
       background: var(--brown) !important;
@@ -81,90 +92,108 @@
       border-radius: 6px !important;
     }
 
-    /* ── HERO ──────────────────────────────────── */
+    /* ── HERO (full-bleed) ─────────────────────── */
     .hero {
-      min-height: 88vh;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      overflow: hidden;
-    }
-
-    .hero-left {
+      position: relative;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      align-items: center;
       justify-content: center;
-      padding: 80px 72px 80px 80px;
-      position: relative;
+      text-align: center;
       overflow: hidden;
-      background: var(--cream);
+      padding: 120px 24px 90px;
     }
 
-    /* Monograma watermark en el hero */
-    .hero-left::before {
+    .hero-bg { position: absolute; inset: 0; z-index: 0; }
+
+    .hero-bg img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 30%;
+      display: block;
+    }
+
+    /* Overlay para legibilidad del texto sobre la foto */
+    .hero-bg::after {
       content: '';
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 480px;
-      height: 480px;
-      background-image: url("{{ url_for('static', filename='Maru 2-04.PNG') }}");
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-      opacity: 0.5;
-      pointer-events: none;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(30,17,10,0.42) 0%, rgba(30,17,10,0.28) 42%, rgba(30,17,10,0.66) 100%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 640px;
     }
 
     .hero-eyebrow {
       font-size: 0.68rem;
       font-weight: 500;
-      letter-spacing: 0.22em;
+      letter-spacing: 0.24em;
       text-transform: uppercase;
-      color: var(--brown-m);
-      margin-bottom: 24px;
-      position: relative;
+      color: var(--orange-l);
+      margin-bottom: 28px;
       display: flex;
       align-items: center;
       gap: 12px;
+      text-shadow: 0 1px 12px rgba(0,0,0,0.45);
     }
 
-    .hero-eyebrow::before {
+    .hero-eyebrow::before,
+    .hero-eyebrow::after {
       content: '';
       display: block;
-      width: 28px;
+      width: 26px;
       height: 1px;
-      background: var(--brown-m);
+      background: var(--orange-l);
       flex-shrink: 0;
     }
 
     .hero-logo-main {
-      width: 260px;
+      width: clamp(260px, 34vw, 440px);
       height: auto;
-      margin-bottom: 32px;
-      position: relative;
-      filter: brightness(0) saturate(100%) invert(22%) sepia(35%) saturate(700%) hue-rotate(335deg) brightness(85%);
+      margin-bottom: 30px;
+      filter: brightness(0) invert(1);
     }
 
-    .hero-sub {
+    .hero-title {
       font-family: 'Cormorant Garamond', serif;
-      font-style: italic;
-      font-size: 1.4rem;
+      font-size: clamp(2.6rem, 5vw, 4rem);
+      font-weight: 400;
+      color: var(--cream);
+      line-height: 1.08;
+      letter-spacing: 0.005em;
+      margin-bottom: 22px;
+      text-shadow: 0 2px 24px rgba(0,0,0,0.28);
+    }
+
+    .hero-title em { font-style: italic; color: rgba(250,246,240,0.82); }
+
+    .hero-sub {
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
       font-weight: 300;
-      color: var(--brown-m);
-      line-height: 1.5;
+      color: rgba(250,246,240,0.9);
+      line-height: 1.7;
       margin-bottom: 40px;
-      max-width: 380px;
-      position: relative;
+      max-width: 460px;
+      text-shadow: 0 1px 16px rgba(0,0,0,0.3);
     }
 
     .hero-actions {
       display: flex;
       gap: 14px;
       flex-wrap: wrap;
-      position: relative;
+      justify-content: center;
     }
 
+    /* Botones compartidos */
     .btn-primary {
       display: inline-flex;
       align-items: center;
@@ -184,14 +213,34 @@
 
     .btn-primary:hover { background: var(--brown-d); transform: translateY(-1px); }
 
-    .btn-outline {
+    /* Botones sobre el hero oscuro */
+    .btn-hero-primary {
       display: inline-flex;
       align-items: center;
       gap: 9px;
-      padding: 14px 28px;
-      background: transparent;
-      color: var(--brown);
-      border: 1px solid rgba(92,56,38,0.35);
+      padding: 15px 36px;
+      background: var(--cream);
+      color: var(--brown-d);
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: transform 0.15s, opacity 0.2s;
+      box-shadow: 0 6px 26px rgba(0,0,0,0.3);
+    }
+
+    .btn-hero-primary:hover { transform: translateY(-1px); opacity: 0.94; }
+
+    .btn-hero-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 14px 30px;
+      background: rgba(250,246,240,0.06);
+      color: var(--cream);
+      border: 1px solid rgba(250,246,240,0.55);
       border-radius: 6px;
       font-size: 0.74rem;
       font-weight: 500;
@@ -199,40 +248,10 @@
       text-transform: uppercase;
       text-decoration: none;
       transition: background 0.2s;
+      backdrop-filter: blur(2px);
     }
 
-    .btn-outline:hover { background: rgba(92,56,38,0.06); }
-
-    .hero-right {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .hero-right img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center top;
-      display: block;
-    }
-
-    .hero-right-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      background: linear-gradient(160deg, var(--cream-d) 0%, var(--sand) 60%, var(--sand-d) 100%);
-    }
-
-    .hero-right-placeholder img {
-      width: 200px;
-      height: 200px;
-      object-fit: contain;
-      opacity: 0.5;
-    }
+    .btn-hero-outline:hover { background: rgba(250,246,240,0.16); }
 
     /* ── STRIP — TAGLINE ────────────────────────── */
     .tagline-strip {
@@ -273,7 +292,7 @@
 
     .stat-item {
       flex: 1;
-      max-width: 220px;
+      max-width: 240px;
       text-align: center;
       padding: 36px 20px;
       border-right: 1px solid var(--sand);
@@ -290,6 +309,8 @@
       margin-bottom: 6px;
     }
 
+    .stat-num .star { color: var(--orange); font-size: 1.6rem; vertical-align: middle; }
+
     .stat-label {
       font-size: 0.68rem;
       font-weight: 500;
@@ -298,13 +319,7 @@
       color: var(--muted);
     }
 
-    /* ── SERVICIOS ──────────────────────────────── */
-    .servicios-section {
-      padding: 96px 48px;
-      max-width: 1280px;
-      margin: 0 auto;
-    }
-
+    /* ── SECTION HEADERS (compartido) ───────────── */
     .section-header {
       text-align: center;
       margin-bottom: 56px;
@@ -312,10 +327,10 @@
 
     .section-eyebrow {
       font-size: 0.68rem;
-      font-weight: 500;
+      font-weight: 600;
       letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--orange);
       margin-bottom: 16px;
     }
 
@@ -333,285 +348,431 @@
       color: var(--brown-m);
     }
 
-    /* Filtros */
-    .cat-filters {
+    .section-lead {
+      font-size: 0.95rem;
+      font-weight: 300;
+      color: var(--brown-m);
+      line-height: 1.7;
+      max-width: 540px;
+      margin: 18px auto 0;
+    }
+
+    /* ── CUIDADO (Nuestra Forma de Cuidarte) ────── */
+    .care-section {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(168deg, var(--cream) 0%, #F7E8D3 36%, #F3CB92 68%, #EF8C34 100%);
+      padding: 100px 48px;
+      border-top: 1px solid var(--sand);
+      border-bottom: 1px solid var(--sand);
+    }
+
+    /* Miceláneas — juego lumínico naranja + luz cálida (Virá brandbook) */
+    .care-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 55% 48% at 90% 92%, rgba(237,111,29,0.55) 0%, transparent 62%),
+        radial-gradient(ellipse 46% 42% at 6% 86%, rgba(249,238,222,0.95) 0%, transparent 60%),
+        radial-gradient(circle at 82% 16%, rgba(249,238,222,0.72) 0%, transparent 46%);
+    }
+
+    /* Forma orgánica fluida (cream) abajo-izquierda */
+    .care-section::after {
+      content: '';
+      position: absolute;
+      z-index: 0;
+      pointer-events: none;
+      width: 48%;
+      height: 74%;
+      left: -10%;
+      bottom: -20%;
+      background: var(--cream);
+      border-radius: 58% 42% 55% 45% / 52% 48% 52% 48%;
+      opacity: 0.82;
+      filter: blur(8px);
+      transform: rotate(-12deg);
+    }
+
+    .care-inner { max-width: 1140px; margin: 0 auto; position: relative; z-index: 1; }
+
+    .care-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      background: var(--sand);
+      border: 1px solid rgba(255,255,255,0.6);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 30px 70px rgba(150,72,22,0.20);
+    }
+
+    .care-card {
+      background: var(--white);
+      padding: 40px 34px;
+      transition: background 0.25s;
+    }
+
+    .care-card:hover { background: var(--cream); }
+
+    .care-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--cream-d);
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      align-items: center;
       justify-content: center;
-      margin-bottom: 48px;
-    }
-
-    .cat-filter {
-      padding: 8px 20px;
-      border: 1px solid var(--sand);
-      border-radius: 100px;
-      background: transparent;
-      color: var(--muted);
-      font-size: 0.74rem;
-      font-weight: 500;
-      font-family: 'Inter', sans-serif;
-      letter-spacing: 0.06em;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .cat-filter:hover {
-      border-color: var(--brown-m);
+      margin-bottom: 20px;
       color: var(--brown);
     }
 
-    .cat-filter.active {
-      background: var(--brown);
-      border-color: var(--brown);
-      color: var(--cream);
+    .care-card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.4rem;
+      font-weight: 500;
+      color: var(--brown-d);
+      line-height: 1.2;
+      margin-bottom: 12px;
     }
 
-    /* Grid de cards */
-    .servs-grid {
+    .care-card-desc {
+      font-size: 0.84rem;
+      font-weight: 300;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* ── SERVICIOS ──────────────────────────────── */
+    .servicios-section {
+      padding: 96px 48px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* ── SERVICIOS: tiles por categoría ─────────── */
+    .serv-tiles {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-      gap: 24px;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      margin-bottom: 52px;
     }
 
-    /* ── GALERÍA ──────────────────────────────────── */
-    .cat-gallery-wrap {
-      margin-bottom: 48px;
-    }
-
-    .cat-gallery {
+    .serv-tile {
       position: relative;
-      border-radius: 16px;
+      aspect-ratio: 3 / 4.3;
+      border-radius: 14px;
       overflow: hidden;
+      text-decoration: none;
+      display: block;
+      background: linear-gradient(165deg, var(--sand) 0%, var(--sand-d) 55%, var(--brown-m) 100%);
+    }
+
+    .serv-tile-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94);
+    }
+
+    .serv-tile:hover .serv-tile-photo { transform: scale(1.06); }
+
+    /* Monograma para tiles sin foto todavía */
+    .serv-tile-mono {
+      position: absolute;
+      inset: 0;
+      background-image: url("{{ url_for('static', filename='Maru LOGO.PNG') }}");
+      background-size: 46%;
+      background-repeat: no-repeat;
+      background-position: center 38%;
+      opacity: 0.32;
+      filter: brightness(0) invert(1);
+    }
+
+    .serv-tile::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(30,17,10,0) 38%, rgba(30,17,10,0.78) 100%);
+    }
+
+    .serv-tile-content {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 22px 18px 24px;
+      z-index: 2;
+      text-align: center;
+    }
+
+    .serv-tile-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.55rem;
+      font-weight: 500;
+      color: var(--cream);
+      letter-spacing: 0.03em;
+      line-height: 1.1;
+      margin-bottom: 5px;
+    }
+
+    .serv-tile-desc {
+      font-size: 0.74rem;
+      font-weight: 300;
+      color: rgba(250,246,240,0.85);
+      line-height: 1.45;
+    }
+
+    .serv-cta-wrap { text-align: center; }
+
+    /* ── EQUIPO ─────────────────────────────────── */
+    .team-section {
       background: var(--cream-d);
+      padding: 100px 48px;
+      border-top: 1px solid var(--sand);
     }
 
-    .gallery-track {
-      display: flex;
-      transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    .team-inner { max-width: 1140px; margin: 0 auto; }
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 28px;
     }
 
-    .gallery-slide {
-      min-width: 100%;
-      height: 420px;
+    .team-card { text-align: center; }
+
+    .team-avatar {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      border-radius: 14px;
       overflow: hidden;
+      margin-bottom: 18px;
+      background: linear-gradient(160deg, var(--sand) 0%, var(--sand-d) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       position: relative;
-      flex-shrink: 0;
     }
 
-    .gallery-slide img {
+    .team-avatar img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
     }
 
-    .gallery-slide-placeholder {
-      background: linear-gradient(145deg, var(--sand) 0%, var(--sand-d) 100%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-    }
-
-    .gallery-slide-placeholder img {
-      width: 80px !important;
-      height: 80px !important;
-      object-fit: contain !important;
-      opacity: 0.3;
-    }
-
-    .gallery-slide-placeholder span {
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .gallery-btn {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(250,246,240,0.88);
-      border: none;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: var(--brown-d);
-      box-shadow: 0 2px 12px rgba(62,36,24,0.15);
-      transition: background 0.2s, transform 0.2s;
-      z-index: 2;
-    }
-
-    .gallery-btn:hover { background: var(--white); transform: translateY(-50%) scale(1.08); }
-    .gallery-prev { left: 16px; }
-    .gallery-next { right: 16px; }
-
-    .gallery-dots {
-      position: absolute;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 8px;
-      z-index: 2;
-    }
-
-    .gallery-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: rgba(250,246,240,0.45);
-      cursor: pointer;
-      transition: background 0.2s, transform 0.2s;
-    }
-
-    .gallery-dot.active {
-      background: var(--cream);
-      transform: scale(1.25);
-    }
-
-    /* ── CARDS ─────────────────────────────────── */
-    .serv-card {
-      border-radius: 14px;
-      border: 1px solid rgba(92,56,38,0.1);
-      transition: transform 0.25s, box-shadow 0.25s;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* Color de fondo uniforme */
-    .serv-card { background: #EDE3D0; }
-
-    /* Línea de acento izquierda */
-    .serv-card::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: var(--brown);
-      opacity: 0;
-      transition: opacity 0.25s;
-    }
-
-    .serv-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 40px rgba(62,36,24,0.14);
-      filter: brightness(0.96);
-    }
-
-    .serv-card:hover::before { opacity: 1; }
-
-    .serv-card-body {
-      padding: 22px 24px 20px;
-    }
-
-    .serv-card-cat {
-      font-size: 0.63rem;
-      font-weight: 600;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--brown-m);
-      margin-bottom: 8px;
-    }
-
-    .serv-card-name {
+    .team-initials {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 1.22rem;
-      font-weight: 500;
-      color: var(--brown-d);
-      line-height: 1.25;
-      margin-bottom: 8px;
-    }
-
-    .serv-card-desc {
-      font-size: 0.77rem;
-      color: var(--muted);
-      line-height: 1.55;
-      margin-bottom: 16px;
-    }
-
-    .serv-card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: 14px;
-      border-top: 1px solid rgba(92,56,38,0.13);
-    }
-
-    .serv-card-price {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--brown);
+      font-size: 3.2rem;
+      font-weight: 400;
+      color: rgba(62,36,24,0.55);
       letter-spacing: 0.02em;
     }
 
-    .serv-card-dur {
-      font-size: 0.7rem;
-      color: var(--muted);
-      letter-spacing: 0.05em;
-      background: rgba(226,213,203,0.5);
-      padding: 3px 9px;
-      border-radius: 100px;
+    .team-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.4rem;
+      font-weight: 500;
+      color: var(--brown-d);
+      line-height: 1.1;
+      margin-bottom: 5px;
     }
+
+    .team-role {
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--brown-m);
+    }
+
+    /* ── INSTAGRAM ──────────────────────────────── */
+    .ig-section {
+      padding: 100px 48px;
+      max-width: 1280px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .ig-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 44px;
+    }
+
+    .ig-item {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--cream-d);
+    }
+
+    .ig-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.4s;
+    }
+
+    .ig-item::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(62,36,24,0);
+      transition: background 0.3s;
+    }
+
+    .ig-item:hover img { transform: scale(1.05); }
+    .ig-item:hover::after { background: rgba(62,36,24,0.18); }
+
+    .btn-ig {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 32px;
+      background: transparent;
+      color: var(--brown);
+      border: 1px solid rgba(92,56,38,0.35);
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-ig:hover { background: var(--brown); color: var(--cream); }
+
+    /* ── UBICACIÓN ──────────────────────────────── */
+    .location-section {
+      background: var(--white);
+      border-top: 1px solid var(--sand);
+      padding: 100px 48px;
+    }
+
+    .location-inner {
+      max-width: 1140px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 56px;
+      align-items: center;
+    }
+
+    .location-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 3vw, 2.6rem);
+      font-weight: 400;
+      color: var(--brown-d);
+      line-height: 1.1;
+      margin-bottom: 24px;
+    }
+
+    .loc-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 20px;
+      color: var(--brown-m);
+    }
+
+    .loc-line svg { flex-shrink: 0; margin-top: 3px; color: var(--brown); }
+    .loc-line-label { font-size: 0.63rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .loc-line-value { font-size: 0.92rem; color: var(--text); line-height: 1.5; }
+
+    .hours-list { margin: 6px 0 0; }
+    .hours-row { display: flex; justify-content: space-between; gap: 24px; font-size: 0.88rem; color: var(--text); padding: 3px 0; max-width: 300px; }
+    .hours-row span:first-child { color: var(--brown-m); }
+
+    .contact-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
+
+    .btn-wa {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 14px 26px; border-radius: 6px;
+      background: #25D366; color: #fff;
+      font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+      text-decoration: none; transition: filter 0.2s, transform 0.15s;
+      box-shadow: 0 4px 18px rgba(37,211,102,0.28);
+    }
+    .btn-wa:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
+    .btn-maps {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 14px 26px; border-radius: 6px;
+      background: var(--brown); color: var(--cream);
+      font-size: 0.74rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+      text-decoration: none; transition: background 0.2s;
+    }
+    .btn-maps:hover { background: var(--brown-d); }
+
+    .location-map {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--sand);
+      height: 380px;
+      background: var(--cream-d);
+    }
+    .location-map iframe { width: 100%; height: 100%; border: 0; display: block; }
 
     /* ── CTA SECTION ────────────────────────────── */
     .cta-section {
       background: linear-gradient(160deg, #1a0c08 0%, #3E2418 45%, #5C2E18 100%);
-      padding: 40px 48px 80px;
+      padding: 110px 48px;
       text-align: center;
       position: relative;
       overflow: hidden;
     }
 
-    /* Monograma blanco de fondo */
+    /* Monograma blanco de fondo (ahora centrado sin magic-number) */
     .cta-section::before {
       content: '';
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -65%);
-      width: 600px;
-      height: 600px;
+      transform: translate(-50%, -50%);
+      width: min(520px, 70vw);
+      height: min(520px, 70vw);
       background-image: url("{{ url_for('static', filename='Logotipo principal_Mesa de trabajo 1.PNG') }}");
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
-      opacity: 0.22;
+      opacity: 0.14;
       filter: brightness(0) invert(1);
       pointer-events: none;
     }
 
-    .cta-section .section-eyebrow {
-      color: rgba(250,246,240,0.45);
-      margin-bottom: 0;
-    }
+    .cta-inner { position: relative; z-index: 1; }
+
+    .cta-section .section-eyebrow { color: var(--orange-l); margin-bottom: 14px; }
 
     .cta-title {
       font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(2rem, 4vw, 3rem);
+      font-size: clamp(2.2rem, 4vw, 3.2rem);
       font-weight: 300;
       color: var(--cream);
-      margin-top: 420px;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
       line-height: 1.15;
-      position: relative;
     }
 
     .cta-title em { font-style: italic; color: rgba(250,246,240,0.65); }
 
     .cta-sub {
-      color: rgba(250,246,240,0.5);
-      font-size: 0.88rem;
-      margin-bottom: 40px;
-      position: relative;
+      color: rgba(250,246,240,0.55);
+      font-size: 0.95rem;
+      font-weight: 300;
+      line-height: 1.7;
+      max-width: 480px;
+      margin: 0 auto 40px;
     }
 
     .btn-cta-light {
@@ -629,7 +790,6 @@
       text-decoration: none;
       transition: opacity 0.2s, transform 0.15s;
       box-shadow: 0 6px 28px rgba(0,0,0,0.28);
-      position: relative;
     }
 
     .btn-cta-light:hover { opacity: 0.92; transform: translateY(-1px); }
@@ -645,17 +805,13 @@
       gap: 20px;
     }
 
-    .footer-logo img {
-      height: 36px;
-      width: auto;
-      opacity: 0.55;
-    }
+    .footer-logo img { height: 36px; width: auto; opacity: 0.55; }
 
-    .footer-text {
-      color: rgba(250,246,240,0.3);
-      font-size: 0.75rem;
-      letter-spacing: 0.06em;
-    }
+    .footer-social { display: flex; align-items: center; gap: 18px; }
+    .footer-social a { color: rgba(250,246,240,0.4); transition: color 0.2s; display: flex; }
+    .footer-social a:hover { color: var(--orange-l); }
+
+    .footer-text { color: rgba(250,246,240,0.3); font-size: 0.75rem; letter-spacing: 0.06em; }
 
     .footer-link {
       color: rgba(250,246,240,0.25);
@@ -667,73 +823,115 @@
 
     .footer-link:hover { color: rgba(250,246,240,0.55); }
 
+    /* ── WHATSAPP FLOTANTE ──────────────────────── */
+    .wa-float {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 200;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #25D366;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 24px rgba(37,211,102,0.45);
+      transition: transform 0.2s;
+    }
+    .wa-float:hover { transform: scale(1.08); }
+
     /* ── HIDDEN ─────────────────────────────────── */
     .serv-card.hidden { display: none; }
 
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
     /* ── RESPONSIVE ─────────────────────────────── */
+    @media (max-width: 1024px) {
+      .care-grid { grid-template-columns: repeat(2, 1fr); }
+      .team-grid { grid-template-columns: repeat(2, 1fr); gap: 24px; }
+      .location-inner { grid-template-columns: 1fr; gap: 36px; }
+      .serv-tiles { grid-template-columns: repeat(3, 1fr); }
+    }
+
     @media (max-width: 860px) {
-      .hero {
-        grid-template-columns: 1fr;
-        min-height: auto;
-      }
-      .hero-right {
-        height: 300px;
-        order: -1;
-      }
-      .hero-left {
-        padding: 52px 28px 60px;
-      }
-      .hero-left::before { display: none; }
+      .hero { min-height: 90vh; padding: 100px 20px 70px; }
+      .hero-logo-main { width: clamp(220px, 60vw, 320px); }
+      .serv-tiles { grid-template-columns: repeat(2, 1fr); gap: 12px; }
       .pub-nav { padding: 0 24px; }
       .pub-nav-links a:not(.btn-nav-cta) { display: none; }
       .stats-bar { flex-wrap: wrap; }
-      .stat-item { min-width: 50%; border-right: none; border-bottom: 1px solid var(--sand); }
+      .stat-item { min-width: 50%; max-width: none; border-right: none; border-bottom: 1px solid var(--sand); }
+      .stat-item:nth-child(odd) { border-right: 1px solid var(--sand); }
+      .care-section, .team-section, .ig-section, .location-section { padding: 64px 22px; }
+      .care-grid { grid-template-columns: 1fr; }
       .servicios-section { padding: 56px 20px; }
-      .cta-section { padding: 64px 24px; }
+      .cta-section { padding: 72px 24px; }
       footer { flex-direction: column; align-items: center; text-align: center; padding: 32px 24px; }
       .tagline-strip { flex-wrap: wrap; gap: 12px; }
       .tagline-strip-dot { display: none; }
+    }
+
+    /* ── ACCESIBILIDAD: menos movimiento ────────── */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
     }
   </style>
 </head>
 <body>
 
+{# ═══════════════════════════════════════════════════════════════════
+   DATOS DE CONTACTO — COMPLETAR con los reales antes de publicar.
+   Cambiá solo estos 4 valores y se actualiza toda la página.
+   WA = número de WhatsApp con código de país, sin + ni espacios (MX: 521...)
+   ═══════════════════════════════════════════════════════════════════ #}
+{% set WA_LINK     = 'https://wa.link/v7nt6k' %}
+{% set IG_USER     = 'marunails.tulum' %}
+{% set DIRECCION   = 'Itzamná 27, Aldea Zama · Tulum, Q. Roo, México' %}
+{% set MAPS_LINK   = 'https://share.google/rNgRjyMgaPsGxiZ5S' %}
+{% set MAPS_EMBED  = 'https://www.google.com/maps?q=Maru+Nails+Boutique+Beauty+Studio+Aldea+Zama+Tulum&output=embed' %}
+
 <!-- ── NAV ──────────────────────────────────────────────── -->
 <nav class="pub-nav">
-  <a href="/salon" class="pub-nav-logo">
-    <img src="{{ url_for('static', filename='Logotipo principal-05.PNG') }}" alt="Maru Nails">
+  <a href="/" class="pub-nav-logo">
+    <img src="{{ url_for('static', filename='Logotipo principal-05.PNG') }}" alt="Maru Nails" width="120" height="44">
   </a>
   <div class="pub-nav-links">
     <a href="#servicios">Servicios</a>
-    <a href="#reservar" class="btn-nav-cta">Reservar turno</a>
+    <a href="#equipo">Equipo</a>
+    <a href="#ubicacion">Ubicación</a>
+    <a href="/reservar" class="btn-nav-cta">Reservar cita</a>
   </div>
 </nav>
 
-<!-- ── HERO ──────────────────────────────────────────────── -->
+<!-- ── HERO (full-bleed) ─────────────────────────────────── -->
 <section class="hero">
-  <div class="hero-left">
+  <div class="hero-bg">
+    <img src="{{ url_for('static', filename='MARUNAILSSS.jpeg') }}" alt="Salón Maru Nails Tulum" width="1600" height="900" fetchpriority="high">
+  </div>
+  <div class="hero-content">
     <p class="hero-eyebrow">Tulum · México</p>
     <img
       src="{{ url_for('static', filename='Logotipo principal-03.PNG') }}"
       alt="Maru Nails"
       class="hero-logo-main"
+      width="440" height="210"
     >
+    <h1 class="hero-title">El lujo de sentirte bien <em>contigo misma.</em></h1>
     <p class="hero-sub">
-      El lujo de sentirte bien<br>contigo misma.
+      Un espacio donde cada detalle está pensado para que hagas una pausa,
+      disfrutes el momento y salgas sintiéndote mejor de como llegaste.
     </p>
     <div class="hero-actions">
-      <a href="/reservar" class="btn-primary">
+      <a href="/reservar" class="btn-hero-primary">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
         </svg>
-        Reservar turno
+        Encuentra tu momento
       </a>
-      <a href="#servicios" class="btn-outline">Ver servicios</a>
+      <a href="#servicios" class="btn-hero-outline">Ver servicios</a>
     </div>
-  </div>
-
-  <div class="hero-right">
-    <img src="{{ url_for('static', filename='MARUNAILSSS.jpeg') }}" alt="Maru Nails Tulum">
   </div>
 </section>
 
@@ -744,191 +942,281 @@
   <span class="tagline-strip-text">Tulum, México</span>
 </div>
 
+<!-- ── STATS ──────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-num">3</div>
+    <div class="stat-label">Años en Tulum</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">+2000</div>
+    <div class="stat-label">Clientas felices</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">4.6 <span class="star">★</span></div>
+    <div class="stat-label">en Google</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">{{ servicios|length }}</div>
+    <div class="stat-label">Servicios</div>
+  </div>
+</div>
 
-<!-- ── SERVICIOS ─────────────────────────────────────────── -->
+<!-- ── NUESTRA FORMA DE CUIDARTE ──────────────────────────── -->
+<section class="care-section">
+  <div class="care-inner">
+    <div class="section-header">
+      <p class="section-eyebrow">Nuestra forma de cuidarte</p>
+      <h2 class="section-title">Cada <em>detalle</em> importa</h2>
+      <p class="section-lead">
+        Mientras disfrutas de un momento para ti, nosotros cuidamos cada detalle
+        para que solo tengas que relajarte.
+      </p>
+    </div>
+
+    <div class="care-grid">
+      <div class="care-card">
+        <div class="care-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <h3 class="care-card-title">Herramientas esterilizadas</h3>
+        <p class="care-card-desc">Cada instrumento reutilizable pasa por un proceso completo de limpieza, desinfección y esterilización antes de cada servicio.</p>
+      </div>
+
+      <div class="care-card">
+        <div class="care-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+          </svg>
+        </div>
+        <h3 class="care-card-title">Materiales individuales</h3>
+        <p class="care-card-desc">Limas, buffers y todos los elementos que no pueden esterilizarse son de un solo uso o exclusivos para cada cliente.</p>
+      </div>
+
+      <div class="care-card">
+        <div class="care-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h3 class="care-card-title">Kit sellado</h3>
+        <p class="care-card-desc">Las herramientas esterilizadas permanecen selladas hasta el momento de comenzar tu servicio y se abren frente a ti.</p>
+      </div>
+
+      <div class="care-card">
+        <div class="care-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/>
+          </svg>
+        </div>
+        <h3 class="care-card-title">Atención personalizada</h3>
+        <p class="care-card-desc">Antes de comenzar evaluamos tus uñas para recomendar la técnica más adecuada según sus necesidades y el resultado que buscas.</p>
+      </div>
+
+      <div class="care-card">
+        <div class="care-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>
+          </svg>
+        </div>
+        <h3 class="care-card-title">Calidad en cada detalle</h3>
+        <p class="care-card-desc">Seleccionamos cuidadosamente nuestros productos y trabajamos con técnicas que priorizan la salud de tus uñas, con un resultado duradero.</p>
+      </div>
+
+      <div class="care-card">
+        <div class="care-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
+          </svg>
+        </div>
+        <h3 class="care-card-title">Un espacio para desconectar</h3>
+        <p class="care-card-desc">Más que una cita de belleza, queremos que encuentres un momento para bajar el ritmo, disfrutar un café y dedicarte tiempo para ti.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SERVICIOS (tiles por categoría) ────────────────────── -->
 <section class="servicios-section" id="servicios">
   <div class="section-header">
     <p class="section-eyebrow">Nuestros servicios</p>
     <h2 class="section-title">Choose <em>you</em></h2>
+    <p class="section-lead">Elige lo que hoy necesitas para ti. Reserva y elige día y horario en segundos.</p>
   </div>
 
-  {% set cat_order = ['Manicure', 'Pedicure', 'Brows & Lashes', 'Glow Up Facial', 'Promos Locales', 'Beauty Packages', 'Additional'] %}
-  {% set categorias_presentes = servicios | map(attribute='categoria') | unique | list %}
+  {# foto: nombre de archivo en /static, o '' para mostrar el monograma hasta cargar la foto #}
+  {% set tiles = [
+    {'name':'Mani',        'desc':'Color y detalle en cada uña.',    'foto':'serv-mani.jpg'},
+    {'name':'Pedi',        'desc':'Un respiro para tus pies.',        'foto':'serv-pedi.jpg'},
+    {'name':'Lashes',      'desc':'Despierta tu mirada.',             'foto':'serv-lashes.jpg'},
+    {'name':'Brows',       'desc':'Cejas que enmarcan tu rostro.',    'foto':'serv-brows.jpg'},
+    {'name':'Glow Facial', 'desc':'Tu piel, en su mejor versión.',    'foto':'serv-glow.jpg'},
+  ] %}
 
-  <div class="cat-filters">
-    <button class="cat-filter active" data-cat="todos">Todos</button>
-    {% for cat in cat_order %}
-      {% if cat in categorias_presentes %}
-    <button class="cat-filter" data-cat="{{ cat }}">{{ cat }}</button>
+  <div class="serv-tiles">
+    {% for t in tiles %}
+    <a href="/reservar" class="serv-tile" aria-label="Reservar {{ t.name }}">
+      {% if t.foto %}
+      <img class="serv-tile-photo" src="{{ url_for('static', filename=t.foto) }}" alt="{{ t.name }} — Maru Nails" loading="lazy" width="360" height="516">
+      {% else %}
+      <span class="serv-tile-mono"></span>
       {% endif %}
+      <div class="serv-tile-content">
+        <div class="serv-tile-name">{{ t.name }}</div>
+        <div class="serv-tile-desc">{{ t.desc }}</div>
+      </div>
+    </a>
     {% endfor %}
   </div>
 
-  <!-- Galería interactiva por categoría -->
-  <!-- Las fotos se agregan aquí cuando el usuario las provea -->
-  {% set galerias = {
-    'Manicure':       ['SALON.jpeg','manic.jpeg','maniccc.jpeg','manicccc.jpeg','manaaa.jpeg'],
-    'Pedicure':       [],
-    'Brows & Lashes': [],
-    'Glow Up Facial': [],
-  } %}
+  <div class="serv-cta-wrap">
+    <a href="/reservar" class="btn-primary">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Agenda tu cita
+    </a>
+  </div>
+</section>
 
-  <div class="cat-gallery-wrap" id="catGalleryWrap">
-    {% for cat, fotos in galerias.items() %}
-    <div class="cat-gallery" data-gallery="{{ cat }}" style="display:none;">
-      <div class="gallery-track" id="track-{{ loop.index }}">
-        {% if fotos %}
-          {% for foto in fotos %}
-          <div class="gallery-slide">
-            <img src="{{ url_for('static', filename=foto) }}" alt="{{ cat }}" loading="lazy">
-          </div>
-          {% endfor %}
-        {% else %}
-          <!-- Placeholder hasta recibir las fotos -->
-          {% for i in range(4) %}
-          <div class="gallery-slide gallery-slide-placeholder">
-            <img src="{{ url_for('static', filename='Maru LOGO.PNG') }}" alt="{{ cat }}">
-            <span>Foto {{ i+1 }}</span>
-          </div>
-          {% endfor %}
-        {% endif %}
-      </div>
-      <button class="gallery-btn gallery-prev" onclick="slideGallery('{{ loop.index }}', -1)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <button class="gallery-btn gallery-next" onclick="slideGallery('{{ loop.index }}', 1)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-      <div class="gallery-dots" id="dots-{{ loop.index }}">
-        {% set count = fotos|length if fotos else 4 %}
-        {% for i in range(count) %}
-        <span class="gallery-dot {% if i == 0 %}active{% endif %}" onclick="goToSlide('{{ loop.index }}', {{ i }})"></span>
-        {% endfor %}
-      </div>
+<!-- ── EQUIPO ────────────────────────────────────────────── -->
+{% if colabs %}
+<section class="team-section" id="equipo">
+  <div class="team-inner">
+    <div class="section-header">
+      <p class="section-eyebrow">Quiénes te atienden</p>
+      <h2 class="section-title">Nuestro <em>equipo</em></h2>
+      <p class="section-lead">Manos expertas y un trato cercano. El equipo que hace que cada visita se sienta como un momento para ti.</p>
     </div>
+
+    {# Fotos locales por nombre — agregar 'belu':'team-belu.jpg' cuando llegue #}
+    {% set team_fotos = {'maru':'team-maru.jpg', 'gaby':'team-gaby.jpg', 'fanny':'team-fanny.jpg'} %}
+    <div class="team-grid">
+      {% for c in colabs %}
+      {% set foto_local = team_fotos.get(c.nombre|lower) %}
+      <div class="team-card">
+        <div class="team-avatar">
+          {% if foto_local %}
+          <img src="{{ url_for('static', filename=foto_local) }}" alt="{{ c.nombre }} — Maru Nails" loading="lazy" width="360" height="480">
+          {% elif c.foto_url %}
+          <img src="{{ c.foto_url }}" alt="{{ c.nombre }} — Maru Nails" loading="lazy">
+          {% else %}
+          <span class="team-initials">{{ c.nombre[0]|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="team-name">{{ c.nombre|title }}</div>
+        {% if c.rol %}<div class="team-role">{{ c.rol }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ── INSTAGRAM ─────────────────────────────────────────── -->
+<section class="ig-section" id="galeria">
+  <div class="section-header">
+    <p class="section-eyebrow">@{{ IG_USER }}</p>
+    <h2 class="section-title">Nuestro <em>trabajo</em></h2>
+  </div>
+
+  <div class="ig-grid">
+    {% for i in range(1, 13) %}
+    <a href="https://instagram.com/{{ IG_USER }}" target="_blank" rel="noopener" class="ig-item">
+      <img src="{{ url_for('static', filename='work-' ~ i ~ '.jpg') }}" alt="Trabajo de Maru Nails" loading="lazy" width="360" height="360">
+    </a>
     {% endfor %}
   </div>
 
-  <!-- Grid de servicios SIN imagen — cards elegantes -->
-  <div class="servs-grid" id="servsGrid">
-    {% for s in servicios %}
-    <div class="serv-card" data-cat="{{ s.categoria }}">
-      <div class="serv-card-body">
-        <div class="serv-card-cat">{{ s.categoria }}</div>
-        <div class="serv-card-name">{{ s.nombre }}</div>
-        {% if s.descripcion %}
-        <div class="serv-card-desc">{{ s.descripcion }}</div>
-        {% endif %}
-        <div class="serv-card-footer">
-          <span class="serv-card-price">
-            ${{ s.precio_desde }}{% if s.precio_hasta %} – ${{ s.precio_hasta }}{% endif %}
-          </span>
-          <span class="serv-card-dur">{{ s.duracion_min }} min</span>
+  <a href="https://instagram.com/{{ IG_USER }}" target="_blank" rel="noopener" class="btn-ig">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+    </svg>
+    Síguenos en Instagram
+  </a>
+</section>
+
+<!-- ── UBICACIÓN ─────────────────────────────────────────── -->
+<section class="location-section" id="ubicacion">
+  <div class="location-inner">
+    <div class="location-info">
+      <h2 class="location-title">Te esperamos en <em style="font-style:italic;color:var(--brown-m)">Tulum</em></h2>
+
+      <div class="loc-line">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <div>
+          <div class="loc-line-label">Dirección</div>
+          <div class="loc-line-value">{{ DIRECCION }}</div>
         </div>
       </div>
+
+      <div class="loc-line">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <div>
+          <div class="loc-line-label">Horarios</div>
+          <div class="hours-list">
+            <div class="hours-row"><span>Lunes a sábado</span><span>9:00 – 19:00</span></div>
+            <div class="hours-row"><span>Domingo</span><span>Cerrado</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-btns">
+        <a href="{{ WA_LINK }}" target="_blank" rel="noopener" class="btn-wa">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.002-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0 0 20.464 3.488"/></svg>
+          WhatsApp
+        </a>
+        <a href="{{ MAPS_LINK }}" target="_blank" rel="noopener" class="btn-maps">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Cómo llegar
+        </a>
+      </div>
     </div>
-    {% endfor %}
+
+    <div class="location-map">
+      <iframe src="{{ MAPS_EMBED }}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Ubicación de Maru Nails en Tulum"></iframe>
+    </div>
   </div>
 </section>
 
 <!-- ── CTA ───────────────────────────────────────────────── -->
 <section class="cta-section" id="reservar">
-  <p class="section-eyebrow">¿Lista para tu próxima cita?</p>
-  <h2 class="cta-title">Reservá tu turno <em>online</em></h2>
-  <a href="/reservar" class="btn-cta-light">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-    </svg>
-    Reservar ahora
-  </a>
+  <div class="cta-inner">
+    <p class="section-eyebrow">¿Lista para tu próxima cita?</p>
+    <h2 class="cta-title">Reserva tu cita <em>online</em></h2>
+    <p class="cta-sub">Elige el servicio, el día y el horario que más te convenga. En pocos toques, tu momento está reservado.</p>
+    <a href="/reservar" class="btn-cta-light">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Reservar ahora
+    </a>
+  </div>
 </section>
 
 <!-- ── FOOTER ────────────────────────────────────────────── -->
 <footer>
   <div class="footer-logo">
-    <img src="{{ url_for('static', filename='Logotipo principal_Mesa de trabajo 1.PNG') }}" alt="Maru Nails">
+    <img src="{{ url_for('static', filename='Logotipo principal_Mesa de trabajo 1.PNG') }}" alt="Maru Nails" width="90" height="36">
+  </div>
+  <div class="footer-social">
+    <a href="https://instagram.com/{{ IG_USER }}" target="_blank" rel="noopener" aria-label="Instagram">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+    </a>
+    <a href="{{ WA_LINK }}" target="_blank" rel="noopener" aria-label="WhatsApp">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.002-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/></svg>
+    </a>
   </div>
   <span class="footer-text">© 2026 Maru Nails · Tulum, México</span>
   <a href="/login" class="footer-link">Admin ↗</a>
 </footer>
 
-<script>
-  // ── Filtros de categoría ──────────────────────
-  const CATS_CON_GALERIA = ['Manicure', 'Pedicure', 'Brows & Lashes', 'Glow Up Facial'];
+<!-- ── WHATSAPP FLOTANTE ─────────────────────────────────── -->
+<a href="{{ WA_LINK }}" target="_blank" rel="noopener" class="wa-float" aria-label="Escribinos por WhatsApp">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.002-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0 0 20.464 3.488"/></svg>
+</a>
 
-  const filters = document.querySelectorAll('.cat-filter');
-  const cards   = document.querySelectorAll('.serv-card');
-
-  filters.forEach(btn => {
-    btn.addEventListener('click', () => {
-      filters.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const cat = btn.dataset.cat;
-
-      // Filtrar cards
-      cards.forEach(card => {
-        card.classList.toggle('hidden', cat !== 'todos' && card.dataset.cat !== cat);
-      });
-
-      // Mostrar / ocultar galería
-      document.querySelectorAll('.cat-gallery').forEach(g => {
-        g.style.display = 'none';
-      });
-      if (cat !== 'todos' && CATS_CON_GALERIA.includes(cat)) {
-        const gallery = document.querySelector(`.cat-gallery[data-gallery="${cat}"]`);
-        if (gallery) {
-          gallery.style.display = 'block';
-          gallery.style.animation = 'fadeIn 0.35s ease';
-        }
-      }
-    });
-  });
-
-  // ── Galería slider ────────────────────────────
-  const trackPos = {};
-
-  function getTrack(id) {
-    return document.getElementById('track-' + id);
-  }
-
-  function getDots(id) {
-    return document.querySelectorAll(`#dots-${id} .gallery-dot`);
-  }
-
-  function slideCount(id) {
-    const track = getTrack(id);
-    return track ? track.children.length : 0;
-  }
-
-  function goToSlide(id, index) {
-    const track = getTrack(id);
-    if (!track) return;
-    const n = slideCount(id);
-    index = ((index % n) + n) % n;
-    trackPos[id] = index;
-    track.style.transform = `translateX(-${index * 100}%)`;
-    getDots(id).forEach((d, i) => d.classList.toggle('active', i === index));
-  }
-
-  function slideGallery(id, dir) {
-    const cur = trackPos[id] || 0;
-    goToSlide(id, cur + dir);
-  }
-
-  // Auto-avance cada 4s cuando la galería está visible
-  setInterval(() => {
-    document.querySelectorAll('.cat-gallery').forEach(g => {
-      if (g.style.display !== 'none') {
-        const id = g.querySelector('.gallery-track')?.id?.replace('track-', '');
-        if (id) slideGallery(id, 1);
-      }
-    });
-  }, 4000);
-
-  // ── Fade-in animación ─────────────────────────
-  const style = document.createElement('style');
-  style.textContent = `@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`;
-  document.head.appendChild(style);
-</script>
 </body>
 </html>

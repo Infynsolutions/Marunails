@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reservar turno — Maru Nails</title>
+<title>Reservar cita — Maru Nails</title>
 <meta name="theme-color" content="#3E2418">
 <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-icon.png') }}">
 <link rel="shortcut icon" href="{{ url_for('static', filename='apple-icon.png') }}">
@@ -461,8 +461,8 @@ body {
     <div class="step active" id="step1">
         <div class="step-header">
             <div class="step-label">Paso 1 de 5</div>
-            <div class="step-title">¿Qué servicios querés?</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:6px">Podés elegir más de uno</div>
+            <div class="step-title">¿Qué servicios quieres?</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:6px">Puedes elegir más de uno</div>
         </div>
         <div class="cat-tabs" id="catTabs"></div>
         <div class="service-list" id="serviceList">
@@ -475,7 +475,7 @@ body {
     <div class="step" id="step2">
         <div class="step-header">
             <div class="step-label">Paso 2 de 5</div>
-            <div class="step-title">¿Con quién querés atenderte?</div>
+            <div class="step-title">¿Con quién quieres atenderte?</div>
         </div>
         <div class="staff-list" id="staffList">
             <div class="loading"><div class="spinner"></div>Cargando...</div>
@@ -488,7 +488,7 @@ body {
     <div class="step" id="step3">
         <div class="step-header">
             <div class="step-label">Paso 3 de 5</div>
-            <div class="step-title">Elegí una fecha</div>
+            <div class="step-title">Elige una fecha</div>
         </div>
         <div class="calendar-header">
             <button class="cal-nav" onclick="prevMonth()">
@@ -508,7 +508,7 @@ body {
     <div class="step" id="step4">
         <div class="step-header">
             <div class="step-label">Paso 4 de 5</div>
-            <div class="step-title">Elegí un horario</div>
+            <div class="step-title">Elige un horario</div>
         </div>
         <div id="slotsContainer">
             <div class="loading"><div class="spinner"></div>Buscando disponibilidad...</div>
@@ -817,7 +817,7 @@ async function loadSlots() {
     state.slotsData = await res.json();
 
     if (!state.slotsData.length) {
-        el.innerHTML = '<div class="no-slots">No hay turnos disponibles para esta fecha.<br>Probá con otro día.</div>';
+        el.innerHTML = '<div class="no-slots">No hay horarios disponibles para esta fecha.<br>Prueba con otro día.</div>';
         return;
     }
     el.innerHTML = `<div class="slots-grid">${state.slotsData.map(s => `
@@ -859,8 +859,8 @@ async function confirmar() {
     const tel = document.getElementById('fTel').value.trim();
     const politicas = document.getElementById('fPoliticas').checked;
 
-    if (!nombre || !tel) { alert('Por favor completá nombre y teléfono.'); return; }
-    if (!politicas) { alert('Necesitás aceptar las políticas del salón.'); return; }
+    if (!nombre || !tel) { alert('Por favor completa nombre y teléfono.'); return; }
+    if (!politicas) { alert('Necesitas aceptar las políticas del salón.'); return; }
 
     const btn = document.getElementById('btnConfirmar');
     btn.disabled = true;
@@ -891,7 +891,7 @@ async function confirmar() {
             const fechaStr = fecha.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
             const serviciosNombres = state.serviciosSel.map(s => s.nombre).join(', ');
             document.getElementById('confirmText').innerHTML =
-                `Tu turno para <strong>${serviciosNombres}</strong> fue registrado para el<br>
+                `Tu cita para <strong>${serviciosNombres}</strong> quedó registrada para el<br>
                 <strong>${fechaStr} a las ${state.horaSel} hs</strong>.<br><br>
                 Te esperamos en Maru Nails — 27 Itzamna 12, Tulum.`;
             const waMsg = encodeURIComponent(
