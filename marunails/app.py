@@ -926,17 +926,32 @@ def cashflow():
 @require_admin
 def movimientos():
     cortes, gastos = [], []
+    meses = []
+    mes_sel = request.args.get('mes')
     try:
         sb = get_sb()
-        cortes = sb.table('cortes').select(
-            'id,fecha,cliente,staff,servicio,total_mxn,medio_pago'
-        ).order('fecha', desc=True).order('id', desc=True).limit(60).execute().data
-        gastos = sb.table('gastos').select(
-            'id,fecha,categoria,proveedor,descripcion,importe_mxn,medio_pago'
-        ).order('fecha', desc=True).order('id', desc=True).limit(60).execute().data
+        mes_hoy = date.today().strftime('%Y-%m')
+        primer_mes, ultimo_mes = rango_meses_cortes(sb)
+        mes_fin = max(mes_hoy, ultimo_mes) if ultimo_mes else mes_hoy
+        meses = lista_meses(primer_mes, mes_fin)
+
+        if not mes_sel:
+            mes_sel = ultimo_mes or mes_hoy
+        if meses and mes_sel not in meses:
+            mes_sel = meses[0]
+
+        cortes = fetch_all(sb, 'cortes', 'id,fecha,cliente,staff,servicio,total_mxn,medio_pago')
+        cortes = [c for c in cortes if (c.get('fecha') or '')[:7] == mes_sel]
+        cortes.sort(key=lambda c: (c.get('fecha') or '', c.get('id') or 0), reverse=True)
+
+        gastos_all = fetch_all(sb, 'gastos', 'id,fecha,categoria,proveedor,descripcion,importe_mxn,medio_pago')
+        gastos = [g for g in gastos_all if (g.get('fecha') or '')[:7] == mes_sel]
+        gastos.sort(key=lambda g: (g.get('fecha') or '', g.get('id') or 0), reverse=True)
+
     except Exception as e:
         flash(f'Error cargando movimientos: {e}', 'error')
-    return render_template('movimientos.html', cortes=cortes, gastos=gastos)
+    return render_template('movimientos.html', cortes=cortes, gastos=gastos,
+                           meses=meses, mes_sel=mes_sel)
 
 
 @app.route('/corte/<int:cid>/editar', methods=['GET', 'POST'])

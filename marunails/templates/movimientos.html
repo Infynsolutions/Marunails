@@ -77,6 +77,30 @@ table.mv td.sub { color: var(--muted); font-size: 12px; }
 .mv-actions form { margin: 0; display: inline; }
 
 .mv-empty { text-align: center; padding: 40px; color: var(--muted); }
+
+.mv-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.mv-filter label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.mv-filter select {
+    padding: 7px 14px;
+    border: 1px solid var(--sand);
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    color: var(--brown-dark);
+    background: var(--card-bg);
+    cursor: pointer;
+}
 </style>
 
 <div class="page-header">
@@ -92,6 +116,17 @@ table.mv td.sub { color: var(--muted); font-size: 12px; }
 </div>
 
 <div class="mv-main">
+
+{% if meses %}
+<div class="mv-filter">
+    <label>Mes</label>
+    <select onchange="location.href='{{ url_for('movimientos') }}?mes=' + this.value">
+        {% for m in meses %}
+        <option value="{{ m }}" {% if m == mes_sel %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}
 
 <div class="mv-tabs">
     <div class="mv-tab active" data-panel="cortes">Cortes</div>
