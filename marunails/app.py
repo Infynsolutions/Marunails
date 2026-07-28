@@ -597,6 +597,42 @@ def reportes():
                            resumen=resumen, meses=meses, mes_sel=mes_sel)
 
 
+# ── COMISIONES ──────────────────────────────────────────────────────────────────
+@app.route('/comisiones')
+@require_admin
+def comisiones():
+    resumen  = None
+    meses    = []
+    mes_sel  = request.args.get('mes')
+    periodo  = request.args.get('periodo', '0')   # '0'=mes, '1'=1ra quincena, '2'=2da quincena
+    try:
+        sb = get_sb()
+        mes_hoy = date.today().strftime('%Y-%m')
+        primer_mes, ultimo_mes = rango_meses_cortes(sb)
+        mes_fin = max(mes_hoy, ultimo_mes) if ultimo_mes else mes_hoy
+        meses   = lista_meses(primer_mes, mes_fin)
+
+        if not mes_sel:
+            mes_sel = ultimo_mes or mes_hoy
+        if meses and mes_sel not in meses:
+            mes_sel = meses[0]
+
+        cortes_mes = fetch_all(sb, 'cortes', 'fecha,staff,servicio,medio_pago,total_mxn,propina_mxn')
+        cortes_mes = [c for c in cortes_mes if (c.get('fecha') or '')[:7] == mes_sel]
+
+        if periodo == '1':
+            cortes_mes = [c for c in cortes_mes if int((c.get('fecha') or '1900-01-01')[8:10]) <= 15]
+        elif periodo == '2':
+            cortes_mes = [c for c in cortes_mes if int((c.get('fecha') or '1900-01-01')[8:10]) > 15]
+
+        resumen = resumen_cortes(cortes_mes)
+    except Exception as e:
+        flash(f'Error cargando comisiones: {e}', 'error')
+
+    return render_template('comisiones.html',
+                           resumen=resumen, meses=meses, mes_sel=mes_sel, periodo=periodo)
+
+
 # ── CLIENTES ────────────────────────────────────────────────────────────────────
 @app.route('/clientes')
 @require_admin
@@ -863,15 +899,18 @@ def gasto():
 def cashflow():
     meses = []
     dias  = []
+    control_caja = {'efectivo': 0, 'tarjeta': 0, 'transferencia': 0, 'total': 0}
     try:
         sb = get_sb()
         cortes_all = fetch_all(sb, 'cortes', 'fecha,mes,total_mxn,medio_pago')
         gastos_all = fetch_all(sb, 'gastos', 'fecha,mes,importe_mxn,medio_pago')
 
         def _empty():
-            return {'ing_caja': 0, 'ing_banco': 0, 'ing_total': 0,
-                    'gasto_caja': 0, 'gasto_banco': 0,
-                    'saldo_caja': 0, 'saldo_banco': 0}
+            return {
+                'ing_efectivo': 0, 'ing_tarjeta': 0, 'ing_transferencia': 0, 'ing_total': 0,
+                'gasto_efectivo': 0, 'gasto_tarjeta': 0, 'gasto_transferencia': 0, 'gasto_total': 0,
+                'saldo_efectivo': 0, 'saldo_tarjeta': 0, 'saldo_transferencia': 0, 'saldo_total': 0,
+            }
 
         data_mes = defaultdict(_empty)
         data_dia = defaultdict(_empty)
@@ -880,45 +919,62 @@ def cashflow():
             mes   = c.get('mes') or ''
             fecha = c.get('fecha') or ''
             mxn   = float(c.get('total_mxn') or 0)
-            medio = c.get('medio_pago', '')
+            medio = (c.get('medio_pago') or '').strip()
             for d in (data_mes[mes], data_dia[fecha]):
                 d['ing_total'] += mxn
                 if medio == 'Efectivo':
-                    d['ing_caja'] += mxn
+                    d['ing_efectivo'] += mxn
+                elif medio == 'Tarjeta':
+                    d['ing_tarjeta'] += mxn
                 else:
-                    d['ing_banco'] += mxn
+                    d['ing_transferencia'] += mxn
 
         for g in gastos_all:
             mes   = g.get('mes') or ''
             fecha = g.get('fecha') or ''
             mxn   = float(g.get('importe_mxn') or 0)
-            medio = g.get('medio_pago', '')
+            medio = (g.get('medio_pago') or '').strip()
             for d in (data_mes[mes], data_dia[fecha]):
+                d['gasto_total'] += mxn
                 if medio == 'Efectivo':
-                    d['gasto_caja'] += mxn
+                    d['gasto_efectivo'] += mxn
+                elif medio == 'Tarjeta':
+                    d['gasto_tarjeta'] += mxn
                 else:
-                    d['gasto_banco'] += mxn
+                    d['gasto_transferencia'] += mxn
 
         for mes, d in sorted(data_mes.items()):
             d['mes'] = mes
-            d['saldo_caja']  = d['ing_caja']  - d['gasto_caja']
-            d['saldo_banco'] = d['ing_banco'] - d['gasto_banco']
+            d['saldo_efectivo']      = d['ing_efectivo']      - d['gasto_efectivo']
+            d['saldo_tarjeta']       = d['ing_tarjeta']       - d['gasto_tarjeta']
+            d['saldo_transferencia'] = d['ing_transferencia'] - d['gasto_transferencia']
+            d['saldo_total']         = d['saldo_efectivo'] + d['saldo_tarjeta'] + d['saldo_transferencia']
             meses.append(d)
 
         for fecha, d in sorted(data_dia.items(), reverse=True):
             d['fecha'] = fecha
-            d['saldo_caja']  = d['ing_caja']  - d['gasto_caja']
-            d['saldo_banco'] = d['ing_banco'] - d['gasto_banco']
+            d['saldo_efectivo']      = d['ing_efectivo']      - d['gasto_efectivo']
+            d['saldo_tarjeta']       = d['ing_tarjeta']       - d['gasto_tarjeta']
+            d['saldo_transferencia'] = d['ing_transferencia'] - d['gasto_transferencia']
+            d['saldo_total']         = d['saldo_efectivo'] + d['saldo_tarjeta'] + d['saldo_transferencia']
             dias.append(d)
+
+        control_caja = {
+            'efectivo':      sum(d['saldo_efectivo']      for d in meses),
+            'tarjeta':       sum(d['saldo_tarjeta']       for d in meses),
+            'transferencia': sum(d['saldo_transferencia'] for d in meses),
+        }
+        control_caja['total'] = control_caja['efectivo'] + control_caja['tarjeta'] + control_caja['transferencia']
 
     except Exception as e:
         flash(f'Error cargando cashflow: {e}', 'error')
 
-    mes_actual    = date.today().strftime('%Y-%m')
-    hoy           = date.today().isoformat()
-    meses_dias    = sorted({d['fecha'][:7] for d in dias}, reverse=True)
+    mes_actual = date.today().strftime('%Y-%m')
+    hoy        = date.today().isoformat()
+    meses_dias = sorted({d['fecha'][:7] for d in dias}, reverse=True)
     return render_template('cashflow.html', meses=meses, dias=dias,
-                           mes_actual=mes_actual, hoy=hoy, meses_dias=meses_dias)
+                           mes_actual=mes_actual, hoy=hoy, meses_dias=meses_dias,
+                           control_caja=control_caja)
 
 
 # ── MOVIMIENTOS (editar / borrar) ───────────────────────────────────────────────

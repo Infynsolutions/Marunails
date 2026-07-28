@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Comisiones — MaruNails{% endblock %}
+{% block content %}
+
+<style>
+.com-main { max-width: 900px; }
+
+/* ── filtros ── */
+.com-filters {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+.com-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.com-filter-group label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+}
+.com-filter-group select {
+    padding: 7px 14px;
+    border: 1px solid var(--sand);
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    color: var(--brown-dark);
+    background: var(--card-bg);
+    cursor: pointer;
+}
+
+/* ── periodo tabs ── */
+.periodo-tabs {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--sand);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.periodo-tab {
+    padding: 7px 16px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    background: var(--card-bg);
+    color: var(--muted);
+    border: none;
+    font-family: 'Inter', sans-serif;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+    display: inline-block;
+}
+.periodo-tab:not(:last-child) { border-right: 1px solid var(--sand); }
+.periodo-tab.active {
+    background: var(--brown);
+    color: #FAF6F0;
+}
+
+/* ── resumen total ── */
+.com-totales {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+}
+@media (max-width: 600px) {
+    .com-totales { grid-template-columns: 1fr 1fr; }
+}
+.com-total-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(62,36,24,0.08);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+}
+.com-total-card .label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+.com-total-card .amount {
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--brown-dark);
+}
+
+/* ── tabla ── */
+.com-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(62,36,24,0.07);
+}
+table.com {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card-bg);
+    font-size: 13px;
+}
+table.com thead th {
+    background: var(--brown);
+    color: rgba(245,237,230,0.75);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    text-align: right;
+    white-space: nowrap;
+}
+table.com thead th:first-child { text-align: left; }
+table.com tbody tr {
+    border-bottom: 1px solid var(--sand);
+    transition: background 0.15s;
+}
+table.com tbody tr:last-child { border-bottom: none; }
+table.com tbody tr:hover { background: var(--brown-pale); }
+table.com td {
+    padding: 13px 16px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+}
+table.com td:first-child {
+    text-align: left;
+    font-weight: 600;
+    color: var(--brown-dark);
+}
+table.com td.pct {
+    color: var(--muted);
+    font-size: 12px;
+}
+table.com td.total-pagar {
+    font-weight: 700;
+    color: var(--brown-dark);
+    background: #fdf5ec;
+}
+.com-empty { text-align: center; padding: 48px; color: var(--muted); }
+</style>
+
+<div class="page-header">
+    <div class="page-header-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/>
+        </svg>
+    </div>
+    <div>
+        <h1>Comisiones</h1>
+        <div class="page-header-sub">Por colaboradora · {{ mes_sel }}</div>
+    </div>
+</div>
+
+<div class="com-main">
+
+<!-- Filtros -->
+<div class="com-filters">
+    <div class="com-filter-group">
+        <label>Mes</label>
+        <select onchange="aplicarFiltros(this.value, '{{ periodo }}')">
+            {% for m in meses %}
+            <option value="{{ m }}" {% if m == mes_sel %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="com-filter-group">
+        <label>Período</label>
+        <div class="periodo-tabs">
+            <a class="periodo-tab {% if periodo == '0' %}active{% endif %}"
+               onclick="aplicarFiltros('{{ mes_sel }}', '0'); return false;" href="#">Mes completo</a>
+            <a class="periodo-tab {% if periodo == '1' %}active{% endif %}"
+               onclick="aplicarFiltros('{{ mes_sel }}', '1'); return false;" href="#">1ª quincena</a>
+            <a class="periodo-tab {% if periodo == '2' %}active{% endif %}"
+               onclick="aplicarFiltros('{{ mes_sel }}', '2'); return false;" href="#">2ª quincena</a>
+        </div>
+    </div>
+</div>
+
+{% if resumen and resumen.staff %}
+
+<!-- Totales generales -->
+{% set total_comisiones = resumen.staff | sum(attribute='comision_mxn') %}
+<div class="com-totales">
+    <div class="com-total-card">
+        <div class="label">Facturación del período</div>
+        <div class="amount">${{ '{:,.0f}'.format(resumen.facturacion) }}</div>
+    </div>
+    <div class="com-total-card">
+        <div class="label">Total comisiones</div>
+        <div class="amount">${{ '{:,.0f}'.format(total_comisiones) }}</div>
+    </div>
+    <div class="com-total-card">
+        <div class="label">Total propinas</div>
+        <div class="amount">${{ '{:,.0f}'.format(resumen.propinas) }}</div>
+    </div>
+</div>
+
+<!-- Tabla por colaboradora -->
+<div class="com-table-wrap">
+    <table class="com">
+        <thead>
+            <tr>
+                <th>Colaboradora</th>
+                <th>Servicios</th>
+                <th>Facturación</th>
+                <th>% Comisión</th>
+                <th>Comisión</th>
+                <th>Propinas</th>
+                <th>Total a Pagar</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for s in resumen.staff %}
+        {% set total_pagar = s.comision_mxn + s.propinas %}
+        <tr>
+            <td>{{ s.nombre }}</td>
+            <td>{{ s.clientas }}</td>
+            <td>${{ '{:,.0f}'.format(s.facturacion) }}</td>
+            <td class="pct">{{ (s.comision_pct * 100) | int }}%</td>
+            <td>${{ '{:,.0f}'.format(s.comision_mxn) }}</td>
+            <td>${{ '{:,.0f}'.format(s.propinas) }}</td>
+            <td class="total-pagar">${{ '{:,.0f}'.format(total_pagar) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="card com-empty">No hay cortes registrados para este período.</div>
+{% endif %}
+
+</div>
+
+<script>
+function aplicarFiltros(mes, periodo) {
+    window.location.href = '/comisiones?mes=' + mes + '&periodo=' + periodo;
+}
+</script>
+
+{% endblock %}

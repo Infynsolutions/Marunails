@@ -3,7 +3,52 @@
 {% block content %}
 
 <style>
-.cf-main { max-width: 1100px; }
+.cf-main { max-width: 1200px; }
+
+/* ── control de caja ── */
+.cf-caja-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+}
+@media (max-width: 700px) {
+    .cf-caja-cards { grid-template-columns: repeat(2, 1fr); }
+}
+.cf-caja-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(62,36,24,0.08);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+}
+.cf-caja-card .label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+.cf-caja-card .amount {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--brown-dark);
+    line-height: 1;
+}
+.cf-caja-card.total-card {
+    background: var(--brown);
+    border-color: var(--brown);
+}
+.cf-caja-card.total-card .label { color: rgba(245,237,230,0.6); }
+.cf-caja-card.total-card .amount { color: #FAF6F0; font-size: 26px; }
+.cf-caja-card .sub-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+.cf-caja-card.total-card .sub-label { color: rgba(245,237,230,0.55); }
 
 /* ── tabs ── */
 .cf-tabs {
@@ -154,6 +199,30 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
     </div>
 </div>
 
+<!-- Control de Caja -->
+<div class="cf-caja-cards">
+    <div class="cf-caja-card total-card">
+        <div class="label">Saldo Total</div>
+        <div class="amount">${{ '{:,.0f}'.format(control_caja.total) }}</div>
+        <div class="sub-label">Efectivo + Tarjeta + Transferencia</div>
+    </div>
+    <div class="cf-caja-card">
+        <div class="label">Efectivo</div>
+        <div class="amount">${{ '{:,.0f}'.format(control_caja.efectivo) }}</div>
+        <div class="sub-label">Dinero en caja</div>
+    </div>
+    <div class="cf-caja-card">
+        <div class="label">Tarjeta</div>
+        <div class="amount">${{ '{:,.0f}'.format(control_caja.tarjeta) }}</div>
+        <div class="sub-label">Terminal / POS</div>
+    </div>
+    <div class="cf-caja-card">
+        <div class="label">Transferencia</div>
+        <div class="amount">${{ '{:,.0f}'.format(control_caja.transferencia) }}</div>
+        <div class="sub-label">Banco / digital</div>
+    </div>
+</div>
+
 <!-- Tabs -->
 <div class="cf-tabs">
     <button class="cf-tab active" onclick="showTab('mensual', this)">Mensual</button>
@@ -163,20 +232,21 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
 <!-- ── VISTA MENSUAL ── -->
 <div id="tab-mensual">
 {% if meses %}
-<div class="cf-table-wrap" style="max-width:1100px;">
+<div class="cf-table-wrap">
     <table class="cf">
         <thead>
             <tr class="col-row">
                 <th style="text-align:left; min-width:90px;">Mes</th>
-                <th>Ingresos Totales</th>
-                <th>Gastos Totales</th>
+                <th>Ingresos</th>
+                <th>Gastos</th>
+                <th>Efectivo</th>
+                <th>Tarjeta</th>
+                <th>Transferencia</th>
                 <th>Saldo Final</th>
             </tr>
         </thead>
         <tbody>
         {% for m in meses %}
-            {% set gastos_total = m.gasto_caja + m.gasto_banco %}
-            {% set saldo_final = m.saldo_caja + m.saldo_banco %}
             {% set es_futuro = m.mes > mes_actual %}
             <tr class="{% if m.mes == mes_actual %}highlight{% elif es_futuro %}future{% endif %}">
                 <td class="key-cell">
@@ -186,9 +256,18 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
                     {% endif %}
                 </td>
                 <td class="total-col">{% if m.ing_total %}${{ '{:,.0f}'.format(m.ing_total) }}{% else %}—{% endif %}</td>
-                <td class="total-col">{% if gastos_total %}${{ '{:,.0f}'.format(gastos_total) }}{% else %}—{% endif %}</td>
-                <td class="total-col {% if saldo_final > 0 %}saldo-pos{% elif saldo_final < 0 %}saldo-neg{% endif %}">
-                    {% if saldo_final %}${{ '{:,.0f}'.format(saldo_final) }}{% else %}—{% endif %}
+                <td class="total-col">{% if m.gasto_total %}${{ '{:,.0f}'.format(m.gasto_total) }}{% else %}—{% endif %}</td>
+                <td class="{% if m.saldo_efectivo > 0 %}saldo-pos{% elif m.saldo_efectivo < 0 %}saldo-neg{% endif %}">
+                    {% if m.saldo_efectivo %}${{ '{:,.0f}'.format(m.saldo_efectivo) }}{% else %}—{% endif %}
+                </td>
+                <td class="{% if m.saldo_tarjeta > 0 %}saldo-pos{% elif m.saldo_tarjeta < 0 %}saldo-neg{% endif %}">
+                    {% if m.saldo_tarjeta %}${{ '{:,.0f}'.format(m.saldo_tarjeta) }}{% else %}—{% endif %}
+                </td>
+                <td class="{% if m.saldo_transferencia > 0 %}saldo-pos{% elif m.saldo_transferencia < 0 %}saldo-neg{% endif %}">
+                    {% if m.saldo_transferencia %}${{ '{:,.0f}'.format(m.saldo_transferencia) }}{% else %}—{% endif %}
+                </td>
+                <td class="total-col {% if m.saldo_total > 0 %}saldo-pos{% elif m.saldo_total < 0 %}saldo-neg{% endif %}">
+                    {% if m.saldo_total %}${{ '{:,.0f}'.format(m.saldo_total) }}{% else %}—{% endif %}
                 </td>
             </tr>
         {% endfor %}
@@ -216,20 +295,21 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
     </select>
 </div>
 
-<div class="cf-table-wrap" style="max-width:1100px;">
+<div class="cf-table-wrap">
     <table class="cf" id="tablaDiaria">
         <thead>
             <tr class="col-row">
                 <th style="text-align:left; min-width:110px;">Fecha</th>
                 <th>Ingresos</th>
                 <th>Gastos</th>
+                <th>Efectivo</th>
+                <th>Tarjeta</th>
+                <th>Transferencia</th>
                 <th>Saldo del día</th>
             </tr>
         </thead>
         <tbody>
         {% for d in dias %}
-            {% set gastos_total = d.gasto_caja + d.gasto_banco %}
-            {% set saldo_final  = d.saldo_caja + d.saldo_banco %}
             <tr class="dia-row {% if d.fecha == hoy %}highlight{% endif %}"
                 data-mes="{{ d.fecha[:7] }}">
                 <td class="key-cell">
@@ -237,9 +317,18 @@ table.cf td.saldo-neg { color: var(--red); font-weight: 500; }
                     {% if d.fecha == hoy %}<span class="cf-badge">Hoy</span>{% endif %}
                 </td>
                 <td class="total-col">{% if d.ing_total %}${{ '{:,.0f}'.format(d.ing_total) }}{% else %}—{% endif %}</td>
-                <td class="total-col">{% if gastos_total %}${{ '{:,.0f}'.format(gastos_total) }}{% else %}—{% endif %}</td>
-                <td class="total-col {% if saldo_final > 0 %}saldo-pos{% elif saldo_final < 0 %}saldo-neg{% endif %}">
-                    {% if saldo_final %}${{ '{:,.0f}'.format(saldo_final) }}{% else %}—{% endif %}
+                <td class="total-col">{% if d.gasto_total %}${{ '{:,.0f}'.format(d.gasto_total) }}{% else %}—{% endif %}</td>
+                <td class="{% if d.saldo_efectivo > 0 %}saldo-pos{% elif d.saldo_efectivo < 0 %}saldo-neg{% endif %}">
+                    {% if d.saldo_efectivo %}${{ '{:,.0f}'.format(d.saldo_efectivo) }}{% else %}—{% endif %}
+                </td>
+                <td class="{% if d.saldo_tarjeta > 0 %}saldo-pos{% elif d.saldo_tarjeta < 0 %}saldo-neg{% endif %}">
+                    {% if d.saldo_tarjeta %}${{ '{:,.0f}'.format(d.saldo_tarjeta) }}{% else %}—{% endif %}
+                </td>
+                <td class="{% if d.saldo_transferencia > 0 %}saldo-pos{% elif d.saldo_transferencia < 0 %}saldo-neg{% endif %}">
+                    {% if d.saldo_transferencia %}${{ '{:,.0f}'.format(d.saldo_transferencia) }}{% else %}—{% endif %}
+                </td>
+                <td class="total-col {% if d.saldo_total > 0 %}saldo-pos{% elif d.saldo_total < 0 %}saldo-neg{% endif %}">
+                    {% if d.saldo_total %}${{ '{:,.0f}'.format(d.saldo_total) }}{% else %}—{% endif %}
                 </td>
             </tr>
         {% endfor %}
@@ -269,7 +358,6 @@ function filtrarDias() {
     });
 }
 
-// Al cargar: aplicar filtro del mes actual si existe
 document.addEventListener('DOMContentLoaded', function() {
     const sel = document.getElementById('filtroDia');
     if (sel && sel.value !== 'todos') filtrarDias();
