@@ -57,6 +57,41 @@ Sesión de mantenimiento/ops. El cambio más importante fue el `vercel.json` con
 ### Review
 Sesión de refinamiento puntual del hero. El problema no era estético sino estructural: la columna izquierda quedaba vacía debajo de los botones y el subline se había perdido en un merge previo (el CSS lo seguía estilando). Se resolvió completando el bloque en vez de reinventarlo, respetando toda la intención acumulada (Bricolage+Instrument, aurora, corner marks, tarjeta Ciro, decisión de reducir verde). El acento verde volvió solo en los puntos de la barra de prueba — escasez intencional, no decoración. Gotcha capturado: revisar en local con server, no `file://` (logo roto / 404 falsos).
 
+## Sesión 2026-08-10 — CLARA: diseño del SaaS para estéticas (cerrada, continúa)
+
+### Hecho
+- [x] Relevamiento completo del sistema de Maru Nails (`marunails/app.py`, 1.906 líneas, 15 templates, 3 migraciones)
+- [x] Diagnóstico: 5 bloqueantes para vender a terceros + riesgo de seguridad (credenciales commiteadas)
+- [x] Decisión: **producto nuevo y separado**, Maru Nails NO se toca (queda sin suscripción, es el caso fundador)
+- [x] Stack definido: Next.js 16 + Supabase (Auth + RLS) + Tailwind → Vercel/INFYN
+- [x] Multi-tenancy: base única, `salon_id` en todas las tablas, RLS por salón, tenant desde el perfil (nunca de la URL)
+- [x] Roles: dueño + recepción. Estaciones configurables por salón. Moneda/timezone por salón
+- [x] Revisión de plan con office-hours → **wedge corregido**: v1 pasa de "turnos+reservas" a "agenda + caja + cierre de mes"
+- [x] Investigación de precios de Fresha (USA y Argentina) + NutriPass como ancla local
+- [x] Mercado: **Argentina primero**. Precios en ARS: 14.900 promo → 22.900 / 34.900 lista, 30 días gratis
+- [x] Ajuste por inflación definido: regla comercial (revisión trimestral IPC + congelado 6 meses) **y** feature de producto (reportes deflactados)
+- [x] Nombre: **CLARA** — un producto de INFYN. Dominios chequeados (20 nombres, 4 tandas)
+- [x] Spec de la v1 escrito: `docs/superpowers/specs/2026-08-10-clara-v1-design.md`
+- [x] Memoria del proyecto + lecciones actualizadas
+
+### Pendiente (retomar acá)
+- [ ] **Correr `/plan-ceo-review` sobre el spec** ← se interrumpió justo al arrancar, es el próximo paso
+- [ ] Después: `/plan-eng-review` y de ahí el plan de implementación
+- [ ] Registrar `clara.com.ar` en nic.ar (CUIT de INFYN) + `claragestion.com` de respaldo
+- [ ] Ronda de demos: mostrar el sistema de Maru a 2-3 dueños argentinos, pedir número o pre-compromiso
+- [ ] Crear repo nuevo de Clara y mover el spec ahí
+
+### Review
+Sesión de diseño de producto, sin código. El giro que define todo: el pedido original era "duplicar el sistema de Maru y venderlo por suscripción", y el relevamiento + la evidencia de mercado lo convirtieron en algo distinto y mejor.
+
+**El hallazgo que cambió el plan:** se había acordado v1 = turnos + reservas (era la parte más armada del sistema). Cuando Sofia contó que los salones **ya pagan** Fresha/Calendly para turnos y llevan la contabilidad en otro Excel, el alcance quedó invertido — construir turnos era competir de frente con el incumbente y dejar sin atender el dolor que ellos nombran. El tell decisivo: siguen usando Excel para la plata *aunque ya pagan Fresha*.
+
+**El hallazgo técnico que más vale:** el sistema de Maru tiene adentro exactamente la fragmentación que Clara promete resolver. `cortes` y `turnos` son dos mundos desconectados (`cortes.staff` y `cortes.servicio` son texto libre, sin FK). Copiarlo tal cual habría copiado el problema. En Clara el `cortes.turno_id` es el producto.
+
+**Sobre pricing:** verificar la página en español de Fresha cambió el modelo entero — hace precio regional (5.300 ARS por miembro vs USD 14,95). Y ahí apareció el mejor argumento de venta: el add-on de reportes se cobra **por cabeza**, así que un salón de 5 paga 22.500 ARS solo para ver sus números. Clara los incluye.
+
+**Riesgo abierto:** nadie pidió comprar Clara todavía. La ronda de demos es prerrequisito comercial, no técnico — se puede hacer en paralelo al desarrollo, pero tiene que arrancar ya.
+
 ## Backlog (próximas sesiones)
 
 - [ ] WhatsApp como escalón blando además de "agendar diagnóstico"

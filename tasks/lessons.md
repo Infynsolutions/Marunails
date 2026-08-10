@@ -61,3 +61,39 @@ Lista de aprendizajes acumulados sesión a sesión. Revisar al inicio de cada se
 ### Regla: Para revisar en local idéntico a prod, levantar un server (no abrir con `file://`)
 - **Por qué:** El logo usa ruta absoluta (`<img src="/Logo Infyn.png">`) y `vercel.json` tiene `cleanUrls`. Abriendo el `index.html` directo (protocolo `file://`) el logo se ve roto y las rutas absolutas/`/ejemplos` no resuelven — parece un bug del sitio cuando no lo es. Levantando `python3 -m http.server 8000` desde la carpeta del proyecto y abriendo `http://localhost:8000`, las rutas absolutas resuelven igual que en Vercel.
 - **Cuándo aplica:** Cuando Sofia quiere ver cambios en local antes de deployar. Nunca diagnosticar "logo roto / 404" sobre un render `file://`.
+
+### Regla: En el repo `Marunails` conviven varias apps — la de producción la define `vercel.json`
+- **Por qué:** El repo tiene mezclados el sistema de Maru (`marunails/app.py`, Flask+Supabase), un proyecto Argos (`app.py` en raíz + `backend/` FastAPI + `frontend/` React + `argos-v4b.html`), un `inventario/` y los HTML de INFYN. El `CLAUDE.md` del repo describe solo el sitio estático de INFYN, así que leerlo lleva a la app equivocada. `vercel.json` apunta a `marunails/app.py` — esa es la que está en producción.
+- **Cuándo aplica:** Al empezar cualquier sesión sobre este repo. Confirmar el entrypoint con `vercel.json` antes de creer al README o al CLAUDE.md.
+
+---
+
+## Producto y pricing (SaaS)
+
+### Regla: El alcance de una v1 se define contra lo que el mercado YA paga, no contra lo que el sistema ya tiene construido
+- **Por qué:** Para Clara se decidió primero "v1 = turnos + reservas" porque era la parte más armada del sistema de Maru. La evidencia de mercado lo desarmó: los salones **ya pagan** Fresha/Calendly justamente por turnos. Salir por ahí es pelear en el terreno del incumbente (que además tiene marketplace y tuvo plan gratis) y dejar sin atender el dolor que ellos mismos nombran. El tell decisivo: **siguen usando Excel para la plata aunque ya pagan Fresha** — si el software que pagan les resolviera el dinero, ese Excel no existiría.
+- **Cuándo aplica:** Al definir el alcance de cualquier producto nuevo. Preguntar "¿por qué cosa ya están pagando?" antes de "¿qué tengo hecho?". Lo que ya pagan está resuelto; el wedge está en lo que siguen haciendo a mano.
+
+### Regla: Los precios de un competidor se verifican en la página del país, no traducidos del dólar
+- **Por qué:** Fresha cobra USD 19,95 / 14,95 por miembro en EEUU pero **8.000 / 5.300 ARS** en Argentina. Hace precio regional. Todo el modelo de precios de Clara se armó primero sobre el ancla en dólares (que daba ~USD 75-85 por salón) y hubo que recalcularlo entero al ver `fresha.com/es/pricing`. Además apareció el mejor argumento de venta ahí: el add-on de reportes se cobra **por miembro** (4.500 ARS cada uno).
+- **Cuándo aplica:** Cualquier análisis de pricing competitivo en LATAM. Buscar la página localizada del competidor y un SaaS local comparable (NutriPass sirvió de ancla real para Argentina) antes de fijar precio.
+
+### Regla: Nombrar el producto con la palabra exacta que usó el cliente para describir lo que le falta
+- **Por qué:** El mercado dijo *"a fin de mes no tenemos **claridad**"*. De ahí salió **Clara** — que además es nombre de mujer (rubro de dueñas) y habilita gratis una asistente con IA ("mandale la foto a Clara"), movimiento que una marca-producto como Fresha no puede hacer. Se descartaron nombres tipo Turnia/Turnero por la regla de arriba: un nombre que dice "agenda" te encasilla en lo que el competidor ya hace.
+- **Cuándo aplica:** Al nombrar productos. Buscar primero la transcripción de lo que dijo el cliente. Y chequear que el nombre no describa la parte del producto que NO es el diferencial.
+
+### Regla: Un sub-producto lleva nombre propio adelante y la marca madre como firma
+- **Por qué:** INFYN tiene prestigio ante clientes de consultoría, no ante dueñas de peluquería — nunca escucharon el nombre. "INFYN Salón" no le suma nada a esa compradora. El aval sirve al portfolio, no a la venta.
+- **Cuándo aplica:** Cualquier sub-producto de INFYN. Nombre propio + "un producto de INFYN" en footer/about/propuestas.
+
+### Regla: Los `.com` de una palabra corta y pronunciable están todos tomados — no gastar vueltas
+- **Por qué:** Se verificaron 20 nombres inventados de 5-7 letras (claria, brilla, tersa, esmera, clario, salonia, nitia, lucira, sumia…) en `.com`, `.app`, `.io` y `.co`: **cero disponibles**. Lo que sí queda libre son los compuestos (`claragestion.com`, `clarasistema.com` a USD 11,25).
+- **Cuándo aplica:** Al buscar dominio. Ir directo a compuesto + el TLD local del mercado objetivo. Para Argentina, `.com.ar` se saca en **nic.ar** con CUIT — Vercel no maneja `.ar` (ni lo devuelve en el chequeo) y además el dominio local pesa como señal de confianza y SEO frente a un competidor extranjero.
+
+### Regla: El sistema hecho a medida que se quiere replicar suele tener adentro el problema que el SaaS promete resolver
+- **Por qué:** Clara se vende como "el turno y la plata en un solo lugar". Pero en el sistema de Maru, `cortes` y `turnos` son **dos mundos desconectados**: `cortes.staff` y `cortes.servicio` son texto libre, sin foreign key ni relación con `turnos`. Copiar el sistema tal cual habría copiado la fragmentación. En Clara el `cortes.turno_id` **es** el producto, no una optimización.
+- **Cuándo aplica:** Antes de "duplicar y mejorar" cualquier sistema. Revisar si la propuesta de valor del producto nuevo ya está violada en el modelo de datos del viejo.
+
+### Regla: En Argentina, un reporte mes a mes en pesos nominales miente
+- **Por qué:** Un gráfico de facturación en ARS muestra "crecí 8%" cuando en realidad se perdió poder de compra. Mostrar la serie deflactada por IPC (INDEC) es una feature chica, de alto impacto, que un producto traducido del inglés no tiene. Corolario comercial: el precio de lista se revisa cada 3 meses y **"precio congelado 6 meses" se vende como beneficio**, no se esconde.
+- **Cuándo aplica:** Cualquier dashboard financiero con series temporales para mercado argentino. Y cualquier pricing en ARS.
