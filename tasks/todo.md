@@ -71,15 +71,21 @@ Sesión de refinamiento puntual del hero. El problema no era estético sino estr
 - [x] Mercado: **Argentina primero**. Precios en ARS: 14.900 promo → 22.900 / 34.900 lista, 30 días gratis
 - [x] Ajuste por inflación definido: regla comercial (revisión trimestral IPC + congelado 6 meses) **y** feature de producto (reportes deflactados)
 - [x] Nombre: **CLARA** — un producto de INFYN. Dominios chequeados (20 nombres, 4 tandas)
-- [x] Spec de la v1 escrito: `docs/superpowers/specs/2026-08-10-clara-v1-design.md`
+- [x] Spec de la v1 escrito
 - [x] Memoria del proyecto + lecciones actualizadas
+- [x] **Clara separada a su propio repo** → `/Users/sofia/Projects/Clara`
 
-### Pendiente (retomar acá)
-- [ ] **Correr `/plan-ceo-review` sobre el spec** ← se interrumpió justo al arrancar, es el próximo paso
-- [ ] Después: `/plan-eng-review` y de ahí el plan de implementación
-- [ ] Registrar `clara.com.ar` en nic.ar (CUIT de INFYN) + `claragestion.com` de respaldo
-- [ ] Ronda de demos: mostrar el sistema de Maru a 2-3 dueños argentinos, pedir número o pre-compromiso
-- [ ] Crear repo nuevo de Clara y mover el spec ahí
+### 📦 Clara continúa en su propio proyecto
+
+Clara es un producto aparte y **ya no se trabaja desde este repo**. El spec, el `CLAUDE.md`, el `todo.md` y las lecciones de Clara viven en:
+
+```
+/Users/sofia/Projects/Clara
+```
+
+Lo pendiente (CEO review del spec, eng review, dominio, ronda de demos) está en `Clara/tasks/todo.md`.
+
+**De este repo, lo único que Clara usa es referencia de lectura:** `marunails/app.py` como fuente de la lógica de negocio, sobre todo el motor de slots. **El sistema de Maru Nails no se modifica** — queda sin suscripción, es el caso fundador y el caso de estudio con datos reales.
 
 ### Review
 Sesión de diseño de producto, sin código. El giro que define todo: el pedido original era "duplicar el sistema de Maru y venderlo por suscripción", y el relevamiento + la evidencia de mercado lo convirtieron en algo distinto y mejor.
