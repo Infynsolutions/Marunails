@@ -27,7 +27,7 @@ TC_USD = 17
 # Sin MP_ACCESS_TOKEN la reserva web funciona como antes (sin seña).
 MP_ACCESS_TOKEN     = os.environ.get('MP_ACCESS_TOKEN', '')
 MP_WEBHOOK_SECRET   = os.environ.get('MP_WEBHOOK_SECRET', '')
-PUBLIC_BASE_URL     = os.environ.get('PUBLIC_BASE_URL', 'https://www.marunailstulum.com').rstrip('/')
+PUBLIC_BASE_URL     = os.environ.get('BASE_URL_MP', 'https://www.marunailstulum.com').rstrip('/')
 MP_NOTIFICATION_URL = os.environ.get('MP_NOTIFICATION_URL', f'{PUBLIC_BASE_URL}/api/mp/webhook')
 SENA_MXN            = int(os.environ.get('SENA_MXN', '300'))
 SENA_ACTIVA         = bool(MP_ACCESS_TOKEN)
