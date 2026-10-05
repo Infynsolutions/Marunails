@@ -184,10 +184,15 @@ table.cl td.num-strong { font-weight: 600; color: var(--brown-dark); }
                     <span class="cl-name">
                         {{ c.nombre }}
                         {% if c.categoria == 'vip' %}<span class="cl-badge vip">VIP</span>
-                        {% elif c.categoria == 'nuevo' %}<span class="cl-badge nuevo">Nuevo</span>{% endif %}
+                        {% elif c.categoria == 'nuevo' %}<span class="cl-badge nuevo">Nuevo</span>
+                        {% elif c.categoria == 'agenda' %}<span class="cl-badge nuevo">Solo agenda</span>{% endif %}
                         {% if c.en_riesgo %}<span class="cl-badge riesgo">Riesgo</span>{% endif %}
                     </span>
                 </td>
+                {% if c.categoria == 'agenda' %}
+                <td class="num-strong">—</td><td>—</td><td>—</td><td>—</td>
+                <td class="cl-fecha">—</td>
+                {% else %}
                 <td class="num-strong">{{ c.visitas }}</td>
                 <td>${{ '{:,.0f}'.format(c.total) }}</td>
                 <td>${{ '{:,.0f}'.format(c.ticket) }}</td>
@@ -196,6 +201,7 @@ table.cl td.num-strong { font-weight: 600; color: var(--brown-dark); }
                     {{ c.ultima }}
                     {% if c.dias_ultima is not none %}<br><span style="font-size:10px;">hace {{ c.dias_ultima }}d</span>{% endif %}
                 </td>
+                {% endif %}
             </tr>
         {% endfor %}
         </tbody>

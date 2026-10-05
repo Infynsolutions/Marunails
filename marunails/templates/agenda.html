@@ -336,6 +336,15 @@ main { max-width: 1480px; padding: 28px 24px; }
 }
 .nc-slot.sel { background: var(--brown); border-color: var(--brown); color: #fff; }
 .nc-hint { font-size: 12px; color: var(--muted); font-style: italic; }
+/* Buscador de clientas (nueva cita / walk-in) */
+.cli-sug { display: none; border: 1px solid var(--sand); border-radius: 8px; margin: -6px 0 12px; max-height: 230px; overflow-y: auto; background: #fff; }
+.cli-sug.open { display: block; }
+.cli-sug button { display: block; width: 100%; text-align: left; padding: 9px 12px; border: none; border-bottom: 1px solid var(--sand); background: none; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--text); }
+.cli-sug button:last-child { border-bottom: none; }
+.cli-sug button:hover { background: var(--brown-pale); }
+.cli-sug small { color: var(--muted); font-size: 11px; }
+.cli-elegida { font-size: 12px; color: #1f8f4e; margin: -6px 0 10px; min-height: 0; }
+.cli-elegida:empty { display: none; }
 .nc-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); margin: 4px 0 6px; cursor: pointer; text-transform: none; letter-spacing: normal; font-weight: 400; }
 .nc-check input { width: 16px; height: 16px; accent-color: var(--brown); }
 .nc-resumen { font-size: 13px; line-height: 1.7; color: var(--text); background: #fff; border: 1px solid var(--sand); border-radius: 8px; padding: 12px 14px; }
@@ -554,14 +563,17 @@ main { max-width: 1480px; padding: 28px 24px; }
         <h2>🚶 Walk-in</h2>
         <div class="wi-row">
             <div class="wi-field">
-                <label>Nombre cliente</label>
-                <input type="text" id="wiNombre" placeholder="Walk in">
+                <label>Clienta</label>
+                <input type="text" id="wiNombre" placeholder="Buscar o dejar vacío" autocomplete="off"
+                       oninput="buscarClienta('wi')" onblur="document.getElementById('wiSug').classList.remove('open')">
             </div>
             <div class="wi-field">
                 <label>Teléfono</label>
                 <input type="tel" id="wiTelefono" placeholder="Opcional">
             </div>
         </div>
+        <div class="cli-sug" id="wiSug"></div>
+        <div class="cli-elegida" id="wiElegida"></div>
         <div class="wi-field">
             <label>Servicio *</label>
             <select id="wiServicio" onchange="wiCargarColabs()">
@@ -599,14 +611,17 @@ main { max-width: 1480px; padding: 28px 24px; }
             <h2>📅 Nueva cita</h2>
             <div class="wi-row">
                 <div class="wi-field">
-                    <label>Nombre *</label>
-                    <input type="text" id="ncNombre" placeholder="Nombre de la clienta">
+                    <label>Clienta *</label>
+                    <input type="text" id="ncNombre" placeholder="Buscar o escribir nombre" autocomplete="off"
+                           oninput="buscarClienta('nc')" onblur="document.getElementById('ncSug').classList.remove('open')">
                 </div>
                 <div class="wi-field">
                     <label>Teléfono *</label>
                     <input type="tel" id="ncTel" placeholder="984 000 0000">
                 </div>
             </div>
+            <div class="cli-sug" id="ncSug"></div>
+            <div class="cli-elegida" id="ncElegida"></div>
             <div class="wi-field">
                 <label>Servicios *</label>
                 <select id="ncServicio" onchange="ncAgregarServicio()">
@@ -1385,6 +1400,7 @@ async function openHistorial(clienteId) {
         <span>${esc(cliente.telefono)}</span>
         ${cliente.email ? `<br><span>${esc(cliente.email)}</span>` : ''}
         ${cliente.idioma && cliente.idioma !== 'es' ? `<br><span>Idioma: ${esc(cliente.idioma)}</span>` : ''}
+        ${ES_ADMIN && cliente.ficha_key ? `<br><a href="/cliente?c=${encodeURIComponent(cliente.ficha_key)}" style="font-size:12px;color:var(--brown-mid)">Ver ficha completa →</a>` : ''}
         <br><button onclick="editarAlergiasCliente(${cliente.id})"
             style="margin-top:8px;padding:5px 12px;border:1px solid var(--sand);border-radius:6px;background:#fff;font-size:11px;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif">
             ✏ Editar alergias
@@ -1421,6 +1437,62 @@ function closeHistorial(e) {
     document.getElementById('historialModal').classList.remove('open');
 }
 
+// ─── BUSCADOR DE CLIENTAS (nueva cita y walk-in) ───
+// Elegir una clienta ya cargada suma la cita a su ficha. Si no se elige ninguna, el server
+// igual la reconoce por teléfono, email o nombre completo antes de dar de alta una nueva.
+let clientasDir = [];     // [{id, key, nombre, telefono, visitas, ultima}] — id null = ficha de cortes sin citas
+const clientaSel = { nc: null, wi: null };
+const BUSCADOR = { nc: ['ncNombre', 'ncTel', 'ncSug', 'ncElegida'], wi: ['wiNombre', 'wiTelefono', 'wiSug', 'wiElegida'] };
+
+function sinAcentos(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+async function cargarClientas() {
+    try {
+        const d = await (await fetch('/api/clientas')).json();
+        if (Array.isArray(d)) clientasDir = d;
+    } catch { /* sin buscador: se carga como antes */ }
+}
+
+function resetBuscador(p) {
+    const [, , sug, eleg] = BUSCADOR[p];
+    clientaSel[p] = null;
+    document.getElementById(sug).classList.remove('open');
+    document.getElementById(eleg).textContent = '';
+    cargarClientas();     // fresco en cada apertura: puede haber clientas nuevas
+}
+
+function buscarClienta(p) {
+    const [nom, , sug, eleg] = BUSCADOR[p];
+    clientaSel[p] = null;
+    document.getElementById(eleg).textContent = '';
+    const q = document.getElementById(nom).value;
+    const t = sinAcentos(q).trim(), dig = q.replace(/\D/g, '');
+    const hits = t.length < 2 ? [] : clientasDir.filter(c => sinAcentos(c.nombre).includes(t) ||
+        (dig.length >= 3 && (c.telefono || '').replace(/\D/g, '').includes(dig))).slice(0, 8);
+    const box = document.getElementById(sug);
+    box._hits = hits;
+    box.innerHTML = hits.map((c, i) => {
+        const meta = [c.telefono, c.visitas ? `${c.visitas} visita${c.visitas === 1 ? '' : 's'}` : 'sin cobros',
+                      c.ultima ? `última ${c.ultima}` : ''].filter(Boolean).join(' · ');
+        return `<button type="button" onmousedown="event.preventDefault(); elegirClienta('${p}', ${i})">` +
+               `<b>${esc(c.nombre)}</b> <small>${esc(meta)}</small></button>`;
+    }).join('');
+    box.classList.toggle('open', hits.length > 0);
+}
+
+function elegirClienta(p, i) {
+    const [nom, tel, sug, eleg] = BUSCADOR[p];
+    const box = document.getElementById(sug);
+    const c = box._hits[i];
+    clientaSel[p] = c;
+    document.getElementById(nom).value = c.nombre;
+    if (c.telefono) document.getElementById(tel).value = c.telefono;
+    box.classList.remove('open');
+    document.getElementById(eleg).textContent =
+        `✓ ${c.nombre}${c.visitas ? ` · ${c.visitas} visitas` : ''} — la cita se suma a su ficha`;
+    if (!document.getElementById(tel).value) document.getElementById(tel).focus();
+}
+
 // ─── WALK-IN ───
 let wiServicios = [];
 
@@ -1430,6 +1502,7 @@ async function abrirWalkin() {
     document.getElementById('wiTelefono').value = '';
     document.getElementById('wiNotas').value = '';
     document.getElementById('wiHora').value = hhmmDate(new Date());
+    resetBuscador('wi');
 
     const [rServ] = await Promise.all([
         wiServicios.length ? null : fetch('/api/servicios'),
@@ -1478,6 +1551,7 @@ async function guardarWalkin() {
         body: JSON.stringify({
             nombre:          document.getElementById('wiNombre').value.trim() || 'Walk in',
             telefono:        document.getElementById('wiTelefono').value.trim(),
+            cliente_id:      clientaSel.wi?.id || null,
             servicio_id:     servId,
             colaboradora_id: colabId,
             hora:            document.getElementById('wiHora').value,
@@ -1549,6 +1623,7 @@ let ncPre   = {};         // precarga desde un clic en la agenda {fecha, hora, c
 async function abrirNuevaCita(pre) {
     ncPre = pre || {};
     ['ncNombre','ncTel','ncNotas'].forEach(id => document.getElementById(id).value = '');
+    resetBuscador('nc');
     document.getElementById('ncError').textContent = '';
     document.getElementById('ncFecha').value = ncPre.fecha || isoFecha(fechaActual);
     const chk = document.getElementById('ncSena');
@@ -1662,6 +1737,7 @@ async function guardarNuevaCita() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             nombre, telefono: tel,
+            cliente_id: clientaSel.nc?.id || null,
             servicio_ids: ncServs.map(s => s.id),
             colaboradora_id: document.getElementById('ncColab').value,
             fecha, hora: ncHora,

@@ -514,6 +514,22 @@ def agregar_clientes(cortes, ref_date):
     return [_finalizar_cliente(d, ref_date) for d in cli.values()]
 
 
+ESTADO_LABEL = {
+    'esperando_pago': 'Esperando seña', 'pendiente': 'Pendiente', 'confirmado': 'Confirmado',
+    'en_espera': 'En espera', 'llegó': 'Llegó', 'en_servicio': 'En servicio', 'finalizado': 'Finalizado',
+    'cancelado_cliente': 'Canceló la clienta', 'cancelado_salon': 'Canceló el salón',
+    'no_show': 'No-show', 'reprogramado': 'Reprogramado',
+}
+
+
+def ficha_sin_cortes(key, nombre):
+    """Ficha de una clienta que por ahora solo tiene citas en la agenda (sin cobros cargados)."""
+    return {'key': key, 'nombre': ' '.join(nombre.split()), 'visitas': 0, 'total': 0.0,
+            'propinas': 0.0, 'ticket': 0.0, 'primera': None, 'ultima': None, 'dias_ultima': None,
+            'frecuencia': None, 'servicio_fav': '—', 'staff_fav': '—', 'walkin': False,
+            'categoria': 'agenda', 'en_riesgo': False}
+
+
 def resumen_clientes(cortes):
     """Directorio de clientes + métricas de retención."""
     if cortes:
@@ -839,6 +855,14 @@ def clientes():
         sb = get_sb()
         cortes = fetch_all(sb, 'cortes', 'cliente,fecha,total_mxn,propina_mxn,staff,servicio')
         resumen = resumen_clientes(cortes)
+        # Clientas que sacaron cita pero todavía no tienen cobros: también tienen ficha
+        en_fichas = {c['key'] for c in resumen['clientes']}
+        solo_agenda = {}
+        for c in fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido'):
+            key = clave_clienta(c)
+            if key and not es_walkin(key) and key not in en_fichas:
+                solo_agenda.setdefault(key, ficha_sin_cortes(key, f"{c['nombre']} {c.get('apellido') or ''}"))
+        resumen['clientes'] += sorted(solo_agenda.values(), key=lambda c: c['nombre'])
     except Exception as e:
         flash(f'Error cargando clientes: {e}', 'error')
     return render_template('clientes.html', resumen=resumen)
@@ -854,6 +878,8 @@ def cliente_detalle():
     cli = None
     historial = []
     info = {}
+    citas = []
+    contacto = {}
     try:
         sb = get_sb()
         cortes = fetch_all(sb, 'cortes',
@@ -873,6 +899,19 @@ def cliente_detalle():
         except Exception:
             pass
 
+        # Citas de la agenda: las clientas de turnos con el mismo nombre completo
+        agenda = [c for c in fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido,telefono,email')
+                  if clave_clienta(c) == key]
+        if agenda:
+            citas = [t for t in sb.table('turnos').select(
+                'id,fecha,hora_inicio,estado,precio,canal,created_at,colaboradoras(nombre),servicios(nombre)'
+            ).in_('cliente_id', [c['id'] for c in agenda]).order('fecha', desc=True).execute().data
+                if not hold_vencido(t)]
+            contacto = {'telefono': next((c['telefono'] for c in agenda if c.get('telefono')), ''),
+                        'email':    next((c['email'] for c in agenda if c.get('email')), '')}
+            if cli is None:
+                cli = ficha_sin_cortes(key, f"{agenda[0]['nombre']} {agenda[0].get('apellido') or ''}")
+
     except Exception as e:
         flash(f'Error cargando el cliente: {e}', 'error')
 
@@ -880,7 +919,8 @@ def cliente_detalle():
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('clientes'))
 
-    return render_template('cliente.html', cli=cli, historial=historial, info=info)
+    return render_template('cliente.html', cli=cli, historial=historial, info=info,
+                           citas=citas, contacto=contacto, estados_turno=ESTADO_LABEL)
 
 
 @app.route('/cliente/<path:key>/info', methods=['POST'])
@@ -1553,7 +1593,103 @@ class ReservaError(Exception):
         self.status, self.extra = status, extra
 
 
-def crear_reserva(sb, data, canal, con_sena=True, respetar_anticipacion=True):
+# ── CLIENTAS: una sola ficha por persona ───────────────────────────────────────
+def clave_clienta(c):
+    """Clave de ficha de una clienta de la agenda: su nombre completo normalizado.
+    Es la misma clave que agrupa los cortes, así la ficha junta cobros y citas."""
+    return cliente_key(f"{c.get('nombre') or ''} {c.get('apellido') or ''}")
+
+
+def tel_digitos(tel):
+    """Últimos 10 dígitos: '+52 984 182 6374' y '9841826374' son el mismo teléfono."""
+    d = re.sub(r'\D', '', tel or '')
+    return d[-10:] if len(d) >= 8 else ''
+
+
+def buscar_clienta(clientas, nombre='', apellido='', telefono='', email=''):
+    """Clienta ya cargada que coincide por teléfono, email o nombre completo (en ese orden).
+    Un nombre suelto ('Ana') solo alcanza si esa ficha no tiene teléfono: dos 'Ana' con
+    teléfonos distintos son dos personas."""
+    tel = tel_digitos(telefono)
+    if tel:
+        c = next((c for c in clientas if tel_digitos(c.get('telefono')) == tel), None)
+        if c:
+            return c
+    mail = (email or '').strip().lower()
+    if mail:
+        c = next((c for c in clientas if (c.get('email') or '').strip().lower() == mail), None)
+        if c:
+            return c
+    key = cliente_key(f'{nombre or ""} {apellido or ""}')
+    if not key or es_walkin(key):
+        return None
+    mismas = [c for c in clientas if clave_clienta(c) == key]
+    if len(mismas) == 1 and (' ' in key or not tel_digitos(mismas[0].get('telefono'))):
+        return mismas[0]
+    return None
+
+
+def clienta_para_reserva(sb, data, rechazar_bloqueada=False):
+    """La clienta de una cita: la elegida en el buscador (cliente_id), una ya cargada que
+    coincida, o una nueva. A una existente solo se le completan teléfono/email vacíos."""
+    clientas = fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido,telefono,email,bloqueado')
+    if data.get('cliente_id'):
+        c = next((x for x in clientas if str(x['id']) == str(data['cliente_id'])), None)
+        if not c:
+            raise ReservaError('La clienta elegida ya no existe. Búscala de nuevo.', 404)
+    else:
+        c = buscar_clienta(clientas, data.get('nombre'), data.get('apellido'),
+                           data.get('telefono'), data.get('email'))
+
+    if c:
+        if rechazar_bloqueada and c.get('bloqueado'):
+            raise ReservaError('No es posible completar la reserva online. '
+                               'Por favor contactá directamente al salón.', 403)
+        faltan = {k: data[k].strip() for k in ('telefono', 'email')
+                  if (data.get(k) or '').strip() and not (c.get(k) or '').strip()}
+        if faltan:
+            sb.table('clientes_reservas').update(faltan).eq('id', c['id']).execute()
+        return c['id']
+
+    nueva = {
+        'nombre': data['nombre'],
+        'apellido': data.get('apellido') or '',
+        'telefono': data.get('telefono') or '',
+        'email': data.get('email') or '',
+        'idioma': data.get('idioma') or 'es',
+        'acepto_politicas': bool(data.get('acepto_politicas')),
+        'notas': data.get('notas') or '',
+        'es_recurrente': False,
+    }
+    if data.get('fecha_nacimiento'):
+        nueva['fecha_nacimiento'] = data['fecha_nacimiento']
+    return sb.table('clientes_reservas').insert(nueva).execute().data[0]['id']
+
+
+def directorio_clientas(clientas, cortes, tel_fichas):
+    """Lista para el buscador de la agenda: clientas de la agenda + fichas de los cortes que
+    todavía no sacaron cita. Cada una con sus visitas (cortes) y última visita."""
+    fichas = {f['key']: f for f in agregar_clientes(
+        [c for c in cortes if not es_walkin(cliente_key(c.get('cliente')))], date.today().isoformat())}
+    lista, cubiertas = [], set()
+    for c in clientas:
+        key = clave_clienta(c)
+        if not key or es_walkin(key):
+            continue
+        f = fichas.get(key) or {}
+        cubiertas.add(key)
+        lista.append({'id': c['id'], 'key': key, 'telefono': c.get('telefono') or '',
+                      'nombre': f"{c.get('nombre') or ''} {c.get('apellido') or ''}".strip(),
+                      'visitas': f.get('visitas', 0), 'ultima': f.get('ultima')})
+    for key, f in fichas.items():
+        if key not in cubiertas:
+            lista.append({'id': None, 'key': key, 'telefono': tel_fichas.get(key) or '',
+                          'nombre': f['nombre'], 'visitas': f['visitas'], 'ultima': f['ultima']})
+    lista.sort(key=lambda x: (-x['visitas'], x['nombre'].lower()))
+    return lista
+
+
+def crear_reserva(sb, data, canal, con_sena=True, respetar_anticipacion=True, rechazar_bloqueada=False):
     """Crea la cita (uno o más servicios en secuencia). La usan la web y la recepción.
     Con seña: citas en esperando_pago + pagos_sena + preferencia de MP (horario retenido
     según HOLD_MIN_POR_CANAL). Sin seña: citas confirmadas."""
@@ -1581,24 +1717,7 @@ def crear_reserva(sb, data, canal, con_sena=True, respetar_anticipacion=True):
         raise ReservaError('Ese horario ya no está disponible. Por favor elige otro.', 409, horario_tomado=True)
     colaboradora_id = slot['colaboradora_id']
 
-    existing = sb.table('clientes_reservas').select('id').eq('telefono', data['telefono']).limit(1).execute()
-    if existing.data:
-        cliente_id = existing.data[0]['id']
-    else:
-        insert_data = {
-            'nombre': data['nombre'],
-            'apellido': data.get('apellido', ''),
-            'telefono': data['telefono'],
-            'email': data.get('email', ''),
-            'idioma': data.get('idioma', 'es'),
-            'acepto_politicas': data.get('acepto_politicas', False),
-            'notas': data.get('notas', ''),
-            'es_recurrente': False,
-        }
-        if data.get('fecha_nacimiento'):
-            insert_data['fecha_nacimiento'] = data['fecha_nacimiento']
-        cliente = sb.table('clientes_reservas').insert(insert_data).execute()
-        cliente_id = cliente.data[0]['id']
+    cliente_id = clienta_para_reserva(sb, data, rechazar_bloqueada)
 
     pago = None
     if con_sena and SENA_ACTIVA:
@@ -1670,11 +1789,8 @@ def api_reservar():
     try:
         sb = get_sb()
         data = request.json
-        bloq = sb.table('clientes_reservas').select('bloqueado').eq(
-            'telefono', data['telefono']).limit(1).execute()
-        if bloq.data and bloq.data[0].get('bloqueado'):
-            return jsonify({'error': 'No es posible completar la reserva online. Por favor contactá directamente al salón.'}), 403
-        r = crear_reserva(sb, data, 'web', con_sena=True)
+        data.pop('cliente_id', None)      # la web no elige clienta: se reconoce por sus datos
+        r = crear_reserva(sb, data, 'web', con_sena=True, rechazar_bloqueada=True)
         return jsonify({'success': True, 'turno_ids': r['turno_ids'], 'init_point': r.get('init_point')}
                        if r.get('init_point') else {'success': True, 'turno_ids': r['turno_ids']})
     except ReservaError as e:
@@ -2091,8 +2207,23 @@ def api_cliente_historial(cid):
             'id,fecha,hora_inicio,hora_fin,estado,precio,notas,canal,created_at,'
             'colaboradoras(nombre),servicios(nombre)'
         ).eq('cliente_id', cid).order('fecha', desc=True).execute()
-        return jsonify({'cliente': cliente.data[0],
+        return jsonify({'cliente': {**cliente.data[0], 'ficha_key': clave_clienta(cliente.data[0])},
                         'turnos': [t for t in turnos.data if not hold_vencido(t)]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/clientas')
+@require_equipo
+def api_clientas():
+    """Directorio del buscador de clientas de la agenda (nueva cita / walk-in)."""
+    try:
+        sb = get_sb()
+        tel_fichas = {r['key']: r.get('telefono') for r in fetch_all(sb, 'clientes_info', 'key,telefono')}
+        return jsonify(directorio_clientas(
+            fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido,telefono'),
+            fetch_all(sb, 'cortes', 'cliente,fecha,total_mxn,propina_mxn,staff,servicio'),
+            tel_fichas))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2283,26 +2414,8 @@ def api_walkin():
         duracion = servicio.data[0]['duracion_min']
         hora_fin = (datetime.strptime(hora_ini, '%H:%M') + timedelta(minutes=duracion)).strftime('%H:%M')
 
-        # Buscar o crear cliente
-        if telefono:
-            existing = sb.table('clientes_reservas').select('id').eq('telefono', telefono).limit(1).execute()
-        else:
-            existing = type('R', (), {'data': []})()
-
-        if existing.data:
-            cliente_id = existing.data[0]['id']
-        else:
-            cli = sb.table('clientes_reservas').insert({
-                'nombre': nombre,
-                'apellido': '',
-                'telefono': telefono or '',
-                'email': '',
-                'idioma': 'es',
-                'acepto_politicas': False,
-                'notas': '',
-                'es_recurrente': bool(telefono and existing.data),
-            }).execute()
-            cliente_id = cli.data[0]['id']
+        cliente_id = clienta_para_reserva(sb, {'nombre': nombre, 'telefono': telefono,
+                                               'cliente_id': data.get('cliente_id')})
 
         turno = sb.table('turnos').insert({
             'cliente_id':     cliente_id,
@@ -2319,6 +2432,8 @@ def api_walkin():
 
         registrar_cambio(turno.data[0]['id'], 'creado', f'Registró el walk-in a las {hora_ini}')
         return jsonify({'success': True, 'turno_id': turno.data[0]['id']})
+    except ReservaError as e:
+        return jsonify({'error': str(e)}), e.status
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2687,11 +2802,9 @@ def api_agregar_espera():
         if not nombre and not telefono:
             return jsonify({'error': 'Nombre o teléfono son obligatorios'}), 400
 
-        cliente_id = None
-        if telefono:
-            existing = sb.table('clientes_reservas').select('id').eq('telefono', telefono).limit(1).execute()
-            if existing.data:
-                cliente_id = existing.data[0]['id']
+        ya = buscar_clienta(fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido,telefono,email'),
+                            nombre, telefono=telefono)
+        cliente_id = ya['id'] if ya else None
 
         row = {
             'nombre':          nombre or None,

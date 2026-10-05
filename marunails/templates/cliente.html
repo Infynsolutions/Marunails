@@ -176,7 +176,7 @@ table.cd td.num-strong { font-weight: 600; color: var(--brown-dark); }
         <div class="cd-name">{{ cli.nombre }}</div>
         <div class="cd-badges">
             <span class="cd-badge {{ cli.categoria }}">
-                {% if cli.categoria == 'vip' %}VIP{% elif cli.categoria == 'nuevo' %}Nuevo{% else %}Recurrente{% endif %}
+                {% if cli.categoria == 'vip' %}VIP{% elif cli.categoria == 'nuevo' %}Nuevo{% elif cli.categoria == 'agenda' %}Solo agenda{% else %}Recurrente{% endif %}
             </span>
             {% if cli.en_riesgo %}<span class="cd-badge riesgo">En riesgo</span>{% endif %}
         </div>
@@ -215,11 +215,11 @@ table.cd td.num-strong { font-weight: 600; color: var(--brown-dark); }
         <div class="cd-card-title">Comportamiento</div>
         <div class="cd-info-row">
             <span class="cd-info-label">Primera visita</span>
-            <span class="cd-info-val">{{ cli.primera }}</span>
+            <span class="cd-info-val">{{ cli.primera or '—' }}</span>
         </div>
         <div class="cd-info-row">
             <span class="cd-info-label">Última visita</span>
-            <span class="cd-info-val">{{ cli.ultima }}{% if cli.dias_ultima is not none %} · hace {{ cli.dias_ultima }}d{% endif %}</span>
+            <span class="cd-info-val">{{ cli.ultima or '—' }}{% if cli.dias_ultima is not none %} · hace {{ cli.dias_ultima }}d{% endif %}</span>
         </div>
         <div class="cd-info-row">
             <span class="cd-info-label">Frecuencia</span>
@@ -246,8 +246,14 @@ table.cd td.num-strong { font-weight: 600; color: var(--brown-dark); }
         <div id="contacto-view">
             <div class="cd-info-row">
                 <span class="cd-info-label">Teléfono</span>
-                <span class="cd-info-val">{{ info.telefono if info.telefono else '<span class="cd-info-empty">—</span>' }}</span>
+                <span class="cd-info-val">{{ info.telefono or contacto.telefono or '—' }}</span>
             </div>
+            {% if contacto.email %}
+            <div class="cd-info-row">
+                <span class="cd-info-label">Email</span>
+                <span class="cd-info-val">{{ contacto.email }}</span>
+            </div>
+            {% endif %}
             <div class="cd-info-row">
                 <span class="cd-info-label">Cumpleaños</span>
                 <span class="cd-info-val">{{ info.cumpleanos if info.cumpleanos else '<span class="cd-info-empty">—</span>' }}</span>
@@ -268,7 +274,7 @@ table.cd td.num-strong { font-weight: 600; color: var(--brown-dark); }
             <div class="cd-form-grid">
                 <div class="cd-form-group">
                     <label>Teléfono</label>
-                    <input type="tel" name="telefono" value="{{ info.telefono or '' }}" placeholder="+52 ...">
+                    <input type="tel" name="telefono" value="{{ info.telefono or contacto.telefono or '' }}" placeholder="+52 ...">
                 </div>
                 <div class="cd-form-group">
                     <label>Cumpleaños</label>
@@ -363,6 +369,37 @@ table.cd td.num-strong { font-weight: 600; color: var(--brown-dark); }
     </div>
 
 </div>
+
+<!-- ─── CITAS EN LA AGENDA ─── -->
+{% if citas %}
+<div class="cd-section-title">Citas en la agenda</div>
+<div class="cd-table-wrap" style="margin-bottom:28px;">
+    <table class="cd">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Servicio</th>
+                <th>Colaboradora</th>
+                <th>Estado</th>
+                <th>Canal</th>
+                <th>Precio</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for t in citas %}
+            <tr>
+                <td>{{ t.fecha }} · {{ (t.hora_inicio or '')[:5] }}</td>
+                <td class="serv">{{ t.servicios.nombre if t.servicios else '—' }}</td>
+                <td style="text-align:left;">{{ t.colaboradoras.nombre if t.colaboradoras else 'Sin asignar' }}</td>
+                <td style="text-align:left;">{{ estados_turno.get(t.estado, t.estado) }}</td>
+                <td style="text-align:left;">{{ {'web': 'Web', 'recepcion': 'Recepción', 'walk-in': 'Walk-in'}.get(t.canal, t.canal or '—') }}</td>
+                <td class="num-strong">{% if t.precio %}${{ '{:,.0f}'.format(t.precio) }}{% else %}—{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 
 <!-- ─── HISTORIAL ─── -->
 <div class="cd-section-title">Historial de visitas</div>
