@@ -359,6 +359,53 @@
     cursor: pointer;
 }
 
+/* ─── CANAL ─── */
+.canal-chip {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    padding: 1px 7px;
+    border-radius: 20px;
+}
+.canal-web       { background: #e8f0fe; color: #1a56db; }
+.canal-recepcion { background: #f3ece6; color: var(--brown); }
+.btn-wa-link {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: #25D366;
+    color: #fff;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+/* ─── NUEVA CITA ─── */
+.nc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.nc-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--brown-pale, #F5EDE6); color: var(--brown-dark);
+    border-radius: 20px; padding: 3px 10px; font-size: 12px;
+}
+.nc-tag button { border: none; background: none; cursor: pointer; color: var(--muted); font-size: 14px; line-height: 1; padding: 0; }
+.nc-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 150px; overflow-y: auto; }
+.nc-slot {
+    padding: 7px 0; border: 1px solid var(--sand); border-radius: 7px; background: #fff;
+    font-size: 12px; font-family: 'Inter', sans-serif; cursor: pointer; color: var(--text);
+}
+.nc-slot.sel { background: var(--brown); border-color: var(--brown); color: #fff; }
+.nc-hint { font-size: 12px; color: var(--muted); font-style: italic; }
+.nc-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); margin: 4px 0 6px; cursor: pointer; text-transform: none; letter-spacing: normal; font-weight: 400; }
+.nc-check input { width: 16px; height: 16px; accent-color: var(--brown); }
+.nc-resumen { font-size: 13px; line-height: 1.7; color: var(--text); background: #fff; border: 1px solid var(--sand); border-radius: 8px; padding: 12px 14px; }
+.btn-wa-grande {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 14px; padding: 11px; border-radius: 8px;
+    background: #25D366; color: #fff; text-decoration: none; font-size: 14px; font-weight: 500;
+}
+@media (max-width: 480px) { .nc-slots { grid-template-columns: repeat(3, 1fr); } }
+
 /* ─── HISTORIAL MODAL ─── */
 .modal-overlay {
     display: none;
@@ -475,6 +522,7 @@
             <button class="view-btn"        id="btnMes"    onclick="setVista('mes')">Mes</button>
         </div>
         <button class="btn-hoy" onclick="irHoy()">Hoy</button>
+        <button class="btn-hoy" onclick="abrirNuevaCita()" style="background:var(--brown-dark);color:#fff;border-color:var(--brown-dark);font-weight:500">+ Nueva cita</button>
         <button class="btn-hoy" onclick="abrirWalkin()" style="background:var(--brown);color:#fff;border-color:var(--brown);font-weight:500">+ Walk-in</button>
     </div>
 </div>
@@ -582,6 +630,71 @@
     </div>
 </div>
 
+<!-- Modal nueva cita (recepción) -->
+<div class="walkin-overlay" id="citaOverlay">
+    <div class="walkin-panel" style="width:460px;max-height:92vh;overflow-y:auto">
+        <div id="ncForm">
+            <h2>📅 Nueva cita</h2>
+            <div class="wi-row">
+                <div class="wi-field">
+                    <label>Nombre *</label>
+                    <input type="text" id="ncNombre" placeholder="Nombre de la clienta">
+                </div>
+                <div class="wi-field">
+                    <label>Teléfono *</label>
+                    <input type="tel" id="ncTel" placeholder="984 000 0000">
+                </div>
+            </div>
+            <div class="wi-field">
+                <label>Servicios *</label>
+                <select id="ncServicio" onchange="ncAgregarServicio()">
+                    <option value="">+ Agregar servicio</option>
+                </select>
+                <div class="nc-tags" id="ncTags"></div>
+            </div>
+            <div class="wi-row">
+                <div class="wi-field">
+                    <label>Colaboradora</label>
+                    <select id="ncColab" onchange="ncCargarSlots()">
+                        <option value="any">Cualquiera</option>
+                    </select>
+                </div>
+                <div class="wi-field">
+                    <label>Fecha *</label>
+                    <input type="date" id="ncFecha" onchange="ncCargarSlots()">
+                </div>
+            </div>
+            <div class="wi-field">
+                <label>Horario *</label>
+                <div id="ncSlots"><div class="nc-hint">Elegí servicio y fecha.</div></div>
+            </div>
+            <div class="wi-field">
+                <label>Notas</label>
+                <input type="text" id="ncNotas" placeholder="Opcional">
+            </div>
+            {% if sena_activa %}
+            <label class="nc-check">
+                <input type="checkbox" id="ncSena" checked onchange="ncActualizarBoton()">
+                Lleva seña (${{ sena_mxn }} MXN) — se manda link de pago
+            </label>
+            {% endif %}
+            <div id="ncError" style="color:#dc2626;font-size:12px;min-height:16px;margin-top:4px"></div>
+            <div class="wi-actions">
+                <button class="btn-walkin-cancel" onclick="cerrarNuevaCita()">Cancelar</button>
+                <button class="btn-walkin-submit" id="ncSubmit" onclick="guardarNuevaCita()">Crear cita</button>
+            </div>
+        </div>
+        <div id="ncOk" style="display:none">
+            <h2 id="ncOkTitulo">✅ Cita creada</h2>
+            <div class="nc-resumen" id="ncResumen"></div>
+            <a class="btn-wa-grande" id="ncWa" href="#" target="_blank">Enviar por WhatsApp</a>
+            <div class="wi-actions">
+                <button class="btn-walkin-cancel" onclick="cerrarNuevaCita(true)">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Panel historial -->
 <div class="modal-overlay" id="historialModal" onclick="closeHistorial(event)">
     <div class="historial-panel" id="historialPanel">
@@ -685,6 +798,7 @@ function renderTurnos(turnos) {
         </div>`;
         return;
     }
+    turnosDia = turnos;
     const senaVista = new Set();  // una seña cubre varios servicios: botón una sola vez
     el.innerHTML = turnos.map(t => {
         const sena = t.sena;
@@ -710,7 +824,7 @@ function renderTurnos(turnos) {
                     <span style="cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="openHistorial(${cliId})">${nombre}</span>
                     ${tel ? `<a href="${waLink(tel, nombre, servicio, hora, isoFecha(fechaActual))}" target="_blank" style="color:#25D366;text-decoration:none;display:inline-flex;align-items:center;gap:3px" title="WhatsApp">${tel} <svg width="11" height="11" viewBox="0 0 32 32" fill="#25D366"><path d="M16 0C7.163 0 0 7.163 0 16c0 2.822.736 5.469 2.027 7.769L0 32l8.469-2.002A15.93 15.93 0 0016 32c8.837 0 16-7.163 16-16S24.837 0 16 0zm0 29.333a13.27 13.27 0 01-6.771-1.853l-.485-.288-5.027 1.188 1.229-4.886-.317-.501A13.254 13.254 0 012.667 16C2.667 8.636 8.636 2.667 16 2.667S29.333 8.636 29.333 16 23.364 29.333 16 29.333zm7.262-9.874c-.398-.199-2.354-1.162-2.719-1.295-.365-.133-.631-.199-.897.199-.266.398-1.031 1.295-1.264 1.561-.232.266-.465.299-.863.1-.398-.199-1.68-.619-3.2-1.977-1.183-1.056-1.981-2.36-2.213-2.758-.232-.398-.025-.613.175-.811.179-.178.398-.465.597-.698.199-.232.266-.398.398-.664.133-.266.066-.499-.033-.698-.1-.199-.897-2.162-1.229-2.96-.324-.777-.653-.671-.897-.683-.232-.012-.499-.015-.765-.015s-.698.1-.864.265c-.166.166-.896.877-.896 2.138s.917 2.481 1.045 2.65c.133.166 1.793 2.75 4.352 3.858.608.263 1.082.42 1.451.537.61.195 1.165.168 1.604.102.489-.073 1.506-.616 1.719-1.211.213-.598.213-1.109.149-1.211-.066-.1-.266-.166-.564-.299z"/></svg></a>` : ''}
                     <span>${colabor}</span>
-                    ${t.canal !== 'web' ? `<span>${t.canal}</span>` : ''}
+                    ${canalChip(t.canal)}
                 </div>
                 ${t.notas ? `<div style="font-size:12px;color:var(--muted);margin-top:5px;font-style:italic">${t.notas}</div>` : ''}
             </div>
@@ -719,6 +833,8 @@ function renderTurnos(turnos) {
                 ${t.precio ? `<div class="turno-precio">$${t.precio.toLocaleString()}</div>` : ''}
                 ${sena && sena.estado === 'aprobado' ? `<span class="sena-chip sena-aprobado">Seña $${sena.monto.toLocaleString('es-MX')} ✓</span>` : ''}
                 ${sena && sena.estado === 'reembolsado' ? `<span class="sena-chip sena-reembolsado">Seña devuelta</span>` : ''}
+                ${senaPrimera && t.estado === 'esperando_pago' && sena.url_pago && tel
+                    ? `<a class="btn-wa-link" href="#" onclick="enviarLinkPago(event, ${sena.id})">Enviar link de pago</a>` : ''}
                 ${senaPrimera && sena.estado === 'aprobado' && cancelado
                     ? `<button class="btn-devolver" onclick="devolverSena(this, ${sena.id}, ${sena.monto}, '${t.fecha}', '${hora}')">Devolver seña</button>` : ''}
                 <select class="estado-select" onchange="cambiarEstado(${t.id}, this.value, ${sena ? 'true' : 'false'})">
@@ -772,8 +888,14 @@ async function devolverSena(btn, pagoId, monto, fecha, hora) {
     cargarAgenda();
 }
 
+// wa.me necesita el número con código de país: los celulares de México se guardan con 10 dígitos
+function waPhone(tel) {
+    const d = (tel || '').replace(/\D/g, '');
+    return d.length === 10 ? '52' + d : d;
+}
+
 function waLink(tel, nombre, servicio, hora, fecha) {
-    const phone = tel.replace(/\D/g, '');
+    const phone = waPhone(tel);
     const msg = encodeURIComponent(
         `Hola ${nombre}! Te recordamos tu turno para *${servicio}* el ${fecha} a las ${hora} hs en Maru Nails. ¡Te esperamos! 💅`
     );
@@ -997,7 +1119,7 @@ async function guardarWalkin() {
     if (!servId || !colabId) { errEl.textContent = 'Seleccioná servicio y colaboradora.'; return; }
     errEl.textContent = '';
 
-    const btn = document.querySelector('.btn-walkin-submit');
+    const btn = document.querySelector('#walkinOverlay .btn-walkin-submit');
     btn.disabled = true; btn.textContent = 'Guardando...';
 
     const res = await fetch('/api/walkin', {
@@ -1020,6 +1142,200 @@ async function guardarWalkin() {
     // Volver a la vista Día de hoy y recargar
     fechaActual = new Date(); fechaActual.setHours(0,0,0,0);
     setVista('dia');
+}
+
+// ─── CANAL / WHATSAPP ───
+const CANALES = { web: 'Web', recepcion: 'Recepción' };
+const HOLD_RECEPCION_MIN = {{ hold_recepcion_min }};
+let turnosDia = [];
+
+function canalChip(canal) {
+    if (CANALES[canal]) return `<span class="canal-chip canal-${canal}">${CANALES[canal]}</span>`;
+    return canal ? `<span>${canal}</span>` : '';
+}
+
+function fechaLarga(iso) {
+    return new Date(iso + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function msgCita({ nombre, fecha, hora, servicios, colaboradora, urlPago, monto, venceHora }) {
+    let m = `Hola ${nombre}! ${urlPago ? 'Te reservamos' : 'Quedó confirmada'} tu cita en Maru Nails 💅\n\n` +
+            `📅 ${fechaLarga(fecha)} a las ${hora} hs\n` +
+            `✨ ${servicios.join(', ')}` +
+            (colaboradora ? `\n👩 Con ${colaboradora}` : '');
+    if (urlPago) {
+        m += `\n\nPara confirmarla, paga la seña de $${monto} MXN aquí:\n${urlPago}\n\n` +
+             `El link vence hoy a las ${venceHora} hs. La seña se descuenta del total; ` +
+             `si cancelas con 24 hs de anticipación te la devolvemos.`;
+    }
+    return m + `\n\n📍 27 Itzamna 12, Tulum`;
+}
+
+function horaMas(fechaBase, minutos) {
+    const d = new Date(fechaBase.getTime() + minutos * 60000);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function enviarLinkPago(ev, pagoId) {
+    ev.preventDefault();
+    const grupo = turnosDia.filter(t => t.sena && t.sena.id === pagoId);
+    if (!grupo.length) return;
+    const t0 = grupo[0], cli = t0.clientes_reservas || {};
+    const msg = msgCita({
+        nombre: cli.nombre || '',
+        fecha: t0.fecha,
+        hora: (t0.hora_inicio || '').slice(0,5),
+        servicios: grupo.map(t => t.servicios?.nombre || ''),
+        colaboradora: t0.colaboradoras?.nombre || '',
+        urlPago: t0.sena.url_pago,
+        monto: t0.sena.monto,
+        venceHora: horaMas(new Date(t0.created_at), t0.canal === 'recepcion' ? HOLD_RECEPCION_MIN - 5 : 15),
+    });
+    window.open(`https://wa.me/${waPhone(cli.telefono)}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// ─── NUEVA CITA (recepción) ───
+let ncServs = [];      // servicios elegidos [{id, nombre}]
+let ncHora  = null;
+
+async function abrirNuevaCita() {
+    ['ncNombre','ncTel','ncNotas'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('ncError').textContent = '';
+    document.getElementById('ncFecha').value = isoFecha(fechaActual);
+    const chk = document.getElementById('ncSena');
+    if (chk) chk.checked = true;
+    ncServs = []; ncHora = null;
+    document.getElementById('ncForm').style.display = '';
+    document.getElementById('ncOk').style.display = 'none';
+    if (!wiServicios.length) wiServicios = await (await fetch('/api/servicios')).json();
+    document.getElementById('ncServicio').innerHTML = '<option value="">+ Agregar servicio</option>' +
+        wiServicios.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+    ncRenderTags();
+    await ncCargarColabs();
+    ncActualizarBoton();
+    document.getElementById('citaOverlay').classList.add('open');
+    document.getElementById('ncNombre').focus();
+}
+
+function cerrarNuevaCita(recargar) {
+    document.getElementById('citaOverlay').classList.remove('open');
+    if (recargar) {
+        const f = document.getElementById('ncFecha').value;
+        if (f) { fechaActual = new Date(f + 'T00:00:00'); }
+        setVista('dia');
+    }
+}
+
+function ncAgregarServicio() {
+    const sel = document.getElementById('ncServicio');
+    const s = wiServicios.find(x => String(x.id) === sel.value);
+    sel.value = '';
+    if (!s) return;
+    ncServs.push({ id: s.id, nombre: s.nombre });
+    ncRenderTags();
+    ncCargarColabs();
+}
+
+function ncQuitarServicio(i) {
+    ncServs.splice(i, 1);
+    ncRenderTags();
+    ncCargarColabs();
+}
+
+function ncRenderTags() {
+    document.getElementById('ncTags').innerHTML = ncServs.map((s, i) =>
+        `<span class="nc-tag">${s.nombre}<button type="button" onclick="ncQuitarServicio(${i})">×</button></span>`).join('');
+}
+
+async function ncCargarColabs() {
+    const sel = document.getElementById('ncColab');
+    const prev = sel.value;
+    const q = ncServs.length ? `?servicio_ids=${ncServs.map(s => s.id).join(',')}` : '';
+    const colabs = await (await fetch('/api/colaboradoras' + q)).json();
+    sel.innerHTML = '<option value="any">Cualquiera</option>' +
+        (Array.isArray(colabs) ? colabs : []).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    ncCargarSlots();
+}
+
+async function ncCargarSlots() {
+    const box = document.getElementById('ncSlots');
+    const fecha = document.getElementById('ncFecha').value;
+    ncHora = null;
+    if (!ncServs.length || !fecha) { box.innerHTML = '<div class="nc-hint">Elegí servicio y fecha.</div>'; return; }
+    box.innerHTML = '<div class="nc-hint">Buscando horarios...</div>';
+    const colab = document.getElementById('ncColab').value;
+    const ids = ncServs.map(s => s.id).join(',');
+    const slots = await (await fetch(`/api/slots?colaboradora_id=${colab}&fecha=${fecha}&servicio_ids=${ids}&admin=1`)).json();
+    if (!Array.isArray(slots) || !slots.length) { box.innerHTML = '<div class="nc-hint">No hay horarios libres ese día.</div>'; return; }
+    box.innerHTML = '<div class="nc-slots">' + slots.map(s =>
+        `<button type="button" class="nc-slot" data-hora="${s.hora}" onclick="ncElegirHora('${s.hora}')">${s.hora}</button>`).join('') + '</div>';
+}
+
+function ncElegirHora(h) {
+    ncHora = h;
+    document.querySelectorAll('#ncSlots .nc-slot').forEach(b => b.classList.toggle('sel', b.dataset.hora === h));
+}
+
+function ncConSena() {
+    const chk = document.getElementById('ncSena');
+    return chk ? chk.checked : false;
+}
+
+function ncActualizarBoton() {
+    document.getElementById('ncSubmit').textContent = ncConSena() ? 'Crear cita y link de pago' : 'Crear cita confirmada';
+}
+
+async function guardarNuevaCita() {
+    const errEl = document.getElementById('ncError');
+    const nombre = document.getElementById('ncNombre').value.trim();
+    const tel = document.getElementById('ncTel').value.trim();
+    const fecha = document.getElementById('ncFecha').value;
+    if (!nombre || !tel) { errEl.textContent = 'Nombre y teléfono son obligatorios.'; return; }
+    if (!ncServs.length) { errEl.textContent = 'Agregá al menos un servicio.'; return; }
+    if (!ncHora) { errEl.textContent = 'Elegí un horario.'; return; }
+    errEl.textContent = '';
+
+    const btn = document.getElementById('ncSubmit');
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    const res = await fetch('/api/cita', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            nombre, telefono: tel,
+            servicio_ids: ncServs.map(s => s.id),
+            colaboradora_id: document.getElementById('ncColab').value,
+            fecha, hora: ncHora,
+            notas: document.getElementById('ncNotas').value.trim(),
+            con_sena: ncConSena(),
+        })
+    });
+    const data = await res.json().catch(() => ({ error: 'Error de conexión.' }));
+    btn.disabled = false; btn.textContent = label;
+    if (!data.success) {
+        errEl.textContent = data.error || 'No se pudo crear la cita.';
+        if (data.horario_tomado) ncCargarSlots();
+        return;
+    }
+
+    const conLink = !!data.url_pago;
+    const msg = msgCita({
+        nombre, fecha, hora: ncHora,
+        servicios: data.servicios, colaboradora: data.colaboradora,
+        urlPago: data.url_pago, monto: data.monto,
+        venceHora: horaMas(new Date(), data.hold_min - 5),
+    });
+    document.getElementById('ncOkTitulo').textContent = conLink ? '⏳ Cita creada — esperando seña' : '✅ Cita confirmada';
+    document.getElementById('ncResumen').innerHTML =
+        `<strong>${nombre}</strong> · ${tel}<br>` +
+        `${fechaLarga(fecha)} a las ${ncHora} hs<br>` +
+        `${data.servicios.join(', ')} · ${data.colaboradora}<br>` +
+        (conLink ? `<span style="color:var(--muted)">El horario queda reservado ${data.hold_min / 60} hs. Si no paga, se libera solo.</span>`
+                 : `<span style="color:var(--muted)">Sin seña.</span>`);
+    document.getElementById('ncWa').href = `https://wa.me/${waPhone(tel)}?text=${encodeURIComponent(msg)}`;
+    document.getElementById('ncForm').style.display = 'none';
+    document.getElementById('ncOk').style.display = '';
 }
 
 // ─── EDITAR ALERGIAS DESDE HISTORIAL ───

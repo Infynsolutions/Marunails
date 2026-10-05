@@ -33,8 +33,10 @@ SENA_MXN            = int(os.environ.get('SENA_MXN', '200'))
 # Service key (secreta, solo backend): pagos_sena tiene RLS sin políticas, la key anon no la ve
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
 SENA_ACTIVA         = bool(MP_ACCESS_TOKEN and SUPABASE_SERVICE_KEY)
-MP_EXPIRA_MIN       = 15   # el link de pago vence a los 15 min
-HOLD_MIN            = 20   # el horario queda retenido 20 min (margen para que llegue el webhook)
+# Cuánto tiempo queda retenido el horario esperando la seña, según de dónde vino la cita.
+# El link de MP vence MP_MARGEN_MIN antes, para que llegue el webhook.
+HOLD_MIN_POR_CANAL  = {'web': 20, 'recepcion': 120}
+MP_MARGEN_MIN       = 5
 TZ_SALON            = ZoneInfo('America/Cancun')
 
 # Estados de turno que NO ocupan el horario
@@ -126,10 +128,18 @@ def _parse_ts(s):
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def hold_min(canal):
+    return HOLD_MIN_POR_CANAL.get(canal or 'web', HOLD_MIN_POR_CANAL['web'])
+
+
 def hold_vencido(t):
-    """Turno web que esperaba la seña y no se pagó a tiempo."""
+    """Cita que esperaba la seña y no se pagó a tiempo (el plazo depende del canal)."""
     return (t.get('estado') == 'esperando_pago' and bool(t.get('created_at'))
-            and _parse_ts(t['created_at']) < datetime.now(timezone.utc) - timedelta(minutes=HOLD_MIN))
+            and _parse_ts(t['created_at']) < datetime.now(timezone.utc) - timedelta(minutes=hold_min(t.get('canal'))))
+
+
+def url_pago(token):
+    return f'{PUBLIC_BASE_URL}/pagar/{token}'
 
 
 def turno_ocupa(t):
@@ -1297,7 +1307,7 @@ def calcular_slots(sb, colaboradora_id, fecha_str, servicio_ids=None,
     # Turnos del día que ocupan lugar (sin cancelados ni señas vencidas)
     turnos_dia = [
         t for t in sb.table('turnos').select(
-            'colaboradora_id,hora_inicio,hora_fin,estado,created_at,servicios(categoria)'
+            'colaboradora_id,hora_inicio,hora_fin,estado,canal,created_at,servicios(categoria)'
         ).eq('fecha', fecha_str).execute().data
         if turno_ocupa(t)
     ]
@@ -1319,8 +1329,12 @@ def calcular_slots(sb, colaboradora_id, fecha_str, servicio_ids=None,
     else:
         colab_ids = [int(colaboradora_id)]
 
+    # Hoy: la web pide 2 hs de anticipación; la recepción puede cargar "para ahora"
+    # (hasta 30 min atrás), pero no horarios que ya pasaron
     now      = ahora_salon()
-    min_hora = now + timedelta(hours=2) if respetar_anticipacion and fecha_dt.date() == now.date() else None
+    min_hora = None
+    if fecha_dt.date() == now.date():
+        min_hora = now + timedelta(hours=2) if respetar_anticipacion else now - timedelta(minutes=30)
 
     slots = []
     for colab_id in colab_ids:
@@ -1406,9 +1420,128 @@ def api_slots():
             servicio_ids=servicio_ids,
             servicio_id=request.args.get('servicio_id'),
             duracion_total=request.args.get('duracion_total'),
+            respetar_anticipacion=not (request.args.get('admin') and session.get('admin_logged_in')),
         ))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+class ReservaError(Exception):
+    def __init__(self, msg, status=400, **extra):
+        super().__init__(msg)
+        self.status, self.extra = status, extra
+
+
+def crear_reserva(sb, data, canal, con_sena=True, respetar_anticipacion=True):
+    """Crea la cita (uno o más servicios en secuencia). La usan la web y la recepción.
+    Con seña: citas en esperando_pago + pagos_sena + preferencia de MP (horario retenido
+    según HOLD_MIN_POR_CANAL). Sin seña: citas confirmadas."""
+    servicio_ids = data.get('servicio_ids') or []
+    if not servicio_ids and data.get('servicio_id'):
+        servicio_ids = [data['servicio_id']]
+    if not servicio_ids:
+        raise ReservaError('Servicio requerido')
+
+    servicios_data = []
+    for sid in servicio_ids:
+        srv = sb.table('servicios').select('nombre,precio_desde,duracion_min').eq('id', sid).limit(1).execute()
+        if not srv.data:
+            raise ReservaError(f'Servicio {sid} no encontrado')
+        servicios_data.append(srv.data[0])
+
+    # Revalidar el horario en el server: otra persona pudo tomarlo mientras tanto
+    hora_ini = data['hora']
+    pedida   = data.get('colaboradora_id')
+    pedida   = 'any' if not pedida or pedida == 'any' else int(pedida)
+    libres   = calcular_slots(sb, pedida, data['fecha'], servicio_ids=servicio_ids,
+                              respetar_anticipacion=respetar_anticipacion)
+    slot     = next((s for s in libres if s['hora'] == hora_ini), None)
+    if not slot:
+        raise ReservaError('Ese horario ya no está disponible. Por favor elige otro.', 409, horario_tomado=True)
+    colaboradora_id = slot['colaboradora_id']
+
+    existing = sb.table('clientes_reservas').select('id').eq('telefono', data['telefono']).limit(1).execute()
+    if existing.data:
+        cliente_id = existing.data[0]['id']
+    else:
+        insert_data = {
+            'nombre': data['nombre'],
+            'apellido': data.get('apellido', ''),
+            'telefono': data['telefono'],
+            'email': data.get('email', ''),
+            'idioma': data.get('idioma', 'es'),
+            'acepto_politicas': data.get('acepto_politicas', False),
+            'notas': data.get('notas', ''),
+            'es_recurrente': False,
+        }
+        if data.get('fecha_nacimiento'):
+            insert_data['fecha_nacimiento'] = data['fecha_nacimiento']
+        cliente = sb.table('clientes_reservas').insert(insert_data).execute()
+        cliente_id = cliente.data[0]['id']
+
+    pago = None
+    if con_sena and SENA_ACTIVA:
+        pago = tabla_pagos().insert({
+            'cliente_id': cliente_id,
+            'monto':      SENA_MXN,
+            'estado':     'pendiente',
+        }).execute().data[0]
+
+    if pago:
+        estado = 'esperando_pago'
+    elif con_sena:
+        estado = 'pendiente'      # seña pedida pero MP sin configurar: como antes
+    else:
+        estado = 'confirmado'
+
+    turnos_creados = []
+    hora_cursor = datetime.strptime(hora_ini, '%H:%M')
+    for i, sid in enumerate(servicio_ids):
+        t_ini = hora_cursor.strftime('%H:%M')
+        hora_cursor += timedelta(minutes=servicios_data[i]['duracion_min'])
+        t_fin = hora_cursor.strftime('%H:%M')
+        row = {
+            'cliente_id': cliente_id,
+            'colaboradora_id': colaboradora_id,
+            'servicio_id': int(sid),
+            'fecha': data['fecha'],
+            'hora_inicio': t_ini,
+            'hora_fin': t_fin,
+            'estado': estado,
+            'precio': servicios_data[i]['precio_desde'],
+            'notas': data.get('notas', ''),
+            'canal': canal,
+        }
+        if pago:
+            row['pago_sena_id'] = pago['id']
+        turno = sb.table('turnos').insert(row).execute()
+        turnos_creados.append(turno.data[0]['id'])
+
+    resultado = {
+        'turno_ids':       turnos_creados,
+        'colaboradora_id': colaboradora_id,
+        'servicios':       [s['nombre'] for s in servicios_data],
+        'estado':          estado,
+    }
+    if not pago:
+        return resultado
+
+    try:
+        pref = crear_preferencia_sena(pago, data, resultado['servicios'],
+                                      hold_min(canal) - MP_MARGEN_MIN)
+    except Exception:
+        # Sin link de pago no hay reserva: liberar el horario
+        sb.table('turnos').delete().eq('pago_sena_id', pago['id']).execute()
+        tabla_pagos().delete().eq('id', pago['id']).execute()
+        raise ReservaError('No pudimos generar el pago de la seña. Intenta de nuevo en unos minutos.', 502)
+
+    tabla_pagos().update({'mp_preference_id': pref['id']}).eq('id', pago['id']).execute()
+    resultado.update({
+        'init_point': pref['init_point'],
+        'url_pago':   url_pago(pago['token']),
+        'monto':      pago['monto'],
+    })
+    return resultado
 
 
 @app.route('/api/reservar', methods=['POST'])
@@ -1416,107 +1549,73 @@ def api_reservar():
     try:
         sb = get_sb()
         data = request.json
-
-        existing = sb.table('clientes_reservas').select('id,bloqueado').eq(
+        bloq = sb.table('clientes_reservas').select('bloqueado').eq(
             'telefono', data['telefono']).limit(1).execute()
-        if existing.data and existing.data[0].get('bloqueado'):
+        if bloq.data and bloq.data[0].get('bloqueado'):
             return jsonify({'error': 'No es posible completar la reserva online. Por favor contactá directamente al salón.'}), 403
-
-        servicio_ids = data.get('servicio_ids') or []
-        if not servicio_ids and data.get('servicio_id'):
-            servicio_ids = [data['servicio_id']]
-        if not servicio_ids:
-            return jsonify({'error': 'Servicio requerido'}), 400
-
-        servicios_data = []
-        for sid in servicio_ids:
-            srv = sb.table('servicios').select('nombre,precio_desde,duracion_min').eq('id', sid).limit(1).execute()
-            if not srv.data:
-                return jsonify({'error': f'Servicio {sid} no encontrado'}), 400
-            servicios_data.append(srv.data[0])
-
-        # Revalidar el horario en el server: otra clienta pudo tomarlo mientras ésta completaba sus datos
-        hora_ini = data['hora']
-        pedida   = data.get('colaboradora_id')
-        pedida   = 'any' if not pedida or pedida == 'any' else int(pedida)
-        libres   = calcular_slots(sb, pedida, data['fecha'], servicio_ids=servicio_ids)
-        slot     = next((s for s in libres if s['hora'] == hora_ini), None)
-        if not slot:
-            return jsonify({'error': 'Ese horario ya no está disponible. Por favor elige otro.',
-                            'horario_tomado': True}), 409
-        colaboradora_id = slot['colaboradora_id']
-
-        if existing.data:
-            cliente_id = existing.data[0]['id']
-        else:
-            insert_data = {
-                'nombre': data['nombre'],
-                'apellido': data.get('apellido', ''),
-                'telefono': data['telefono'],
-                'email': data.get('email', ''),
-                'idioma': data.get('idioma', 'es'),
-                'acepto_politicas': data.get('acepto_politicas', False),
-                'notas': data.get('notas', ''),
-                'es_recurrente': False,
-            }
-            if data.get('fecha_nacimiento'):
-                insert_data['fecha_nacimiento'] = data['fecha_nacimiento']
-            cliente = sb.table('clientes_reservas').insert(insert_data).execute()
-            cliente_id = cliente.data[0]['id']
-
-        pago = None
-        if SENA_ACTIVA:
-            pago = tabla_pagos().insert({
-                'cliente_id': cliente_id,
-                'monto':      SENA_MXN,
-                'estado':     'pendiente',
-            }).execute().data[0]
-
-        turnos_creados = []
-        hora_cursor = datetime.strptime(hora_ini, '%H:%M')
-        for i, sid in enumerate(servicio_ids):
-            t_ini = hora_cursor.strftime('%H:%M')
-            hora_cursor += timedelta(minutes=servicios_data[i]['duracion_min'])
-            t_fin = hora_cursor.strftime('%H:%M')
-            row = {
-                'cliente_id': cliente_id,
-                'colaboradora_id': colaboradora_id,
-                'servicio_id': int(sid),
-                'fecha': data['fecha'],
-                'hora_inicio': t_ini,
-                'hora_fin': t_fin,
-                'estado': 'esperando_pago' if pago else 'pendiente',
-                'precio': servicios_data[i]['precio_desde'],
-                'notas': data.get('notas', ''),
-                'canal': 'web',
-            }
-            if pago:
-                row['pago_sena_id'] = pago['id']
-            turno = sb.table('turnos').insert(row).execute()
-            turnos_creados.append(turno.data[0]['id'])
-
-        if not pago:
-            return jsonify({'success': True, 'turno_ids': turnos_creados})
-
-        try:
-            pref = crear_preferencia_sena(pago, data, [s['nombre'] for s in servicios_data])
-        except Exception:
-            # Sin link de pago no hay reserva: liberar el horario
-            sb.table('turnos').delete().eq('pago_sena_id', pago['id']).execute()
-            tabla_pagos().delete().eq('id', pago['id']).execute()
-            return jsonify({'error': 'No pudimos generar el pago de la seña. Intenta de nuevo en unos minutos.'}), 502
-
-        tabla_pagos().update({'mp_preference_id': pref['id']}).eq('id', pago['id']).execute()
-        return jsonify({'success': True, 'turno_ids': turnos_creados, 'init_point': pref['init_point']})
+        r = crear_reserva(sb, data, 'web', con_sena=True)
+        return jsonify({'success': True, 'turno_ids': r['turno_ids'], 'init_point': r.get('init_point')}
+                       if r.get('init_point') else {'success': True, 'turno_ids': r['turno_ids']})
+    except ReservaError as e:
+        return jsonify({'error': str(e), **e.extra}), e.status
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/cita', methods=['POST'])
+@require_admin
+def api_cita():
+    """Cita cargada por la recepción desde la agenda (con o sin seña)."""
+    try:
+        sb = get_sb()
+        data = request.json or {}
+        data['nombre']   = (data.get('nombre') or '').strip()
+        data['telefono'] = (data.get('telefono') or '').strip()
+        if not data['nombre'] or not data['telefono']:
+            return jsonify({'error': 'Nombre y teléfono son obligatorios.'}), 400
+        if not data.get('fecha') or not data.get('hora'):
+            return jsonify({'error': 'Elegí fecha y horario.'}), 400
+        data['acepto_politicas'] = False
+        r = crear_reserva(sb, data, 'recepcion', con_sena=bool(data.get('con_sena', True)),
+                          respetar_anticipacion=False)
+        colab = sb.table('colaboradoras').select('nombre').eq('id', r['colaboradora_id']).limit(1).execute().data
+        r['colaboradora'] = colab[0]['nombre'] if colab else ''
+        r.pop('init_point', None)
+        r['hold_min'] = hold_min('recepcion')
+        return jsonify({'success': True, **r})
+    except ReservaError as e:
+        return jsonify({'error': str(e), **e.extra}), e.status
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/pagar/<token>')
+def pagar_sena(token):
+    """Link corto que se manda por WhatsApp: lleva al checkout o al resultado."""
+    if not re.fullmatch(r'[0-9a-fA-F-]{36}', token):
+        return redirect(url_for('reservar'))
+    rows = tabla_pagos().select('*').eq('token', token).limit(1).execute().data
+    if not rows:
+        return redirect(url_for('reservar'))
+    pago = rows[0]
+    resultado = url_for('reservar_resultado', t=token)
+    if pago['estado'] in ('aprobado', 'reembolsado') or not pago.get('mp_preference_id'):
+        return redirect(resultado)
+    turnos = turnos_de_pago(get_sb(), pago['id'])
+    if not turnos or any(hold_vencido(t) for t in turnos):
+        return redirect(resultado)
+    try:
+        return redirect(mp_request('GET', f"/checkout/preferences/{pago['mp_preference_id']}")['init_point'])
+    except Exception as e:
+        app.logger.error(f'Pagar {token}: {e}')
+        return redirect(resultado)
+
+
 # ── SEÑA — MERCADO PAGO ─────────────────────────────────────────────────────────
 
-def crear_preferencia_sena(pago, cliente, servicios_nombres):
+def crear_preferencia_sena(pago, cliente, servicios_nombres, expira_min):
     ahora = datetime.now(TZ_SALON)
-    vence = ahora + timedelta(minutes=MP_EXPIRA_MIN)
+    vence = ahora + timedelta(minutes=expira_min)
     url_resultado = f"{PUBLIC_BASE_URL}/reservar/resultado?t={pago['token']}"
     body = {
         'items': [{
@@ -1553,7 +1652,7 @@ def crear_preferencia_sena(pago, cliente, servicios_nombres):
 
 def turnos_de_pago(sb, pago_id):
     return sb.table('turnos').select(
-        'id,colaboradora_id,servicio_id,fecha,hora_inicio,hora_fin,estado,created_at'
+        'id,colaboradora_id,servicio_id,fecha,hora_inicio,hora_fin,estado,canal,created_at'
     ).eq('pago_sena_id', pago_id).order('hora_inicio').execute().data
 
 
@@ -1727,7 +1826,8 @@ def api_reembolso_sena(pid):
 @app.route('/agenda')
 @require_admin
 def agenda():
-    return render_template('agenda.html')
+    return render_template('agenda.html', sena_activa=SENA_ACTIVA, sena_mxn=SENA_MXN,
+                           hold_recepcion_min=hold_min('recepcion'))
 
 
 @app.route('/api/agenda')
@@ -1754,7 +1854,9 @@ def api_agenda():
         # Señas: query aparte y merge en código
         pago_ids = list({t['pago_sena_id'] for t in turnos if t.get('pago_sena_id')})
         pagos = {p['id']: p for p in tabla_pagos().select(
-            'id,monto,estado').in_('id', pago_ids).execute().data} if pago_ids and SUPABASE_SERVICE_KEY else {}
+            'id,monto,estado,token').in_('id', pago_ids).execute().data} if pago_ids and SUPABASE_SERVICE_KEY else {}
+        for p in pagos.values():
+            p['url_pago'] = url_pago(p.pop('token'))
         for t in turnos:
             t['sena'] = pagos.get(t.get('pago_sena_id'))
         return jsonify(turnos)
@@ -1771,7 +1873,7 @@ def api_cliente_historial(cid):
         if not cliente.data:
             return jsonify({'error': 'Cliente no encontrado'}), 404
         turnos = sb.table('turnos').select(
-            'id,fecha,hora_inicio,hora_fin,estado,precio,notas,created_at,'
+            'id,fecha,hora_inicio,hora_fin,estado,precio,notas,canal,created_at,'
             'colaboradoras(nombre),servicios(nombre)'
         ).eq('cliente_id', cid).order('fecha', desc=True).execute()
         return jsonify({'cliente': cliente.data[0],
