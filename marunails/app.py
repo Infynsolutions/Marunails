@@ -1359,6 +1359,11 @@ def api_servicios():
         return jsonify({'error': str(e)}), 500
 
 
+def colab_publica(c):
+    """Lo que se puede mostrar en la web y la agenda (la comisión queda solo en /admin)."""
+    return {k: c.get(k) for k in ('id', 'nombre', 'rol', 'foto_url')}
+
+
 @app.route('/api/colaboradoras/disponibles')
 def api_colaboradoras_disponibles():
     """Colaboradoras activas disponibles para una fecha dada (respeta horarios y bloqueos)."""
@@ -1393,7 +1398,7 @@ def api_colaboradoras_disponibles():
         if not disponibles:
             disponibles = [c for c in todas if c['id'] not in bloqueadas_hoy]
 
-        return jsonify(disponibles)
+        return jsonify([colab_publica(c) for c in disponibles])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1431,7 +1436,7 @@ def api_colaboradoras():
                 colabs = sb.table('colaboradoras').select('*').eq('activa', True).execute().data
         else:
             colabs = sb.table('colaboradoras').select('*').eq('activa', True).execute().data
-        return jsonify(colabs)
+        return jsonify([colab_publica(c) for c in colabs])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

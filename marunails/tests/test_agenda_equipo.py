@@ -213,3 +213,12 @@ def test_sin_admin_password_cargada_nadie_entra_como_admin(monkeypatch):
     c.post('/login', data={'modo': 'admin', 'password': ''})
     with c.session_transaction() as s:
         assert not s.get('admin_logged_in')
+
+
+def test_colaboradoras_publicas_no_muestran_la_comision(monkeypatch):
+    import app as m
+    fila = {'id': 1, 'nombre': 'Maru', 'rol': 'Nail artist', 'foto_url': None, 'activa': True,
+            'comision': 0.4, 'created_at': '2026-07-10'}
+    monkeypatch.setattr(m, 'get_sb', lambda: _DB({'colaboradoras': [fila]}))
+    assert app.test_client().get('/api/colaboradoras').get_json() == \
+        [{'id': 1, 'nombre': 'Maru', 'rol': 'Nail artist', 'foto_url': None}]
