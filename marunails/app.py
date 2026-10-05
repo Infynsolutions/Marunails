@@ -25,7 +25,8 @@ TC_USD = 17
 
 # ── Seña de reserva (Mercado Pago Checkout Pro) ──
 # Sin MP_ACCESS_TOKEN la reserva web funciona como antes (sin seña).
-MP_ACCESS_TOKEN     = os.environ.get('MP_ACCESS_TOKEN', '')
+# Production usa MP_ACCESS_TOKEN_PROD (token de producción); Preview, MP_ACCESS_TOKEN (de prueba)
+MP_ACCESS_TOKEN     = os.environ.get('MP_ACCESS_TOKEN_PROD') or os.environ.get('MP_ACCESS_TOKEN', '')
 MP_WEBHOOK_SECRET   = os.environ.get('MP_WEBHOOK_SECRET', '')
 PUBLIC_BASE_URL     = os.environ.get('BASE_URL_MP', 'https://www.marunailstulum.com').rstrip('/')
 MP_NOTIFICATION_URL = os.environ.get('MP_NOTIFICATION_URL', f'{PUBLIC_BASE_URL}/api/mp/webhook')
