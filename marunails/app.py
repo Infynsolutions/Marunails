@@ -29,7 +29,7 @@ MP_ACCESS_TOKEN     = os.environ.get('MP_ACCESS_TOKEN', '')
 MP_WEBHOOK_SECRET   = os.environ.get('MP_WEBHOOK_SECRET', '')
 PUBLIC_BASE_URL     = os.environ.get('BASE_URL_MP', 'https://www.marunailstulum.com').rstrip('/')
 MP_NOTIFICATION_URL = os.environ.get('MP_NOTIFICATION_URL', f'{PUBLIC_BASE_URL}/api/mp/webhook')
-SENA_MXN            = int(os.environ.get('SENA_MXN', '300'))
+SENA_MXN            = int(os.environ.get('SENA_MXN', '200'))
 # Service key (secreta, solo backend): pagos_sena tiene RLS sin políticas, la key anon no la ve
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
 SENA_ACTIVA         = bool(MP_ACCESS_TOKEN and SUPABASE_SERVICE_KEY)
