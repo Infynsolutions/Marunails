@@ -30,7 +30,9 @@ MP_WEBHOOK_SECRET   = os.environ.get('MP_WEBHOOK_SECRET', '')
 PUBLIC_BASE_URL     = os.environ.get('BASE_URL_MP', 'https://www.marunailstulum.com').rstrip('/')
 MP_NOTIFICATION_URL = os.environ.get('MP_NOTIFICATION_URL', f'{PUBLIC_BASE_URL}/api/mp/webhook')
 SENA_MXN            = int(os.environ.get('SENA_MXN', '300'))
-SENA_ACTIVA         = bool(MP_ACCESS_TOKEN)
+# Service key (secreta, solo backend): pagos_sena tiene RLS sin políticas, la key anon no la ve
+SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
+SENA_ACTIVA         = bool(MP_ACCESS_TOKEN and SUPABASE_SERVICE_KEY)
 MP_EXPIRA_MIN       = 15   # el link de pago vence a los 15 min
 HOLD_MIN            = 20   # el horario queda retenido 20 min (margen para que llegue el webhook)
 TZ_SALON            = ZoneInfo('America/Cancun')
@@ -99,6 +101,17 @@ def require_admin(f):
 
 def get_sb():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+_sb_admin = None
+
+
+def tabla_pagos():
+    """pagos_sena solo se toca desde el server con la service key (bypassea RLS)."""
+    global _sb_admin
+    if _sb_admin is None:
+        _sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    return _sb_admin.table('pagos_sena')
 
 
 def ahora_salon():
@@ -1453,7 +1466,7 @@ def api_reservar():
 
         pago = None
         if SENA_ACTIVA:
-            pago = sb.table('pagos_sena').insert({
+            pago = tabla_pagos().insert({
                 'cliente_id': cliente_id,
                 'monto':      SENA_MXN,
                 'estado':     'pendiente',
@@ -1490,10 +1503,10 @@ def api_reservar():
         except Exception:
             # Sin link de pago no hay reserva: liberar el horario
             sb.table('turnos').delete().eq('pago_sena_id', pago['id']).execute()
-            sb.table('pagos_sena').delete().eq('id', pago['id']).execute()
+            tabla_pagos().delete().eq('id', pago['id']).execute()
             return jsonify({'error': 'No pudimos generar el pago de la seña. Intenta de nuevo en unos minutos.'}), 502
 
-        sb.table('pagos_sena').update({'mp_preference_id': pref['id']}).eq('id', pago['id']).execute()
+        tabla_pagos().update({'mp_preference_id': pref['id']}).eq('id', pago['id']).execute()
         return jsonify({'success': True, 'turno_ids': turnos_creados, 'init_point': pref['init_point']})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1565,7 +1578,7 @@ def procesar_pago(payment_id):
     ref = str(p.get('external_reference') or '')
     if not ref.isdigit():
         return None
-    rows = sb.table('pagos_sena').select('*').eq('id', int(ref)).limit(1).execute().data
+    rows = tabla_pagos().select('*').eq('id', int(ref)).limit(1).execute().data
     if not rows:
         return None
     pago = rows[0]
@@ -1575,13 +1588,13 @@ def procesar_pago(payment_id):
     status = p.get('status')
     if status == 'approved':
         if p.get('currency_id') != 'MXN' or float(p.get('transaction_amount') or 0) < pago['monto']:
-            sb.table('pagos_sena').update({
+            tabla_pagos().update({
                 'notas': f"Pago {payment_id} aprobado con monto inesperado — revisar",
             }).eq('id', pago['id']).execute()
             return pago['estado']
 
         turnos = turnos_de_pago(sb, pago['id'])
-        sb.table('pagos_sena').update({
+        tabla_pagos().update({
             'estado':        'aprobado',
             'mp_payment_id': str(payment_id),
             'pagado_at':     datetime.now(timezone.utc).isoformat(),
@@ -1595,7 +1608,7 @@ def procesar_pago(payment_id):
         # Pagó tarde y el horario ya lo tomó otra clienta: devolver automáticamente
         mp_request('POST', f'/v1/payments/{payment_id}/refunds', json={},
                    idempotency_key=f'refund-{payment_id}')
-        sb.table('pagos_sena').update({
+        tabla_pagos().update({
             'estado':         'reembolsado',
             'reembolsado_at': datetime.now(timezone.utc).isoformat(),
             'notas':          'Pagó con la reserva vencida y el horario ya estaba tomado. Devolución automática.',
@@ -1605,7 +1618,7 @@ def procesar_pago(payment_id):
 
     if status in ('rejected', 'cancelled') and pago['estado'] == 'pendiente':
         # El horario sigue retenido hasta que venza: puede reintentar con otra tarjeta
-        sb.table('pagos_sena').update({'estado': 'rechazado'}).eq('id', pago['id']).execute()
+        tabla_pagos().update({'estado': 'rechazado'}).eq('id', pago['id']).execute()
         return 'rechazado'
     return pago['estado']
 
@@ -1645,7 +1658,7 @@ def reservar_resultado():
     token = request.args.get('t', '')
     if not re.fullmatch(r'[0-9a-fA-F-]{36}', token):
         return redirect(url_for('reservar'))
-    rows = sb.table('pagos_sena').select('*').eq('token', token).limit(1).execute().data
+    rows = tabla_pagos().select('*').eq('token', token).limit(1).execute().data
     if not rows:
         return redirect(url_for('reservar'))
     pago = rows[0]
@@ -1655,7 +1668,7 @@ def reservar_resultado():
     if payment_id and payment_id.isdigit() and pago['estado'] not in ('aprobado', 'reembolsado'):
         try:
             procesar_pago(payment_id)
-            pago = sb.table('pagos_sena').select('*').eq('id', pago['id']).limit(1).execute().data[0]
+            pago = tabla_pagos().select('*').eq('id', pago['id']).limit(1).execute().data[0]
         except Exception as e:
             app.logger.error(f'Resultado MP {payment_id}: {e}')
 
@@ -1688,7 +1701,7 @@ def reservar_resultado():
 def api_reembolso_sena(pid):
     try:
         sb = get_sb()
-        rows = sb.table('pagos_sena').select('*').eq('id', pid).limit(1).execute().data
+        rows = tabla_pagos().select('*').eq('id', pid).limit(1).execute().data
         if not rows:
             return jsonify({'error': 'Seña no encontrada'}), 404
         pago = rows[0]
@@ -1698,7 +1711,7 @@ def api_reembolso_sena(pid):
             return jsonify({'error': 'Esta seña no está pagada'}), 400
         mp_request('POST', f"/v1/payments/{pago['mp_payment_id']}/refunds", json={},
                    idempotency_key=f"refund-{pago['mp_payment_id']}")
-        sb.table('pagos_sena').update({
+        tabla_pagos().update({
             'estado':         'reembolsado',
             'reembolsado_at': datetime.now(timezone.utc).isoformat(),
         }).eq('id', pid).execute()
@@ -1740,8 +1753,8 @@ def api_agenda():
 
         # Señas: query aparte y merge en código
         pago_ids = list({t['pago_sena_id'] for t in turnos if t.get('pago_sena_id')})
-        pagos = {p['id']: p for p in sb.table('pagos_sena').select(
-            'id,monto,estado').in_('id', pago_ids).execute().data} if pago_ids else {}
+        pagos = {p['id']: p for p in tabla_pagos().select(
+            'id,monto,estado').in_('id', pago_ids).execute().data} if pago_ids and SUPABASE_SERVICE_KEY else {}
         for t in turnos:
             t['sena'] = pagos.get(t.get('pago_sena_id'))
         return jsonify(turnos)
