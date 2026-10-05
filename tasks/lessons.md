@@ -63,8 +63,12 @@ Lista de aprendizajes acumulados sesión a sesión. Revisar al inicio de cada se
 - **Cuándo aplica:** Cuando Sofia quiere ver cambios en local antes de deployar. Nunca diagnosticar "logo roto / 404" sobre un render `file://`.
 
 ### Regla: En el repo `Marunails` conviven varias apps — la de producción la define `vercel.json`
-- **Por qué:** El repo tiene mezclados el sistema de Maru (`marunails/app.py`, Flask+Supabase), un proyecto Argos (`app.py` en raíz + `backend/` FastAPI + `frontend/` React + `argos-v4b.html`), un `inventario/` y los HTML de INFYN. El `CLAUDE.md` del repo describe solo el sitio estático de INFYN, así que leerlo lleva a la app equivocada. `vercel.json` apunta a `marunails/app.py` — esa es la que está en producción.
+- **Por qué:** El repo tiene mezclados el sistema de Maru (`marunails/app.py`, Flask+Supabase), un proyecto Argos (`app.py` en raíz + `backend/` FastAPI + `frontend/` React + `argos-v4b.html`) y los HTML de INFYN. (`inventario/`, de Puñado Sano, se borró el 2026-10-05.) El `CLAUDE.md` del repo describe solo el sitio estático de INFYN, así que leerlo lleva a la app equivocada. `vercel.json` apunta a `marunails/app.py` — esa es la que está en producción.
 - **Cuándo aplica:** Al empezar cualquier sesión sobre este repo. Confirmar el entrypoint con `vercel.json` antes de creer al README o al CLAUDE.md.
+
+### Regla: El repo `Marunails` es público — ningún secreto ni valor por defecto en el código
+- **Por qué:** Hasta el 2026-10-05, producción corría con la `SECRET_KEY` y la `ADMIN_PASSWORD` por defecto del código, porque no estaban cargadas en Vercel: se podía fabricar una cookie de admin. Con la key anon del repo, además, se leían todas las tablas. Hoy el server usa la service key y todas las tablas están cerradas a anon (migración 006).
+- **Cuándo aplica:** Al agregar una variable de entorno (sin default; cargarla en Vercel antes de deployar) o una tabla nueva (nace con RLS on y sin políticas; se lee con `get_sb()`, que usa la service key).
 
 ---
 
