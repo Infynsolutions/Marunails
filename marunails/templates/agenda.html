@@ -1,20 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Agenda — MaruNails{% endblock %}
 {% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@event-calendar/build@5.16.0/dist/event-calendar.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@event-calendar/build@5.16.0/dist/event-calendar.min.js"></script>
 <style>
+/* La agenda usa todo el ancho (el resto del sistema va a 860px) */
+main { max-width: 1480px; padding: 28px 24px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .agenda-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
     flex-wrap: wrap;
     gap: 12px;
 }
-.fecha-nav {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
+.agenda-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fecha-nav { display: flex; align-items: center; gap: 10px; }
 .fecha-nav button {
     background: none;
     border: 1px solid var(--sand);
@@ -48,67 +51,36 @@
     transition: all 0.2s;
 }
 .btn-hoy:hover { background: var(--brown-pale); color: var(--brown); }
+.btn-oscuro { background: var(--brown-dark); color: #fff; border-color: var(--brown-dark); font-weight: 500; }
+.btn-medio  { background: var(--brown); color: #fff; border-color: var(--brown); font-weight: 500; }
+.btn-oscuro:hover, .btn-medio:hover { background: var(--brown-dark); color: #fff; }
 
-.turno-card {
-    background: rgba(255,255,255,0.9);
+.view-toggle {
+    display: flex;
+    gap: 3px;
+    background: rgba(255,255,255,0.7);
     border: 1px solid var(--sand);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    transition: box-shadow 0.2s;
+    border-radius: 8px;
+    padding: 3px;
 }
-.turno-card:hover { box-shadow: 0 2px 16px rgba(62,36,24,0.09); }
-.turno-hora {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 22px;
-    font-weight: 500;
-    color: var(--brown-dark);
-    min-width: 58px;
-    flex-shrink: 0;
-    line-height: 1;
-}
-.turno-hora small {
-    display: block;
-    font-family: 'Inter', sans-serif;
-    font-size: 10px;
-    color: var(--muted);
-    font-weight: 400;
-    letter-spacing: 0.5px;
-    margin-top: 3px;
-}
-.turno-body { flex: 1; min-width: 0; }
-.turno-servicio {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text);
-    margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.turno-meta {
+.view-btn {
+    padding: 5px 12px;
+    border: none;
+    border-radius: 5px;
+    background: none;
     font-size: 12px;
+    font-family: 'Inter', sans-serif;
     color: var(--muted);
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
 }
-.turno-right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-    flex-shrink: 0;
-}
-.turno-precio {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--brown);
-}
+.view-btn.active { background: var(--brown); color: #fff; }
+.chk-inline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.chk-inline input { accent-color: var(--brown); }
+
 .badge {
     display: inline-flex;
     align-items: center;
@@ -154,10 +126,9 @@
     font-family: inherit;
 }
 .btn-devolver:disabled { opacity: 0.5; cursor: wait; }
-
 .estado-select {
-    font-size: 11px;
-    padding: 5px 8px;
+    font-size: 12px;
+    padding: 7px 9px;
     border: 1px solid var(--sand);
     border-radius: 6px;
     background: #fff;
@@ -167,110 +138,80 @@
 }
 .estado-select:focus { outline: none; border-color: var(--brown-mid); }
 
-.empty-state {
-    text-align: center;
-    padding: 48px 20px;
-    color: var(--muted);
-}
-.empty-state svg { opacity: 0.25; margin-bottom: 12px; }
-.empty-state p { font-size: 14px; }
-
 .resumen-bar {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
 }
 .resumen-item {
     background: rgba(255,255,255,0.85);
     border: 1px solid var(--sand);
     border-radius: 10px;
-    padding: 14px 16px;
+    padding: 12px 16px;
     text-align: center;
 }
-.resumen-val {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 24px;
-    font-weight: 500;
-    color: var(--brown-dark);
-}
-.resumen-lbl {
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-top: 2px;
-}
+.resumen-val { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 500; color: var(--brown-dark); }
+.resumen-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+.loading-spinner { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
 
-.loading-spinner {
-    text-align: center;
-    padding: 40px;
-    color: var(--muted);
-    font-size: 13px;
-}
+/* ─── LEYENDA ─── */
+.leyenda { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 4px; font-size: 11px; color: var(--muted); }
+.leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.leyenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
-/* ─── VIEW TOGGLE ─── */
-.view-toggle {
-    display: flex;
-    gap: 3px;
-    background: rgba(255,255,255,0.7);
+/* ─── VISTA DÍA (EventCalendar) ─── */
+.cal-scroll {
+    overflow-x: auto;
+    background: #fff;
     border: 1px solid var(--sand);
-    border-radius: 8px;
-    padding: 3px;
+    border-radius: 12px;
+    -webkit-overflow-scrolling: touch;
 }
-.view-btn {
-    padding: 5px 14px;
-    border: none;
-    border-radius: 5px;
-    background: none;
-    font-size: 12px;
-    font-family: 'Inter', sans-serif;
-    color: var(--muted);
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.15s;
-    letter-spacing: 0.3px;
-}
-.view-btn.active { background: var(--brown); color: #fff; }
+#calDia { font-family: 'Inter', sans-serif; font-size: 12px; }
+#calDia nav.ec-toolbar { display: none; }   /* usamos nuestra barra (y la de la librería heredaba el estilo del menú) */
+#calDia .ec { --ec-border-color: #EDE3DA; --ec-today-bg-color: transparent; --ec-now-indicator-color: #d33a3a; }
+#calDia .ec-event { border-radius: 6px; box-shadow: none; padding: 3px 6px; cursor: pointer; }
+#calDia .ec-event.ev-esperando { outline: 2px dashed #a15c12; outline-offset: -2px; }
+#calDia .ec-event.ev-cancelado { opacity: 0.45; text-decoration: line-through; }
+#calDia .ec-col-head, #calDia .ec-resource { font-weight: 600; color: var(--brown-dark); }
+.ev-linea  { font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-linea b { font-weight: 600; }
+.ev-serv   { font-size: 11px; line-height: 1.3; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-tag    { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #a15c12; }
+.res-yo    { color: var(--brown); border-bottom: 2px solid var(--brown); padding-bottom: 1px; }
 
-/* ─── SEMANA ─── */
-.semana-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 8px;
-    margin-bottom: 24px;
+/* ─── 3 DÍAS / SEMANA (chicas × días) ─── */
+.matriz-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--sand); border-radius: 12px; -webkit-overflow-scrolling: touch; }
+.matriz { border-collapse: collapse; width: 100%; table-layout: fixed; min-width: 560px; }
+.matriz th, .matriz td { border: 1px solid #EDE3DA; }
+.matriz thead th {
+    padding: 10px 8px; font-size: 12px; font-weight: 500; color: var(--text); text-align: left;
+    text-transform: capitalize; background: #fff;
 }
-.semana-col {
-    background: rgba(255,255,255,0.75);
-    border: 1px solid var(--sand);
-    border-radius: 10px;
-    overflow: hidden;
-    min-height: 120px;
+.matriz thead th.m-hoy { color: var(--brown); }
+.matriz thead th .m-num { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; margin-right: 4px; }
+.matriz thead th.m-hoy .m-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 50%; background: var(--brown); color: #fff; font-family: 'Inter', sans-serif; font-size: 14px;
 }
-.semana-col-header {
-    padding: 9px 8px 7px;
-    text-align: center;
-    background: rgba(255,255,255,0.95);
-    border-bottom: 1px solid var(--sand);
+.matriz .m-colab {
+    width: 96px; padding: 10px 8px; font-size: 12px; font-weight: 600; color: var(--brown-dark);
+    text-align: center; background: #FCFAF7; position: sticky; left: 0; z-index: 1; text-transform: capitalize;
 }
-.semana-col-header .sn { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); font-weight: 600; }
-.semana-col-header .sd { font-family: 'Cormorant Garamond', serif; font-size: 21px; font-weight: 500; color: var(--brown-dark); line-height: 1.2; }
-.semana-col-header.s-hoy .sd { color: var(--brown); }
-.semana-col-body { padding: 6px; }
-.turno-mini {
-    background: var(--brown-pale);
-    border-left: 3px solid var(--brown-mid);
-    border-radius: 5px;
-    padding: 5px 7px;
-    margin-bottom: 5px;
-    cursor: pointer;
-    transition: background 0.15s;
+.matriz thead th:first-child { position: sticky; left: 0; z-index: 2; }
+.matriz .m-colab.res-yo { border-bottom: 1px solid #EDE3DA; box-shadow: inset 0 -3px 0 var(--brown); }
+.m-celda { vertical-align: top; padding: 5px; height: 96px; cursor: pointer; }
+.m-celda:hover { background: #FCFAF7; }
+.m-celda.drop-ok { background: var(--brown-pale); }
+.m-celda.m-hoy-col { background: #FFFDF9; }
+.m-chip {
+    font-size: 11px; line-height: 1.25; padding: 4px 6px; border-radius: 5px; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #2A1F1A; cursor: pointer;
 }
-.turno-mini:hover { background: #e8d5c8; }
-.turno-mini .tm-hora { font-size: 9px; color: var(--muted); font-weight: 600; margin-bottom: 1px; }
-.turno-mini .tm-serv { font-size: 10px; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.turno-mini .tm-cli { font-size: 9px; color: var(--muted); }
-.semana-vacia { font-size: 10px; color: var(--sand); text-align: center; padding: 14px 4px; }
+.m-chip b { font-weight: 600; }
+.m-chip.ev-esperando { outline: 2px dashed #a15c12; outline-offset: -2px; }
+.m-chip.ev-cancelado { opacity: 0.45; text-decoration: line-through; }
 
 /* ─── MES ─── */
 .mes-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
@@ -286,10 +227,9 @@
     transition: background 0.15s;
     overflow: hidden;
 }
-.mes-cell:hover:not(.mes-empty):not(.mes-dom) { background: var(--brown-pale); }
+.mes-cell:hover:not(.mes-empty) { background: var(--brown-pale); }
 .mes-cell.mes-hoy { border-color: var(--brown-mid); border-width: 2px; }
-.mes-cell.mes-empty, .mes-cell.mes-dom { background: transparent; border-color: transparent; cursor: default; }
-.mes-cell.mes-dom .mes-num { color: var(--sand); }
+.mes-cell.mes-empty { background: transparent; border-color: transparent; cursor: default; }
 .mes-num { font-family: 'Cormorant Garamond', serif; font-size: 15px; font-weight: 500; color: var(--brown-dark); margin-bottom: 3px; }
 .mes-badge { display: inline-flex; align-items: center; justify-content: center; background: var(--brown); color: #fff; border-radius: 10px; font-size: 9px; font-weight: 700; padding: 1px 6px; margin-bottom: 3px; }
 .mes-servicio { font-size: 9px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -483,54 +423,76 @@
     border: 1px solid #bae6fd; border-radius: 6px; font-size: 11px;
     color: #0369a1; cursor: pointer; font-family: 'Inter', sans-serif;
 }
-@media (max-width: 900px) { .semana-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 600px) {
-    .resumen-bar { grid-template-columns: repeat(2, 1fr); }
-    .turno-card { flex-wrap: wrap; }
-    .turno-right { flex-direction: row; align-items: center; }
-    .semana-grid { grid-template-columns: repeat(2, 1fr); }
+
+
+/* ─── DETALLE DEL TURNO ─── */
+.det-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.det-filas { background: rgba(255,255,255,0.85); border: 1px solid var(--sand); border-radius: 10px; padding: 4px 14px; margin-bottom: 14px; }
+.det-fila { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid #F0E7DF; font-size: 13px; color: var(--text); }
+.det-fila:last-child { border-bottom: none; }
+.det-fila .k { width: 92px; flex-shrink: 0; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding-top: 2px; }
+.det-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+.btn-linea {
+    padding: 8px 14px; border: 1px solid var(--sand); border-radius: 7px; background: #fff;
+    font-size: 12px; font-family: 'Inter', sans-serif; color: var(--brown-dark); cursor: pointer; text-decoration: none;
+}
+.btn-linea:hover { background: var(--brown-pale); }
+.det-cambios h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin: 4px 0 8px; }
+.det-cambio { font-size: 12px; color: var(--text); padding: 7px 0; border-bottom: 1px solid #F0E7DF; }
+.det-cambio small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.aviso { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.6; margin-top: 10px; }
+.aviso ul { margin: 4px 0 0 16px; }
+
+@media (max-width: 700px) {
+    main { padding: 18px 12px; }
+    .agenda-top { flex-direction: column; align-items: stretch; }
+    .fecha-nav { justify-content: space-between; }
+    .fecha-display { min-width: 0; flex: 1; }
+    .agenda-acciones { justify-content: space-between; }
     .historial-panel { width: 100vw; }
+    .det-fila .k { width: 76px; }
+    .resumen-bar { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px; margin-bottom: 12px; }
+    .resumen-item { padding: 7px 4px; }
+    .resumen-val { font-size: 18px; }
+    .resumen-lbl { font-size: 8px; letter-spacing: 0.5px; }
 }
 </style>
 
-<div class="page-header">
-    <div class="page-header-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FAF6F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
-    </div>
-    <div>
-        <h1>Agenda</h1>
-        <div class="page-header-sub">Turnos del día</div>
-    </div>
-</div>
-
 <div class="agenda-top">
     <div class="fecha-nav">
-        <button onclick="cambiarFecha(-1)">
+        <button onclick="cambiarFecha(-1)" aria-label="Anterior">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
         <div class="fecha-display" id="fechaDisplay" onclick="irHoy()"></div>
-        <button onclick="cambiarFecha(1)">
+        <button onclick="cambiarFecha(1)" aria-label="Siguiente">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px">
-        <div class="view-toggle">
-            <button class="view-btn active" id="btnDia"    onclick="setVista('dia')">Día</button>
-            <button class="view-btn"        id="btnSemana" onclick="setVista('semana')">Semana</button>
-            <button class="view-btn"        id="btnMes"    onclick="setVista('mes')">Mes</button>
-        </div>
         <button class="btn-hoy" onclick="irHoy()">Hoy</button>
-        <button class="btn-hoy" onclick="abrirNuevaCita()" style="background:var(--brown-dark);color:#fff;border-color:var(--brown-dark);font-weight:500">+ Nueva cita</button>
-        <button class="btn-hoy" onclick="abrirWalkin()" style="background:var(--brown);color:#fff;border-color:var(--brown);font-weight:500">+ Walk-in</button>
+    </div>
+    <div class="agenda-acciones">
+        <div class="view-toggle" id="vistaToggle">
+            <button class="view-btn" data-vista="dia"    onclick="setVista('dia')">Día</button>
+            <button class="view-btn" data-vista="3dias"  onclick="setVista('3dias')">3 días</button>
+            <button class="view-btn" data-vista="semana" onclick="setVista('semana')">Semana</button>
+            <button class="view-btn" data-vista="mes"    onclick="setVista('mes')">Mes</button>
+        </div>
+        {% if equipo_id %}
+        <div class="view-toggle">
+            <button class="view-btn" id="btnTodas" onclick="setSoloYo(false)">Todas</button>
+            <button class="view-btn" id="btnSoloYo" onclick="setSoloYo(true)">Solo yo</button>
+        </div>
+        {% endif %}
+        <label class="chk-inline"><input type="checkbox" id="verCancelados" onchange="cargarVista()"> Ver cancelados</label>
+        <button class="btn-hoy btn-oscuro" onclick="abrirNuevaCita()">+ Nueva cita</button>
+        <button class="btn-hoy btn-medio" onclick="abrirWalkin()">+ Walk-in</button>
     </div>
 </div>
 
 <div class="resumen-bar" id="resumenBar"></div>
-<div id="turnosContainer"></div>
-<div id="semanaContainer" style="display:none"></div>
-<div id="mesContainer"   style="display:none"></div>
+<div class="cal-scroll" id="calScroll"><div id="calDia"></div></div>
+<div id="matrizContainer" style="display:none"></div>
+<div id="mesContainer" style="display:none"></div>
+<div class="leyenda" id="leyenda"></div>
 
 <!-- Lista de espera (solo vista día) -->
 <div class="espera-section" id="esperaSection" style="display:none">
@@ -708,11 +670,76 @@
     </div>
 </div>
 
+
+<!-- Panel detalle del turno -->
+<div class="modal-overlay" id="detalleModal" onclick="cerrarDetalle(event)">
+    <div class="historial-panel">
+        <div class="hpanel-top">
+            <h2 id="detTitulo">Turno</h2>
+            <button class="hpanel-close" onclick="cerrarDetalle()">✕</button>
+        </div>
+        <div id="detVer"></div>
+        <div id="detEditar" style="display:none">
+            <div class="wi-row">
+                <div class="wi-field">
+                    <label>Fecha</label>
+                    <input type="date" id="edFecha">
+                </div>
+                <div class="wi-field">
+                    <label>Hora</label>
+                    <input type="time" id="edHora" step="300">
+                </div>
+            </div>
+            <div class="wi-field">
+                <label>Colaboradora</label>
+                <select id="edColab"></select>
+            </div>
+            <div class="wi-field">
+                <label>Servicio</label>
+                <select id="edServicio"></select>
+            </div>
+            <div class="wi-field">
+                <label>Notas</label>
+                <input type="text" id="edNotas" placeholder="Opcional">
+            </div>
+            <label class="nc-check" id="edGrupoWrap"><input type="checkbox" id="edGrupo" checked> <span id="edGrupoTxt"></span></label>
+            <div class="wi-actions">
+                <button class="btn-walkin-cancel" onclick="verDetalleModo('ver')">Cancelar</button>
+                <button class="btn-walkin-submit" onclick="guardarEdicion()">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmación al mover (arrastrar o editar) -->
+<div class="walkin-overlay" id="moverOverlay">
+    <div class="walkin-panel">
+        <div id="mvForm">
+            <h2>↔ Mover cita</h2>
+            <div class="nc-resumen" id="mvResumen"></div>
+            <label class="nc-check" id="mvGrupoWrap" style="margin-top:12px"><input type="checkbox" id="mvGrupo" checked> <span id="mvGrupoTxt"></span></label>
+            <div id="mvConflictos"></div>
+            <div id="mvError" style="color:#dc2626;font-size:12px;min-height:16px;margin-top:6px"></div>
+            <div class="wi-actions">
+                <button class="btn-walkin-cancel" onclick="cerrarMover()">Cancelar</button>
+                <button class="btn-walkin-submit" id="mvBtn" onclick="confirmarMover()">Mover</button>
+            </div>
+        </div>
+        <div id="mvOk" style="display:none">
+            <h2>✅ Cita actualizada</h2>
+            <div class="nc-resumen" id="mvOkResumen"></div>
+            <a class="btn-wa-grande" id="mvWa" href="#" target="_blank">Avisar a la clienta por WhatsApp</a>
+            <div class="wi-actions">
+                <button class="btn-walkin-cancel" onclick="cerrarMover()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const MESES_L  = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const MESES_LL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_L   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-const DIAS_C   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const ESTADOS = [
     ['esperando_pago','Esperando seña'],
     ['pendiente','Pendiente'],
@@ -726,151 +753,495 @@ const ESTADOS = [
     ['no_show','No-show'],
     ['reprogramado','Reprogramado'],
 ];
+const ESTADOS_OCULTOS = ['cancelado_cliente','cancelado_salon','reprogramado'];   // no se muestran salvo "Ver cancelados"
+const ESTADOS_INACTIVOS = [...ESTADOS_OCULTOS, 'no_show'];                         // no ocupan lugar, no se arrastran
+
+// Mismos colores por categoría que usaban en Fresha
+const COLOR_CAT = {
+    'Manicure':       '#F6BFD9',
+    'Pedicure':       '#AEDCF2',
+    'Brows & Lashes': '#F8D77E',
+    'Glow Up Facial': '#F7B795',
+    'Additional':     '#B9E4C6',
+};
+const COLOR_DEF = '#E2D5CB';
+
+const ES_ADMIN = {{ 'true' if es_admin else 'false' }};
+const YO = {{ equipo_id if equipo_id else 'null' }};
 
 let fechaActual = new Date(); fechaActual.setHours(0,0,0,0);
 let vista = 'dia';
+let soloYo = false;
+let colabs = [];        // colaboradoras activas [{id, nombre}]
+let turnosCache = [];   // turnos de la vista cargada
+let ec = null;          // EventCalendar (vista Día)
+try {
+    vista  = localStorage.getItem('agenda_vista') || 'dia';
+    soloYo = YO !== null && localStorage.getItem('agenda_solo_yo') === '1';
+} catch (e) {}
 
+// ─── UTILIDADES ───
+// Todo dato que carga una clienta (nombre, notas, alergias) pasa por esc() antes de ir al HTML
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function isoFecha(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+function hhmmDate(d) { return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function hm(h) { return (h || '').slice(0,5); }
 function labelFecha(d) { return `${DIAS_L[d.getDay()]} ${d.getDate()} ${MESES_L[d.getMonth()]}`; }
 function cloneDate(d) { const c = new Date(d); c.setHours(0,0,0,0); return c; }
+function sumarDias(d, n) { const c = cloneDate(d); c.setDate(c.getDate() + n); return c; }
+function esHoy(d) { return cloneDate(new Date()).getTime() === cloneDate(d).getTime(); }
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function fmtPesos(n) { return '$' + Number(n || 0).toLocaleString('es-MX'); }
+function nombreCliente(t) {
+    const c = t.clientes_reservas;
+    return c ? `${c.nombre || ''} ${c.apellido || ''}`.trim() || '—' : '—';
+}
+function colorTurno(t) { return COLOR_CAT[t.servicios?.categoria] || COLOR_DEF; }
+function estadoLabel(e) { return Object.fromEntries(ESTADOS)[e] || e; }
+function claseEstado(t) {
+    if (ESTADOS_INACTIVOS.includes(t.estado)) return 'ev-cancelado';
+    if (t.estado === 'esperando_pago') return 'ev-esperando';
+    return '';
+}
+function turnosVisibles(turnos) {
+    const ver = document.getElementById('verCancelados').checked;
+    return ver ? turnos : turnos.filter(t => !ESTADOS_OCULTOS.includes(t.estado));
+}
+function spinner() {
+    return '<div class="loading-spinner"><div style="width:24px;height:24px;border:2px solid #E2D5CB;border-top-color:#5C3826;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px"></div>Cargando...</div>';
+}
+function hayModalAbierto() {
+    return !!document.querySelector('.walkin-overlay.open, .modal-overlay.open');
+}
 
+async function fetchTurnos(desde, hasta) {
+    const r = await fetch(`/api/agenda?desde=${desde}&hasta=${hasta}`);
+    if (r.status === 401) { location.href = '/login'; return []; }
+    const data = await r.json();
+    return Array.isArray(data) ? data : [];
+}
+
+async function cargarColabs() {
+    const data = await (await fetch('/api/colaboradoras')).json();
+    colabs = (Array.isArray(data) ? data : []).map(c => ({ id: c.id, nombre: c.nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
+// Columnas/filas: colaboradoras activas + las que tengan turnos en el rango (aunque estén inactivas)
+function recursos(turnos) {
+    const lista = colabs.map(c => ({ id: c.id, nombre: c.nombre }));
+    turnos.forEach(t => {
+        if (t.colaboradora_id && !lista.some(r => r.id === t.colaboradora_id))
+            lista.push({ id: t.colaboradora_id, nombre: t.colaboradoras?.nombre || '—' });
+    });
+    if (turnos.some(t => !t.colaboradora_id)) lista.push({ id: 0, nombre: 'Sin asignar' });
+    return soloYo && YO !== null ? lista.filter(r => r.id === YO) : lista;
+}
+
+// Servicios encadenados de la misma cita (misma lógica que el server)
+function cadena(t) {
+    if (ESTADOS_INACTIVOS.includes(t.estado)) return [t];
+    const mismos = turnosCache.filter(x => x.cliente_id === t.cliente_id && x.colaboradora_id === t.colaboradora_id
+        && x.fecha === t.fecha && !ESTADOS_INACTIVOS.includes(x.estado))
+        .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+    let i = mismos.findIndex(x => x.id === t.id);
+    if (i < 0) return [t];
+    let ini = i, fin = i;
+    while (ini > 0 && hm(mismos[ini-1].hora_fin) === hm(mismos[ini].hora_inicio)) ini--;
+    while (fin < mismos.length - 1 && hm(mismos[fin].hora_fin) === hm(mismos[fin+1].hora_inicio)) fin++;
+    return mismos.slice(ini, fin + 1);
+}
+
+// ─── NAVEGACIÓN ───
 function setVista(v) {
     vista = v;
-    ['dia','semana','mes'].forEach(x => document.getElementById('btn'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('active', x===v));
+    try { localStorage.setItem('agenda_vista', v); } catch (e) {}
+    cargarVista();
+}
+
+function setSoloYo(v) {
+    soloYo = v;
+    try { localStorage.setItem('agenda_solo_yo', v ? '1' : '0'); } catch (e) {}
     cargarVista();
 }
 
 function cambiarFecha(delta) {
-    if (vista === 'dia')    fechaActual.setDate(fechaActual.getDate() + delta);
-    else if (vista === 'semana') fechaActual.setDate(fechaActual.getDate() + delta * 7);
-    else                    fechaActual.setMonth(fechaActual.getMonth() + delta);
+    if (vista === 'dia')         fechaActual = sumarDias(fechaActual, delta);
+    else if (vista === '3dias')  fechaActual = sumarDias(fechaActual, delta * 3);
+    else if (vista === 'semana') fechaActual = sumarDias(fechaActual, delta * 7);
+    else                         fechaActual = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + delta, 1);
     cargarVista();
 }
 
 function irHoy() {
-    fechaActual = new Date(); fechaActual.setHours(0,0,0,0);
+    fechaActual = cloneDate(new Date());
     cargarVista();
 }
 
-function cargarVista() {
-    if (vista === 'dia')    cargarAgenda();
-    else if (vista === 'semana') cargarSemana();
-    else                    cargarMes();
+function mostrar(cual) {
+    document.getElementById('calScroll').style.display       = cual === 'dia' ? '' : 'none';
+    document.getElementById('resumenBar').style.display      = cual === 'dia' ? '' : 'none';
+    document.getElementById('matrizContainer').style.display = cual === 'matriz' ? '' : 'none';
+    document.getElementById('mesContainer').style.display    = cual === 'mes' ? '' : 'none';
+    document.getElementById('esperaSection').style.display   = cual === 'dia' ? '' : 'none';
+    document.getElementById('leyenda').style.display         = cual === 'mes' ? 'none' : '';
 }
 
+async function cargarVista(silencioso) {
+    document.querySelectorAll('#vistaToggle .view-btn').forEach(b => b.classList.toggle('active', b.dataset.vista === vista));
+    document.getElementById('btnTodas')?.classList.toggle('active', !soloYo);
+    document.getElementById('btnSoloYo')?.classList.toggle('active', soloYo);
+    if (!colabs.length) await cargarColabs();
+    if (vista === 'dia')         await cargarDia(silencioso);
+    else if (vista === '3dias')  await cargarMatriz(fechaActual, 3, silencioso);
+    else if (vista === 'semana') {
+        const dow = fechaActual.getDay() === 0 ? 6 : fechaActual.getDay() - 1;
+        await cargarMatriz(sumarDias(fechaActual, -dow), 7, silencioso);
+    }
+    else                         await cargarMes();
+}
+
+// Si otra chica movió algo, se ve sin recargar (cada 60 s, sin interrumpir)
+let arrastrando = false;
+setInterval(() => {
+    if (document.visibilityState === 'visible' && !hayModalAbierto() && !arrastrando) cargarVista(true);
+}, 60000);
+
 // ─── VISTA DÍA ───
-async function cargarAgenda() {
+function eventoDe(t) {
+    const inactivo = ESTADOS_INACTIVOS.includes(t.estado);
+    return {
+        id: String(t.id),
+        resourceIds: [t.colaboradora_id || 0],
+        start: `${t.fecha} ${hm(t.hora_inicio)}:00`,
+        end:   `${t.fecha} ${hm(t.hora_fin)}:00`,
+        backgroundColor: colorTurno(t),
+        textColor: '#2A1F1A',
+        startEditable: !inactivo,
+        classNames: [claseEstado(t)].filter(Boolean),
+        extendedProps: { t },
+    };
+}
+
+function contenidoEvento(info) {
+    const t = info.event.extendedProps.t;
+    return { html:
+        `<div class="ev-linea">${hm(t.hora_inicio)} – ${hm(t.hora_fin)} <b>${esc(nombreCliente(t))}</b>${t.canal === 'web' ? ' ☁' : ''}</div>` +
+        `<div class="ev-serv">${esc(t.servicios?.nombre || '')}</div>` +
+        (t.estado === 'esperando_pago' ? '<div class="ev-tag">Esperando seña</div>' : '') +
+        (t.estado === 'no_show' ? '<div class="ev-tag">No-show</div>' : '')
+    };
+}
+
+function crearCalendario() {
+    ec = EventCalendar.create(document.getElementById('calDia'), {
+        view: 'resourceTimeGridDay',
+        headerToolbar: { start: '', center: '', end: '' },
+        locale: 'es-MX',
+        date: fechaActual,
+        allDaySlot: false,
+        slotMinTime: '08:00',
+        slotMaxTime: '21:00',
+        slotDuration: '00:15',
+        slotLabelInterval: '01:00',
+        slotHeight: 22,
+        snapDuration: '00:05',
+        scrollTime: '09:00',
+        nowIndicator: true,
+        slotEventOverlap: false,
+        eventStartEditable: true,
+        eventDurationEditable: false,
+        eventLongPressDelay: 350,
+        pointer: true,
+        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        resources: [],
+        events: [],
+        eventContent: contenidoEvento,
+        resourceLabelContent: info => ({
+            html: `<span class="${Number(info.resource.id) === YO ? 'res-yo' : ''}">${esc(info.resource.title)}</span>`
+        }),
+        eventClick: info => abrirDetalle(Number(info.event.id)),
+        eventDragStart: () => { arrastrando = true; },
+        eventDragStop:  () => { arrastrando = false; },
+        eventDrop: info => {
+            const t = info.event.extendedProps.t;
+            const colabId = info.newResource ? Number(info.newResource.id) : t.colaboradora_id;
+            if (!colabId) { info.revert(); return; }
+            abrirMover({ t, fecha: isoFecha(info.event.start), hora: hhmmDate(info.event.start), colabId, revert: info.revert });
+        },
+        dateClick: info => abrirNuevaCita({
+            fecha: isoFecha(info.date), hora: hhmmDate(info.date),
+            colabId: info.resource ? Number(info.resource.id) || null : null,
+        }),
+    });
+}
+
+async function cargarDia(silencioso) {
+    mostrar('dia');
     document.getElementById('fechaDisplay').textContent = labelFecha(fechaActual);
-    document.getElementById('turnosContainer').style.display = '';
-    document.getElementById('semanaContainer').style.display = 'none';
-    document.getElementById('mesContainer').style.display = 'none';
-    document.getElementById('resumenBar').style.display = '';
-    document.getElementById('turnosContainer').innerHTML =
-        '<div class="loading-spinner"><div style="width:24px;height:24px;border:2px solid #E2D5CB;border-top-color:#5C3826;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px"></div>Cargando...</div>';
-    document.getElementById('resumenBar').innerHTML = '';
-    const res = await fetch(`/api/agenda?fecha=${isoFecha(fechaActual)}`);
-    const turnos = await res.json();
+    const iso = isoFecha(fechaActual);
+    const turnos = await fetchTurnos(iso, iso);
+    turnosCache = turnos;
     renderResumen(turnos);
-    renderTurnos(turnos);
-    cargarEspera();
+    const res = recursos(turnos);
+    // En el celular las columnas no se aprietan: scroll horizontal
+    document.getElementById('calDia').style.minWidth = (64 + res.length * 150) + 'px';
+    if (!ec) crearCalendario();
+    ec.setOption('date', fechaActual);
+    ec.setOption('resources', res.map(r => ({ id: r.id, title: r.nombre })));
+    ec.setOption('events', turnosVisibles(turnos).map(eventoDe));
+    renderLeyenda();
+    if (!silencioso) cargarEspera();
 }
 
 function renderResumen(turnos) {
-    const activos = turnos.filter(t => !['cancelado_cliente','cancelado_salon','no_show'].includes(t.estado));
+    const activos = turnos.filter(t => !ESTADOS_INACTIVOS.includes(t.estado));
     const finalizados = turnos.filter(t => t.estado === 'finalizado');
     const total = activos.reduce((s, t) => s + (t.precio || 0), 0);
     document.getElementById('resumenBar').innerHTML = `
         <div class="resumen-item"><div class="resumen-val">${activos.length}</div><div class="resumen-lbl">Turnos</div></div>
         <div class="resumen-item"><div class="resumen-val">${finalizados.length}</div><div class="resumen-lbl">Finalizados</div></div>
-        <div class="resumen-item"><div class="resumen-val">$${total.toLocaleString()}</div><div class="resumen-lbl">Facturado</div></div>
-        <div class="resumen-item"><div class="resumen-val">${turnos.filter(t=>t.estado==='no_show').length}</div><div class="resumen-lbl">No-shows</div></div>
+        ${ES_ADMIN ? `<div class="resumen-item"><div class="resumen-val">${fmtPesos(total)}</div><div class="resumen-lbl">Facturado</div></div>` : ''}
+        <div class="resumen-item"><div class="resumen-val">${turnos.filter(t => t.estado === 'no_show').length}</div><div class="resumen-lbl">No-shows</div></div>
     `;
 }
 
-function renderTurnos(turnos) {
-    const el = document.getElementById('turnosContainer');
-    if (!turnos.length) {
-        el.innerHTML = `<div class="empty-state">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <p>No hay turnos para este día.</p>
+function renderLeyenda() {
+    document.getElementById('leyenda').innerHTML =
+        Object.entries(COLOR_CAT).map(([cat, col]) => `<span><i style="background:${col}"></i>${cat}</span>`).join('') +
+        '<span>☁ Reservó en la web</span><span><i style="outline:2px dashed #a15c12;outline-offset:-2px;background:#fff"></i>Esperando seña</span>';
+}
+
+// ─── 3 DÍAS / SEMANA: chicas × días ───
+async function cargarMatriz(desde, nDias, silencioso) {
+    mostrar('matriz');
+    const dias = Array.from({ length: nDias }, (_, i) => sumarDias(desde, i));
+    const ult = dias[dias.length - 1];
+    document.getElementById('fechaDisplay').textContent =
+        `${dias[0].getDate()}${dias[0].getMonth() !== ult.getMonth() ? ' ' + MESES_L[dias[0].getMonth()] : ''} – ${ult.getDate()} ${MESES_L[ult.getMonth()]}`;
+    const cont = document.getElementById('matrizContainer');
+    if (!silencioso) cont.innerHTML = spinner();
+
+    const turnos = await fetchTurnos(isoFecha(dias[0]), isoFecha(ult));
+    turnosCache = turnos;
+    const visibles = turnosVisibles(turnos);
+    const res = recursos(turnos);
+
+    let html = '<div class="matriz-wrap"><table class="matriz" style="min-width:' + (110 + nDias * 130) + 'px"><thead><tr><th class="m-colab"></th>';
+    dias.forEach(d => {
+        html += `<th class="${esHoy(d) ? 'm-hoy' : ''}"><span class="m-num">${d.getDate()}</span>${DIAS_L[d.getDay()].toLowerCase()}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    res.forEach(r => {
+        html += `<tr><th class="m-colab ${r.id === YO ? 'res-yo' : ''}">${esc(r.nombre.toLowerCase())}</th>`;
+        dias.forEach(d => {
+            const iso = isoFecha(d);
+            const chips = visibles.filter(t => (t.colaboradora_id || 0) === r.id && t.fecha === iso)
+                .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+            html += `<td class="m-celda ${esHoy(d) ? 'm-hoy-col' : ''}"
+                        onclick="celdaClick(${r.id}, '${iso}')"
+                        ondragover="sobreCelda(event)" ondragleave="this.classList.remove('drop-ok')" ondrop="soltarEnCelda(event, ${r.id}, '${iso}')">` +
+                chips.map(t => {
+                    const mov = !ESTADOS_INACTIVOS.includes(t.estado);
+                    return `<div class="m-chip ${claseEstado(t)}" style="background:${colorTurno(t)}" title="${esc(t.servicios?.nombre || '')}"
+                                draggable="${mov}" ondragstart="arrastrarChip(event, ${t.id})" ondragend="arrastrando=false"
+                                onclick="event.stopPropagation(); abrirDetalle(${t.id})">${hm(t.hora_inicio)} <b>${esc(nombreCliente(t))}</b>${t.canal === 'web' ? ' ☁' : ''}</div>`;
+                }).join('') + '</td>';
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    cont.innerHTML = html;
+    renderLeyenda();
+}
+
+function celdaClick(colabId, iso) {
+    abrirNuevaCita({ fecha: iso, colabId: colabId || null });
+}
+
+function arrastrarChip(ev, id) {
+    arrastrando = true;
+    ev.dataTransfer.setData('text/plain', String(id));
+    ev.dataTransfer.effectAllowed = 'move';
+}
+
+function sobreCelda(ev) {
+    ev.preventDefault();
+    ev.currentTarget.classList.add('drop-ok');
+}
+
+function soltarEnCelda(ev, colabId, iso) {
+    ev.preventDefault();
+    ev.currentTarget.classList.remove('drop-ok');
+    arrastrando = false;
+    const t = turnosCache.find(x => x.id === Number(ev.dataTransfer.getData('text/plain')));
+    if (!t || !colabId || (t.colaboradora_id === colabId && t.fecha === iso)) return;
+    abrirMover({ t, fecha: iso, hora: hm(t.hora_inicio), colabId });
+}
+
+// ─── VISTA MES ───
+async function cargarMes() {
+    mostrar('mes');
+    document.getElementById('mesContainer').innerHTML = spinner();
+    const y = fechaActual.getFullYear(), m = fechaActual.getMonth();
+    document.getElementById('fechaDisplay').textContent = `${MESES_LL[m]} ${y}`;
+    const primero = new Date(y, m, 1);
+    const ultimo  = new Date(y, m + 1, 0);
+    const turnos = (await fetchTurnos(isoFecha(primero), isoFecha(ultimo)))
+        .filter(t => !ESTADOS_INACTIVOS.includes(t.estado));
+    const porFecha = {};
+    turnos.forEach(t => { (porFecha[t.fecha] = porFecha[t.fecha] || []).push(t); });
+
+    const startDow = primero.getDay() === 0 ? 6 : primero.getDay() - 1;
+    let html = '<div class="mes-header">';
+    ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(d => html += `<div class="mes-day-label">${d}</div>`);
+    html += '</div><div class="mes-grid">';
+    for (let i = 0; i < startDow; i++) html += '<div class="mes-cell mes-empty"></div>';
+    for (let d = 1; d <= ultimo.getDate(); d++) {
+        const dt  = new Date(y, m, d);
+        const iso = isoFecha(dt);
+        const ts  = porFecha[iso] || [];
+        html += `<div class="mes-cell${esHoy(dt) ? ' mes-hoy' : ''}" onclick="irDia('${iso}')">
+            <div class="mes-num">${d}</div>
+            ${ts.length ? `<div class="mes-badge">${ts.length}</div>` : ''}
+            ${ts.slice(0,2).map(t => `<div class="mes-servicio">${esc((t.servicios?.nombre || '').split(' ')[0])}</div>`).join('')}
         </div>`;
-        return;
     }
-    turnosDia = turnos;
-    const senaVista = new Set();  // una seña cubre varios servicios: botón una sola vez
-    el.innerHTML = turnos.map(t => {
-        const sena = t.sena;
-        const senaPrimera = sena && !senaVista.has(sena.id);
-        if (sena) senaVista.add(sena.id);
-        const cancelado = ['cancelado_cliente','cancelado_salon'].includes(t.estado);
-        const cli = t.clientes_reservas;
-        const colab = t.colaboradoras;
-        const serv = t.servicios;
-        const nombre = cli ? `${cli.nombre || ''} ${cli.apellido || ''}`.trim() : '—';
-        const tel = cli?.telefono || '';
-        const cliId = cli?.id;
-        const colabor = colab?.nombre || '—';
-        const servicio = serv?.nombre || '—';
-        const hora = (t.hora_inicio || '').slice(0,5);
-        const horaFin = (t.hora_fin || '').slice(0,5);
-        return `
-        <div class="turno-card" id="card${t.id}">
-            <div class="turno-hora">${hora}<small>→ ${horaFin}</small></div>
-            <div class="turno-body">
-                <div class="turno-servicio">${servicio}</div>
-                <div class="turno-meta">
-                    <span style="cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="openHistorial(${cliId})">${nombre}</span>
-                    ${tel ? `<a href="${waLink(tel, nombre, servicio, hora, isoFecha(fechaActual))}" target="_blank" style="color:#25D366;text-decoration:none;display:inline-flex;align-items:center;gap:3px" title="WhatsApp">${tel} <svg width="11" height="11" viewBox="0 0 32 32" fill="#25D366"><path d="M16 0C7.163 0 0 7.163 0 16c0 2.822.736 5.469 2.027 7.769L0 32l8.469-2.002A15.93 15.93 0 0016 32c8.837 0 16-7.163 16-16S24.837 0 16 0zm0 29.333a13.27 13.27 0 01-6.771-1.853l-.485-.288-5.027 1.188 1.229-4.886-.317-.501A13.254 13.254 0 012.667 16C2.667 8.636 8.636 2.667 16 2.667S29.333 8.636 29.333 16 23.364 29.333 16 29.333zm7.262-9.874c-.398-.199-2.354-1.162-2.719-1.295-.365-.133-.631-.199-.897.199-.266.398-1.031 1.295-1.264 1.561-.232.266-.465.299-.863.1-.398-.199-1.68-.619-3.2-1.977-1.183-1.056-1.981-2.36-2.213-2.758-.232-.398-.025-.613.175-.811.179-.178.398-.465.597-.698.199-.232.266-.398.398-.664.133-.266.066-.499-.033-.698-.1-.199-.897-2.162-1.229-2.96-.324-.777-.653-.671-.897-.683-.232-.012-.499-.015-.765-.015s-.698.1-.864.265c-.166.166-.896.877-.896 2.138s.917 2.481 1.045 2.65c.133.166 1.793 2.75 4.352 3.858.608.263 1.082.42 1.451.537.61.195 1.165.168 1.604.102.489-.073 1.506-.616 1.719-1.211.213-.598.213-1.109.149-1.211-.066-.1-.266-.166-.564-.299z"/></svg></a>` : ''}
-                    <span>${colabor}</span>
-                    ${canalChip(t.canal)}
-                </div>
-                ${t.notas ? `<div style="font-size:12px;color:var(--muted);margin-top:5px;font-style:italic">${t.notas}</div>` : ''}
-            </div>
-            <div class="turno-right">
-                <span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span>
-                ${t.precio ? `<div class="turno-precio">$${t.precio.toLocaleString()}</div>` : ''}
-                ${sena && sena.estado === 'aprobado' ? `<span class="sena-chip sena-aprobado">Seña $${sena.monto.toLocaleString('es-MX')} ✓</span>` : ''}
-                ${sena && sena.estado === 'reembolsado' ? `<span class="sena-chip sena-reembolsado">Seña devuelta</span>` : ''}
-                ${senaPrimera && t.estado === 'esperando_pago' && sena.url_pago && tel
-                    ? `<a class="btn-wa-link" href="#" onclick="enviarLinkPago(event, ${sena.id})">Enviar link de pago</a>` : ''}
-                ${senaPrimera && sena.estado === 'aprobado' && cancelado
-                    ? `<button class="btn-devolver" onclick="devolverSena(this, ${sena.id}, ${sena.monto}, '${t.fecha}', '${hora}')">Devolver seña</button>` : ''}
-                <select class="estado-select" onchange="cambiarEstado(${t.id}, this.value, ${sena ? 'true' : 'false'})">
-                    ${ESTADOS.map(([val, lbl]) => `<option value="${val}" ${t.estado === val ? 'selected' : ''}>${lbl}</option>`).join('')}
-                </select>
-            </div>
+    html += '</div>';
+    document.getElementById('mesContainer').innerHTML = html;
+}
+
+function irDia(iso) {
+    fechaActual = new Date(iso + 'T00:00:00');
+    setVista('dia');
+}
+
+// ─── DETALLE DEL TURNO ───
+let detTurno = null;
+
+async function abrirDetalle(id) {
+    const t = turnosCache.find(x => x.id === id);
+    if (!t) return;
+    detTurno = t;
+    document.getElementById('detTitulo').textContent = nombreCliente(t);
+    verDetalleModo('ver');
+    renderDetalle(t);
+    document.getElementById('detalleModal').classList.add('open');
+    const cambios = await fetch(`/api/turno/${id}/cambios`).then(r => r.json()).catch(() => []);
+    const box = document.getElementById('detCambios');
+    if (box && detTurno?.id === id && Array.isArray(cambios) && cambios.length) {
+        box.innerHTML = '<h3>Cambios</h3>' + cambios.map(c => `<div class="det-cambio">${esc(c.detalle)}
+            <small>${esc(c.autor)} · ${new Date(c.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small></div>`).join('');
+    }
+}
+
+function renderDetalle(t) {
+    const cli = t.clientes_reservas || {};
+    const sena = t.sena;
+    const cancelado = ['cancelado_cliente','cancelado_salon'].includes(t.estado);
+    const fechaTxt = new Date(t.fecha + 'T12:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+    const grupo = cadena(t);
+    document.getElementById('detVer').innerHTML = `
+        <div class="det-chips">
+            <span class="badge badge-${esc(t.estado)}">${esc(estadoLabel(t.estado))}</span>
+            ${canalChip(t.canal)}
+            ${sena && sena.estado === 'aprobado' ? `<span class="sena-chip sena-aprobado">Seña ${fmtPesos(sena.monto)} ✓</span>` : ''}
+            ${sena && sena.estado === 'reembolsado' ? '<span class="sena-chip sena-reembolsado">Seña devuelta</span>' : ''}
         </div>
-        `;
-    }).join('');
+        <div class="det-filas">
+            <div class="det-fila"><span class="k">Cuándo</span><span>${esc(cap(fechaTxt))} · ${hm(t.hora_inicio)} – ${hm(t.hora_fin)}</span></div>
+            <div class="det-fila"><span class="k">Servicio</span><span>${esc(t.servicios?.nombre || '—')}${grupo.length > 1 ? ` <small style="color:var(--muted)">(cita de ${grupo.length} servicios)</small>` : ''}</span></div>
+            <div class="det-fila"><span class="k">Con</span><span>${esc(t.colaboradoras?.nombre || 'Sin asignar')}</span></div>
+            <div class="det-fila"><span class="k">Monto</span><span>${t.precio ? fmtPesos(t.precio) : '—'}</span></div>
+            <div class="det-fila"><span class="k">Teléfono</span><span>${cli.telefono ? `<a href="${esc(waLink(cli.telefono, cli.nombre || '', t.servicios?.nombre || '', hm(t.hora_inicio), t.fecha))}" target="_blank" style="color:#1f8f4e">${esc(cli.telefono)} · recordatorio</a>` : '—'}</span></div>
+            ${t.notas ? `<div class="det-fila"><span class="k">Notas</span><span style="font-style:italic">${esc(t.notas)}</span></div>` : ''}
+        </div>
+        <div class="det-acciones">
+            <select class="estado-select" onchange="cambiarEstado(${t.id}, this.value)">
+                ${ESTADOS.map(([val, lbl]) => `<option value="${val}" ${t.estado === val ? 'selected' : ''}>${lbl}</option>`).join('')}
+            </select>
+            ${!ESTADOS_INACTIVOS.includes(t.estado) ? `<button class="btn-linea" onclick="verDetalleModo('editar')">Mover / editar</button>` : ''}
+            ${cli.id ? `<button class="btn-linea" onclick="cerrarDetalle(); openHistorial(${cli.id})">Historial de la clienta</button>` : ''}
+        </div>
+        <div class="det-acciones">
+            ${sena && t.estado === 'esperando_pago' && sena.url_pago && cli.telefono
+                ? `<a class="btn-wa-link" href="#" onclick="enviarLinkPago(event, ${sena.id})">Enviar link de pago</a>` : ''}
+            ${ES_ADMIN && sena && sena.estado === 'aprobado' && cancelado
+                ? `<button class="btn-devolver" onclick="devolverSena(this, ${sena.id}, ${sena.monto}, '${t.fecha}', '${hm(t.hora_inicio)}')">Devolver seña</button>` : ''}
+        </div>
+        <div class="det-cambios" id="detCambios"></div>`;
 }
 
-function estadoLabel(e) {
-    const map = Object.fromEntries(ESTADOS);
-    return map[e] || e;
+async function verDetalleModo(modo) {
+    document.getElementById('detVer').style.display    = modo === 'ver' ? '' : 'none';
+    document.getElementById('detEditar').style.display = modo === 'editar' ? '' : 'none';
+    if (modo !== 'editar' || !detTurno) return;
+    const t = detTurno;
+    if (!wiServicios.length) wiServicios = await (await fetch('/api/servicios')).json();
+    document.getElementById('edFecha').value = t.fecha;
+    document.getElementById('edHora').value  = hm(t.hora_inicio);
+    document.getElementById('edNotas').value = t.notas || '';
+    document.getElementById('edColab').innerHTML = recursosTodos(t).map(c =>
+        `<option value="${c.id}" ${c.id === t.colaboradora_id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('');
+    const servs = wiServicios.some(s => s.id === t.servicio_id) ? wiServicios
+        : [{ id: t.servicio_id, nombre: t.servicios?.nombre || 'Servicio actual' }, ...wiServicios];
+    document.getElementById('edServicio').innerHTML = servs.map(s =>
+        `<option value="${s.id}" ${s.id === t.servicio_id ? 'selected' : ''}>${esc(s.nombre)}</option>`).join('');
+    const grupo = cadena(t);
+    document.getElementById('edGrupoWrap').style.display = grupo.length > 1 ? '' : 'none';
+    document.getElementById('edGrupo').checked = true;
+    document.getElementById('edGrupoTxt').textContent = `Mover toda la cita (${grupo.length} servicios)`;
 }
 
-async function cambiarEstado(id, estado, tieneSena) {
-    await fetch(`/api/turno/${id}/estado`, {
+function recursosTodos(t) {
+    const lista = colabs.slice();
+    if (t.colaboradora_id && !lista.some(c => c.id === t.colaboradora_id))
+        lista.push({ id: t.colaboradora_id, nombre: t.colaboradoras?.nombre || '—' });
+    return lista;
+}
+
+function guardarEdicion() {
+    const t = detTurno;
+    if (!t) return;
+    const hora = document.getElementById('edHora').value;
+    const fecha = document.getElementById('edFecha').value;
+    if (!hora || !fecha) return;
+    cerrarDetalle();
+    abrirMover({
+        t, fecha, hora,
+        colabId:    Number(document.getElementById('edColab').value),
+        servicioId: Number(document.getElementById('edServicio').value),
+        notas:      document.getElementById('edNotas').value,
+        grupo:      document.getElementById('edGrupo').checked,
+        auto:       true,
+    });
+}
+
+function cerrarDetalle(e) {
+    if (e && e.target !== document.getElementById('detalleModal')) return;
+    document.getElementById('detalleModal').classList.remove('open');
+    detTurno = null;
+}
+
+async function cambiarEstado(id, estado) {
+    const r = await fetch(`/api/turno/${id}/estado`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado })
     });
-    // Con seña, re-renderizar para mostrar/ocultar "Devolver seña"
-    if (tieneSena) { cargarAgenda(); return; }
-    // Refrescar badge sin recargar toda la lista
-    const card = document.getElementById(`card${id}`);
-    if (card) {
-        const badge = card.querySelector('.badge');
-        badge.className = `badge badge-${estado}`;
-        badge.textContent = estadoLabel(estado);
-    }
+    const d = await r.json().catch(() => ({}));
+    if (!d.success) { alert(d.error || 'No se pudo cambiar el estado.'); return; }
+    await cargarVista(true);
+    if (detTurno?.id === id) abrirDetalle(id);
 }
 
 async function devolverSena(btn, pagoId, monto, fecha, hora) {
     const horasAntes = (new Date(`${fecha}T${hora}:00`) - new Date()) / 36e5;
-    let msg = `¿Devolver la seña de $${monto.toLocaleString('es-MX')} por Mercado Pago?\n\nEl reembolso no se puede deshacer.`;
+    let msg = `¿Devolver la seña de ${fmtPesos(monto)} por Mercado Pago?\n\nEl reembolso no se puede deshacer.`;
     if (horasAntes < 24) {
         msg = `⚠️ Faltan menos de 24 hs para la cita: según la política la seña NO se devuelve.\n\n` + msg;
     }
@@ -885,7 +1256,93 @@ async function devolverSena(btn, pagoId, monto, fecha, hora) {
         btn.textContent = 'Devolver seña';
         return;
     }
-    cargarAgenda();
+    const id = detTurno?.id;
+    await cargarVista(true);
+    if (id) abrirDetalle(id);
+}
+
+// ─── MOVER (arrastrar o editar) ───
+let mover = null;   // {t, fecha, hora, colabId, servicioId?, notas?, revert?, forzar}
+
+function abrirMover(p) {
+    mover = { ...p, forzar: false };
+    const t = p.t;
+    const grupo = cadena(t);
+    const colab = recursosTodos(t).find(c => c.id === p.colabId);
+    const fechaTxt = new Date(p.fecha + 'T12:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('mvResumen').innerHTML =
+        `<strong>${esc(nombreCliente(t))}</strong> · ${esc(t.servicios?.nombre || '')}<br>` +
+        `<span style="color:var(--muted)">Antes:</span> ${hm(t.hora_inicio)} con ${esc(t.colaboradoras?.nombre || 'sin asignar')}` +
+        (p.fecha !== t.fecha ? ` (${new Date(t.fecha + 'T12:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })})` : '') + '<br>' +
+        `<span style="color:var(--muted)">Ahora:</span> <strong>${esc(cap(fechaTxt))}</strong> a las <strong>${esc(p.hora)}</strong> con <strong>${esc(colab?.nombre || '')}</strong>`;
+    document.getElementById('mvGrupoWrap').style.display = grupo.length > 1 ? '' : 'none';
+    document.getElementById('mvGrupo').checked = p.grupo !== undefined ? p.grupo : true;
+    document.getElementById('mvGrupoTxt').textContent = `Mover toda la cita (${grupo.length} servicios)`;
+    document.getElementById('mvConflictos').innerHTML = '';
+    document.getElementById('mvError').textContent = '';
+    document.getElementById('mvBtn').textContent = 'Mover';
+    document.getElementById('mvBtn').disabled = false;
+    document.getElementById('mvForm').style.display = '';
+    document.getElementById('mvOk').style.display = 'none';
+    document.getElementById('moverOverlay').classList.add('open');
+    if (p.auto) confirmarMover();
+}
+
+async function confirmarMover() {
+    if (!mover) return;
+    const btn = document.getElementById('mvBtn');
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    const body = {
+        fecha: mover.fecha,
+        hora_inicio: mover.hora,
+        colaboradora_id: mover.colabId,
+        mover_grupo: document.getElementById('mvGrupo').checked,
+        forzar: mover.forzar,
+    };
+    if (mover.servicioId) body.servicio_id = mover.servicioId;
+    if (mover.notas !== undefined) body.notas = mover.notas;
+    const r = await fetch(`/api/turno/${mover.t.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(() => ({ error: 'Error de conexión.' }));
+    btn.disabled = false; btn.textContent = label;
+
+    if (r.status === 409 && d.conflictos) {
+        mover.forzar = true;
+        document.getElementById('mvConflictos').innerHTML =
+            `<div class="aviso"><strong>Ojo:</strong><ul>${d.conflictos.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>`;
+        btn.textContent = 'Mover igual';
+        return;
+    }
+    if (!d.success) { document.getElementById('mvError').textContent = d.error || 'No se pudo mover.'; return; }
+
+    mover.revert = null;   // ya quedó guardado: al cerrar no se deshace
+    const cli = d.cliente || {};
+    const fechaTxt = new Date(d.fecha + 'T12:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('mvOkResumen').innerHTML =
+        `<strong>${esc(cli.nombre || nombreCliente(mover.t))}</strong><br>` +
+        `${esc(cap(fechaTxt))} a las ${esc(d.hora)} hs<br>` +
+        `${esc(d.servicios.join(', '))} · ${esc(d.colaboradora)}`;
+    const wa = document.getElementById('mvWa');
+    if (cli.telefono) {
+        const msg = `Hola ${cli.nombre || ''}! Te escribimos de Maru Nails 💅 Tu cita quedó para el ` +
+            `${fechaLarga(d.fecha)} a las ${d.hora} hs\n✨ ${d.servicios.join(', ')}\n👩 Con ${d.colaboradora}\n\n📍 27 Itzamna 12, Tulum`;
+        wa.href = `https://wa.me/${waPhone(cli.telefono)}?text=${encodeURIComponent(msg)}`;
+        wa.style.display = '';
+    } else {
+        wa.style.display = 'none';
+    }
+    document.getElementById('mvForm').style.display = 'none';
+    document.getElementById('mvOk').style.display = '';
+    cargarVista(true);
+}
+
+function cerrarMover() {
+    if (mover?.revert) mover.revert();   // arrastre cancelado: vuelve a su lugar
+    mover = null;
+    document.getElementById('moverOverlay').classList.remove('open');
+    cargarVista(true);
 }
 
 // wa.me necesita el número con código de país: los celulares de México se guardan con 10 dígitos
@@ -895,114 +1352,10 @@ function waPhone(tel) {
 }
 
 function waLink(tel, nombre, servicio, hora, fecha) {
-    const phone = waPhone(tel);
     const msg = encodeURIComponent(
-        `Hola ${nombre}! Te recordamos tu turno para *${servicio}* el ${fecha} a las ${hora} hs en Maru Nails. ¡Te esperamos! 💅`
+        `Hola ${nombre}! Te recordamos tu cita para *${servicio}* el ${fechaLarga(fecha)} a las ${hora} hs en Maru Nails. ¡Te esperamos! 💅`
     );
-    return `https://wa.me/${phone}?text=${msg}`;
-}
-
-// ─── VISTA SEMANA ───
-async function cargarSemana() {
-    document.getElementById('turnosContainer').style.display = 'none';
-    document.getElementById('mesContainer').style.display = 'none';
-    document.getElementById('resumenBar').style.display = 'none';
-    document.getElementById('semanaContainer').style.display = '';
-    document.getElementById('semanaContainer').innerHTML =
-        '<div class="loading-spinner"><div style="width:24px;height:24px;border:2px solid #E2D5CB;border-top-color:#5C3826;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px"></div>Cargando...</div>';
-
-    // Calcular lunes de la semana actual
-    const lunes = cloneDate(fechaActual);
-    const dow = lunes.getDay() === 0 ? 6 : lunes.getDay() - 1;
-    lunes.setDate(lunes.getDate() - dow);
-    const sabado = cloneDate(lunes); sabado.setDate(lunes.getDate() + 5);
-    document.getElementById('fechaDisplay').textContent =
-        `${lunes.getDate()} – ${sabado.getDate()} ${MESES_L[sabado.getMonth()]}`;
-
-    const res = await fetch(`/api/agenda?desde=${isoFecha(lunes)}&hasta=${isoFecha(sabado)}`);
-    const turnos = await res.json();
-
-    let html = '<div class="semana-grid">';
-    for (let i = 0; i < 6; i++) {
-        const dia = cloneDate(lunes); dia.setDate(lunes.getDate() + i);
-        const isoD = isoFecha(dia);
-        const today = new Date(); today.setHours(0,0,0,0);
-        const esHoy = dia.toDateString() === today.toDateString();
-        const del_dia = turnos.filter(t => t.fecha === isoD);
-        html += `
-        <div class="semana-col">
-            <div class="semana-col-header${esHoy ? ' s-hoy' : ''}">
-                <div class="sn">${DIAS_C[dia.getDay()]}</div>
-                <div class="sd">${dia.getDate()} ${MESES_L[dia.getMonth()]}</div>
-            </div>
-            <div class="semana-col-body">
-                ${del_dia.length ? del_dia.map(t => {
-                    const cli = t.clientes_reservas;
-                    const nombre = cli ? `${cli.nombre||''} ${cli.apellido||''}`.trim() : '—';
-                    const cliId = cli?.id;
-                    return `<div class="turno-mini" onclick="openHistorial(${cliId})">
-                        <div class="tm-hora">${(t.hora_inicio||'').slice(0,5)}</div>
-                        <div class="tm-serv">${t.servicios?.nombre||'—'}</div>
-                        <div class="tm-cli">${nombre}</div>
-                    </div>`;
-                }).join('') : '<div class="semana-vacia">—</div>'}
-            </div>
-        </div>`;
-    }
-    html += '</div>';
-    document.getElementById('semanaContainer').innerHTML = html;
-}
-
-// ─── VISTA MES ───
-async function cargarMes() {
-    document.getElementById('turnosContainer').style.display = 'none';
-    document.getElementById('semanaContainer').style.display = 'none';
-    document.getElementById('resumenBar').style.display = 'none';
-    document.getElementById('mesContainer').style.display = '';
-    document.getElementById('mesContainer').innerHTML =
-        '<div class="loading-spinner"><div style="width:24px;height:24px;border:2px solid #E2D5CB;border-top-color:#5C3826;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px"></div>Cargando...</div>';
-
-    const y = fechaActual.getFullYear(), m = fechaActual.getMonth();
-    document.getElementById('fechaDisplay').textContent = `${MESES_LL[m]} ${y}`;
-    const primero = new Date(y, m, 1);
-    const ultimo  = new Date(y, m+1, 0);
-
-    const res = await fetch(`/api/agenda?desde=${isoFecha(primero)}&hasta=${isoFecha(ultimo)}`);
-    const turnos = await res.json();
-
-    // Agrupar por fecha
-    const porFecha = {};
-    turnos.forEach(t => { (porFecha[t.fecha] = porFecha[t.fecha]||[]).push(t); });
-
-    const today = new Date(); today.setHours(0,0,0,0);
-    let startDow = primero.getDay() === 0 ? 6 : primero.getDay() - 1;
-
-    let html = '<div class="mes-header">';
-    ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(d => html += `<div class="mes-day-label">${d}</div>`);
-    html += '</div><div class="mes-grid">';
-    for (let i = 0; i < startDow; i++) html += '<div class="mes-cell mes-empty"></div>';
-    for (let d = 1; d <= ultimo.getDate(); d++) {
-        const dt   = new Date(y, m, d);
-        const iso  = isoFecha(dt);
-        const esDom = dt.getDay() === 0;
-        const esHoy = dt.toDateString() === today.toDateString();
-        const ts    = porFecha[iso] || [];
-        let cls = 'mes-cell' + (esDom ? ' mes-dom' : '') + (esHoy ? ' mes-hoy' : '');
-        const onclick = !esDom ? `onclick="irDia('${iso}')"` : '';
-        html += `<div class="${cls}" ${onclick}>
-            <div class="mes-num">${d}</div>
-            ${ts.length ? `<div class="mes-badge">${ts.length}</div>` : ''}
-            ${ts.slice(0,2).map(t => `<div class="mes-servicio">${(t.servicios?.nombre||'').split(' ')[0]}</div>`).join('')}
-        </div>`;
-    }
-    html += '</div>';
-    document.getElementById('mesContainer').innerHTML = html;
-}
-
-function irDia(iso) {
-    fechaActual = new Date(iso + 'T12:00:00');
-    fechaActual.setHours(0,0,0,0);
-    setVista('dia');
+    return `https://wa.me/${waPhone(tel)}?text=${msg}`;
 }
 
 // ─── HISTORIAL ───
@@ -1011,26 +1364,27 @@ async function openHistorial(clienteId) {
     const res = await fetch(`/api/cliente/${clienteId}/historial`);
     const data = await res.json();
     const { cliente, turnos } = data;
+    if (!cliente) return;
 
     document.getElementById('hpanelNombre').textContent = `${cliente.nombre} ${cliente.apellido||''}`.trim();
 
     const bloqueadoBadge = cliente.bloqueado
         ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:9px 13px;margin-bottom:10px;font-size:12px;color:#dc2626;font-weight:600">
-            ⛔ Cliente bloqueado${cliente.motivo_bloqueo ? ': ' + cliente.motivo_bloqueo : ''}
+            ⛔ Cliente bloqueado${cliente.motivo_bloqueo ? ': ' + esc(cliente.motivo_bloqueo) : ''}
            </div>` : '';
     const alergiasBlock = cliente.alergias
         ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:9px 13px;margin-bottom:10px">
             <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#dc2626">⚠ Alergias / notas especiales</span>
-            <p style="font-size:12px;color:#991b1b;margin-top:4px">${cliente.alergias}</p>
+            <p style="font-size:12px;color:#991b1b;margin-top:4px">${esc(cliente.alergias)}</p>
            </div>` : '';
 
     document.getElementById('hpanelInfo').innerHTML = `
         ${bloqueadoBadge}
         ${alergiasBlock}
-        <strong>${cliente.nombre} ${cliente.apellido||''}</strong>
-        <span>${cliente.telefono}</span>
-        ${cliente.email ? `<br><span>${cliente.email}</span>` : ''}
-        ${cliente.idioma && cliente.idioma !== 'es' ? `<br><span>Idioma: ${cliente.idioma}</span>` : ''}
+        <strong>${esc(cliente.nombre)} ${esc(cliente.apellido||'')}</strong>
+        <span>${esc(cliente.telefono)}</span>
+        ${cliente.email ? `<br><span>${esc(cliente.email)}</span>` : ''}
+        ${cliente.idioma && cliente.idioma !== 'es' ? `<br><span>Idioma: ${esc(cliente.idioma)}</span>` : ''}
         <br><button onclick="editarAlergiasCliente(${cliente.id})"
             style="margin-top:8px;padding:5px 12px;border:1px solid var(--sand);border-radius:6px;background:#fff;font-size:11px;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif">
             ✏ Editar alergias
@@ -1041,20 +1395,21 @@ async function openHistorial(clienteId) {
     const ult = turnos[0];
     document.getElementById('hpanelStats').innerHTML = `
         <div class="hstat"><div class="hstat-val">${activos.length}</div><div class="hstat-lbl">Visitas</div></div>
-        <div class="hstat"><div class="hstat-val">$${total.toLocaleString()}</div><div class="hstat-lbl">Total</div></div>
+        <div class="hstat"><div class="hstat-val">${fmtPesos(total)}</div><div class="hstat-lbl">Total</div></div>
         <div class="hstat"><div class="hstat-val">${ult ? new Date(ult.fecha+'T12:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'}) : '—'}</div><div class="hstat-lbl">Última visita</div></div>
     `;
     document.getElementById('hpanelLista').innerHTML = turnos.length ? turnos.map(t => {
         const fechaF = new Date(t.fecha+'T12:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
         return `<div class="hitem">
             <div class="hitem-fecha">${fechaF}</div>
-            <div class="hitem-serv">${t.servicios?.nombre||'—'}</div>
+            <div class="hitem-serv">${esc(t.servicios?.nombre||'—')}</div>
             <div class="hitem-meta">
-                <span>${t.colaboradoras?.nombre||''}</span>
-                ${t.precio ? `<span>$${t.precio.toLocaleString()}</span>` : ''}
-                <span class="hestado">${estadoLabel(t.estado)}</span>
+                <span>${esc(t.colaboradoras?.nombre||'')}</span>
+                ${t.precio ? `<span>${fmtPesos(t.precio)}</span>` : ''}
+                <span class="hestado">${esc(estadoLabel(t.estado))}</span>
+                ${canalChip(t.canal)}
             </div>
-            ${t.notas ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">${t.notas}</div>` : ''}
+            ${t.notas ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">${esc(t.notas)}</div>` : ''}
         </div>`;
     }).join('') : '<p style="font-size:13px;color:var(--muted);text-align:center;padding:20px">Sin turnos registrados.</p>';
 
@@ -1074,38 +1429,33 @@ async function abrirWalkin() {
     document.getElementById('wiNombre').value = '';
     document.getElementById('wiTelefono').value = '';
     document.getElementById('wiNotas').value = '';
-    // Hora actual
-    const now = new Date();
-    document.getElementById('wiHora').value =
-        `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('wiHora').value = hhmmDate(new Date());
 
-    // Cargar servicios y colaboradoras en paralelo
     const [rServ] = await Promise.all([
         wiServicios.length ? null : fetch('/api/servicios'),
         wiCargarColabs(),
     ]);
-    if (rServ) {
-        wiServicios = await rServ.json();
-        const sel = document.getElementById('wiServicio');
-        sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-            wiServicios.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
-    }
+    if (rServ) wiServicios = await rServ.json();
+    document.getElementById('wiServicio').innerHTML = '<option value="">— Seleccionar —</option>' +
+        wiServicios.map(s => `<option value="${s.id}">${esc(s.nombre)}</option>`).join('');
+    if (YO !== null) document.getElementById('wiColab').value = String(YO);
     document.getElementById('walkinOverlay').classList.add('open');
     document.getElementById('wiServicio').focus();
 }
 
 async function wiCargarColabs() {
     const sel = document.getElementById('wiColab');
+    const prev = sel.value;
     sel.innerHTML = '<option value="">Cargando...</option>';
-    const fecha = isoFecha(new Date());
-    const r = await fetch(`/api/colaboradoras/disponibles?fecha=${fecha}`);
-    const colabs = await r.json();
-    if (!colabs.length) {
+    const r = await fetch(`/api/colaboradoras/disponibles?fecha=${isoFecha(new Date())}`);
+    const lista = await r.json();
+    if (!lista.length) {
         sel.innerHTML = '<option value="">Sin colaboradoras disponibles hoy</option>';
         return;
     }
     sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-        colabs.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        lista.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
 function cerrarWalkin() {
@@ -1126,12 +1476,12 @@ async function guardarWalkin() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            nombre:        document.getElementById('wiNombre').value.trim() || 'Walk in',
-            telefono:      document.getElementById('wiTelefono').value.trim(),
-            servicio_id:   servId,
+            nombre:          document.getElementById('wiNombre').value.trim() || 'Walk in',
+            telefono:        document.getElementById('wiTelefono').value.trim(),
+            servicio_id:     servId,
             colaboradora_id: colabId,
-            hora:          document.getElementById('wiHora').value,
-            notas:         document.getElementById('wiNotas').value.trim(),
+            hora:            document.getElementById('wiHora').value,
+            notas:           document.getElementById('wiNotas').value.trim(),
         })
     });
     const data = await res.json();
@@ -1139,19 +1489,17 @@ async function guardarWalkin() {
 
     if (data.error) { errEl.textContent = data.error; return; }
     cerrarWalkin();
-    // Volver a la vista Día de hoy y recargar
-    fechaActual = new Date(); fechaActual.setHours(0,0,0,0);
+    fechaActual = cloneDate(new Date());
     setVista('dia');
 }
 
 // ─── CANAL / WHATSAPP ───
-const CANALES = { web: 'Web', recepcion: 'Recepción' };
+const CANALES = { web: 'Web', recepcion: 'Recepción', 'walk-in': 'Walk-in' };
 const HOLD_RECEPCION_MIN = {{ hold_recepcion_min }};
-let turnosDia = [];
 
 function canalChip(canal) {
-    if (CANALES[canal]) return `<span class="canal-chip canal-${canal}">${CANALES[canal]}</span>`;
-    return canal ? `<span>${canal}</span>` : '';
+    if (CANALES[canal]) return `<span class="canal-chip canal-${esc(canal)}">${CANALES[canal]}</span>`;
+    return canal ? `<span>${esc(canal)}</span>` : '';
 }
 
 function fechaLarga(iso) {
@@ -1172,19 +1520,18 @@ function msgCita({ nombre, fecha, hora, servicios, colaboradora, urlPago, monto,
 }
 
 function horaMas(fechaBase, minutos) {
-    const d = new Date(fechaBase.getTime() + minutos * 60000);
-    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return hhmmDate(new Date(fechaBase.getTime() + minutos * 60000));
 }
 
 function enviarLinkPago(ev, pagoId) {
     ev.preventDefault();
-    const grupo = turnosDia.filter(t => t.sena && t.sena.id === pagoId);
+    const grupo = turnosCache.filter(t => t.sena && t.sena.id === pagoId);
     if (!grupo.length) return;
     const t0 = grupo[0], cli = t0.clientes_reservas || {};
     const msg = msgCita({
         nombre: cli.nombre || '',
         fecha: t0.fecha,
-        hora: (t0.hora_inicio || '').slice(0,5),
+        hora: hm(t0.hora_inicio),
         servicios: grupo.map(t => t.servicios?.nombre || ''),
         colaboradora: t0.colaboradoras?.nombre || '',
         urlPago: t0.sena.url_pago,
@@ -1195,13 +1542,15 @@ function enviarLinkPago(ev, pagoId) {
 }
 
 // ─── NUEVA CITA (recepción) ───
-let ncServs = [];      // servicios elegidos [{id, nombre}]
+let ncServs = [];         // servicios elegidos [{id, nombre}]
 let ncHora  = null;
+let ncPre   = {};         // precarga desde un clic en la agenda {fecha, hora, colabId}
 
-async function abrirNuevaCita() {
+async function abrirNuevaCita(pre) {
+    ncPre = pre || {};
     ['ncNombre','ncTel','ncNotas'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('ncError').textContent = '';
-    document.getElementById('ncFecha').value = isoFecha(fechaActual);
+    document.getElementById('ncFecha').value = ncPre.fecha || isoFecha(fechaActual);
     const chk = document.getElementById('ncSena');
     if (chk) chk.checked = true;
     ncServs = []; ncHora = null;
@@ -1209,9 +1558,10 @@ async function abrirNuevaCita() {
     document.getElementById('ncOk').style.display = 'none';
     if (!wiServicios.length) wiServicios = await (await fetch('/api/servicios')).json();
     document.getElementById('ncServicio').innerHTML = '<option value="">+ Agregar servicio</option>' +
-        wiServicios.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+        wiServicios.map(s => `<option value="${s.id}">${esc(s.nombre)}</option>`).join('');
     ncRenderTags();
-    await ncCargarColabs();
+    document.getElementById('ncColab').innerHTML = '<option value="any">Cualquiera</option>';
+    await ncCargarColabs(ncPre.colabId || null);
     ncActualizarBoton();
     document.getElementById('citaOverlay').classList.add('open');
     document.getElementById('ncNombre').focus();
@@ -1221,8 +1571,8 @@ function cerrarNuevaCita(recargar) {
     document.getElementById('citaOverlay').classList.remove('open');
     if (recargar) {
         const f = document.getElementById('ncFecha').value;
-        if (f) { fechaActual = new Date(f + 'T00:00:00'); }
-        setVista('dia');
+        if (f && vista === 'dia') fechaActual = new Date(f + 'T00:00:00');
+        cargarVista();
     }
 }
 
@@ -1244,16 +1594,16 @@ function ncQuitarServicio(i) {
 
 function ncRenderTags() {
     document.getElementById('ncTags').innerHTML = ncServs.map((s, i) =>
-        `<span class="nc-tag">${s.nombre}<button type="button" onclick="ncQuitarServicio(${i})">×</button></span>`).join('');
+        `<span class="nc-tag">${esc(s.nombre)}<button type="button" onclick="ncQuitarServicio(${i})">×</button></span>`).join('');
 }
 
-async function ncCargarColabs() {
+async function ncCargarColabs(preferida) {
     const sel = document.getElementById('ncColab');
-    const prev = sel.value;
+    const prev = preferida ? String(preferida) : sel.value;
     const q = ncServs.length ? `?servicio_ids=${ncServs.map(s => s.id).join(',')}` : '';
-    const colabs = await (await fetch('/api/colaboradoras' + q)).json();
+    const lista = await (await fetch('/api/colaboradoras' + q)).json();
     sel.innerHTML = '<option value="any">Cualquiera</option>' +
-        (Array.isArray(colabs) ? colabs : []).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        (Array.isArray(lista) ? lista : []).map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
     if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
     ncCargarSlots();
 }
@@ -1270,6 +1620,14 @@ async function ncCargarSlots() {
     if (!Array.isArray(slots) || !slots.length) { box.innerHTML = '<div class="nc-hint">No hay horarios libres ese día.</div>'; return; }
     box.innerHTML = '<div class="nc-slots">' + slots.map(s =>
         `<button type="button" class="nc-slot" data-hora="${s.hora}" onclick="ncElegirHora('${s.hora}')">${s.hora}</button>`).join('') + '</div>';
+    // Si se abrió con un clic en la agenda, preseleccionar el primer horario libre desde esa hora
+    if (ncPre.hora && fecha === ncPre.fecha) {
+        const s = slots.find(x => x.hora >= ncPre.hora);
+        if (s) {
+            ncElegirHora(s.hora);
+            box.querySelector('.nc-slot.sel')?.scrollIntoView({ block: 'nearest' });
+        }
+    }
 }
 
 function ncElegirHora(h) {
@@ -1328,9 +1686,9 @@ async function guardarNuevaCita() {
     });
     document.getElementById('ncOkTitulo').textContent = conLink ? '⏳ Cita creada — esperando seña' : '✅ Cita confirmada';
     document.getElementById('ncResumen').innerHTML =
-        `<strong>${nombre}</strong> · ${tel}<br>` +
+        `<strong>${esc(nombre)}</strong> · ${esc(tel)}<br>` +
         `${fechaLarga(fecha)} a las ${ncHora} hs<br>` +
-        `${data.servicios.join(', ')} · ${data.colaboradora}<br>` +
+        `${esc(data.servicios.join(', '))} · ${esc(data.colaboradora)}<br>` +
         (conLink ? `<span style="color:var(--muted)">El horario queda reservado ${data.hold_min / 60} hs. Si no paga, se libera solo.</span>`
                  : `<span style="color:var(--muted)">Sin seña.</span>`);
     document.getElementById('ncWa').href = `https://wa.me/${waPhone(tel)}?text=${encodeURIComponent(msg)}`;
@@ -1356,11 +1714,9 @@ async function editarAlergiasCliente(cid) {
 async function cargarEspera() {
     const r = await fetch('/api/lista-espera');
     const lista = await r.json();
-    const section = document.getElementById('esperaSection');
     const badge   = document.getElementById('esperaBadge');
     const content = document.getElementById('esperaContent');
-    section.style.display = '';
-    if (!lista.length) {
+    if (!Array.isArray(lista) || !lista.length) {
         badge.style.display = 'none';
         content.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic">Sin entradas activas.</div>';
         return;
@@ -1371,17 +1727,16 @@ async function cargarEspera() {
         const serv   = e.servicios?.nombre || 'Cualquier servicio';
         const colab  = e.colaboradoras?.nombre || '';
         const nombre = e.nombre || e.telefono || '—';
-        const tel    = e.telefono || '';
         const fecha  = e.fecha_preferida ? new Date(e.fecha_preferida + 'T12:00').toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '';
         const hora   = e.hora_preferida ? e.hora_preferida.slice(0,5) : '';
         return `<div class="espera-card">
             <div class="espera-body">
-                <div class="espera-nombre">${nombre}</div>
+                <div class="espera-nombre">${esc(nombre)}</div>
                 <div class="espera-meta">
-                    <span>${serv}</span>
-                    ${colab ? `<span>${colab}</span>` : ''}
+                    <span>${esc(serv)}</span>
+                    ${colab ? `<span>${esc(colab)}</span>` : ''}
                     ${fecha ? `<span>${fecha}${hora ? ' ' + hora : ''}</span>` : ''}
-                    ${e.notas ? `<span style="font-style:italic">${e.notas}</span>` : ''}
+                    ${e.notas ? `<span style="font-style:italic">${esc(e.notas)}</span>` : ''}
                 </div>
             </div>
             <div class="espera-actions">
@@ -1405,15 +1760,12 @@ function abrirModalEspera() {
     ['ewNombre','ewTelefono','ewNotas'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('ewFecha').value = isoFecha(fechaActual);
     document.getElementById('ewHora').value  = '';
+    const llenar = s => document.getElementById('ewServicio').innerHTML = '<option value="">— Cualquiera —</option>' +
+        s.map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
     if (!wiServicios.length) {
-        fetch('/api/servicios').then(r => r.json()).then(s => {
-            wiServicios = s;
-            document.getElementById('ewServicio').innerHTML = '<option value="">— Cualquiera —</option>' +
-                s.map(x => `<option value="${x.id}">${x.nombre}</option>`).join('');
-        });
+        fetch('/api/servicios').then(r => r.json()).then(s => { wiServicios = s; llenar(s); });
     } else {
-        document.getElementById('ewServicio').innerHTML = '<option value="">— Cualquiera —</option>' +
-            wiServicios.map(x => `<option value="${x.id}">${x.nombre}</option>`).join('');
+        llenar(wiServicios);
     }
     document.getElementById('esperaOverlay').classList.add('open');
 }
@@ -1447,6 +1799,9 @@ async function guardarEspera() {
 }
 
 // init
-cargarAgenda();
+// Los modales van directo en <body>: dentro de <main> (z-index 1) quedaban debajo del menú
+document.querySelectorAll('.walkin-overlay, .modal-overlay').forEach(o => document.body.appendChild(o));
+cargarVista();
+
 </script>
 {% endblock %}

@@ -12,9 +12,13 @@ import httpx
 import anthropic as _anthropic
 
 from supabase import create_client
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'marunails_secret_2026')
+# Las chicas del equipo quedan logueadas 30 días en su celular
+app.permanent_session_lifetime = timedelta(days=30)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://dbhxrboacqppximbcokz.supabase.co')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHhyYm9hY3FwcHhpbWJjb2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Mjg1NDMsImV4cCI6MjA5OTAwNDU0M30.fcVl9hwRTACJrp4BH7CZdj5ZzPa7-VaAqJlUdHH-NKs')
@@ -93,13 +97,58 @@ MESES_ES = {
 }
 
 
+def es_admin():
+    return bool(session.get('admin_logged_in'))
+
+
+def equipo_valido():
+    """Sesión de una chica del equipo. Se revalida contra equipo_acceso en cada request:
+    si la admin le quitó el acceso (o la desactivó) la sesión deja de valer."""
+    cid = session.get('equipo_id')
+    if not cid:
+        return False
+    try:
+        fila = sb_service().table('equipo_acceso').select('updated_at').eq(
+            'colaboradora_id', cid).limit(1).execute().data
+    except Exception:
+        return False
+    if not fila or fila[0]['updated_at'] != session.get('equipo_ver'):
+        session.clear()
+        return False
+    return True
+
+
+def _sin_permiso(destino):
+    if request.path.startswith('/api/') or request.path.startswith('/admin/api/'):
+        return jsonify({'error': 'Sin permiso. Volvé a iniciar sesión.'}), 401 if destino == 'login' else 403
+    return redirect(url_for(destino))
+
+
 def require_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get('admin_logged_in'):
-            return redirect(url_for('login'))
+        if not es_admin():
+            # Una chica del equipo que entra a una página del sistema vuelve a la agenda
+            return _sin_permiso('agenda' if session.get('equipo_id') else 'login')
         return f(*args, **kwargs)
     return decorated
+
+
+def require_equipo(f):
+    """Admin o una chica del equipo con sesión válida."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not (es_admin() or equipo_valido()):
+            return _sin_permiso('login')
+        return f(*args, **kwargs)
+    return decorated
+
+
+def autor_actual():
+    """(nombre, colaboradora_id) de quien hace el cambio, para turno_cambios."""
+    if es_admin():
+        return 'Admin', None
+    return session.get('equipo_nombre') or 'Equipo', session.get('equipo_id')
 
 
 def get_sb():
@@ -109,12 +158,17 @@ def get_sb():
 _sb_admin = None
 
 
-def tabla_pagos():
-    """pagos_sena solo se toca desde el server con la service key (bypassea RLS)."""
+def sb_service():
+    """Cliente con la service key (bypassea RLS): pagos_sena, equipo_acceso, turno_cambios."""
     global _sb_admin
     if _sb_admin is None:
         _sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    return _sb_admin.table('pagos_sena')
+    return _sb_admin
+
+
+def tabla_pagos():
+    """pagos_sena solo se toca desde el server con la service key (bypassea RLS)."""
+    return sb_service().table('pagos_sena')
 
 
 def ahora_salon():
@@ -601,18 +655,84 @@ def clientes_por_volver(cortes, ventana=21):
 
 
 # ── AUTH ───────────────────────────────────────────────────────────────────────
+PIN_MAX_INTENTOS = 5
+PIN_BLOQUEO_MIN  = 15
+
+
+def equipo_con_acceso():
+    """Colaboradoras activas que tienen PIN cargado (para el selector del login)."""
+    try:
+        ids = [r['colaboradora_id'] for r in
+               sb_service().table('equipo_acceso').select('colaboradora_id').execute().data]
+    except Exception:
+        return []
+    if not ids:
+        return []
+    return get_sb().table('colaboradoras').select('id,nombre').in_('id', ids).eq(
+        'activa', True).order('nombre').execute().data
+
+
+def login_equipo(colab_id, pin):
+    """Valida nombre + PIN. Devuelve None si entra, o el mensaje de error."""
+    if not colab_id.isdigit() or not re.fullmatch(r'\d{4}', pin or ''):
+        return 'Elegí tu nombre y poné tu PIN de 4 números.'
+    tabla = sb_service().table('equipo_acceso')
+    fila = tabla.select('*').eq('colaboradora_id', int(colab_id)).limit(1).execute().data
+    colab = get_sb().table('colaboradoras').select('nombre,activa').eq(
+        'id', int(colab_id)).limit(1).execute().data
+    if not fila or not colab or not colab[0]['activa']:
+        return 'Esa colaboradora no tiene acceso. Pedíselo a la encargada.'
+    acc = fila[0]
+    ahora = datetime.now(timezone.utc)
+    if acc.get('bloqueado_hasta') and _parse_ts(acc['bloqueado_hasta']) > ahora:
+        return f'Demasiados intentos. Probá de nuevo en {PIN_BLOQUEO_MIN} minutos.'
+    if not check_password_hash(acc['pin_hash'], pin):
+        intentos = (acc.get('intentos_fallidos') or 0) + 1
+        cambios = {'intentos_fallidos': intentos}
+        if intentos >= PIN_MAX_INTENTOS:
+            cambios = {'intentos_fallidos': 0,
+                       'bloqueado_hasta': (ahora + timedelta(minutes=PIN_BLOQUEO_MIN)).isoformat()}
+        tabla.update(cambios).eq('colaboradora_id', int(colab_id)).execute()
+        return 'PIN incorrecto.'
+    if acc.get('intentos_fallidos') or acc.get('bloqueado_hasta'):
+        tabla.update({'intentos_fallidos': 0, 'bloqueado_hasta': None}).eq(
+            'colaboradora_id', int(colab_id)).execute()
+    session.clear()
+    session['equipo_id']     = int(colab_id)
+    session['equipo_nombre'] = colab[0]['nombre']
+    session['equipo_ver']    = acc['updated_at']
+    session.permanent = True
+    return None
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if session.get('admin_logged_in'):
+    if es_admin():
         return redirect(url_for('index'))
-    error = None
+    if session.get('equipo_id') and equipo_valido():
+        return redirect(url_for('agenda'))
+    error, modo = None, request.form.get('modo') or request.args.get('modo') or 'equipo'
     if request.method == 'POST':
-        if request.form.get('password') == ADMIN_PASSWORD:
-            session['admin_logged_in'] = True
-            session.permanent = False
-            return redirect(url_for('index'))
-        error = 'Contraseña incorrecta'
-    return render_template('login.html', error=error)
+        if modo == 'admin':
+            if request.form.get('password') == ADMIN_PASSWORD:
+                session.clear()
+                session['admin_logged_in'] = True
+                session.permanent = False
+                return redirect(url_for('index'))
+            error = 'Contraseña incorrecta'
+        else:
+            try:
+                error = login_equipo(request.form.get('colaboradora_id', ''), request.form.get('pin', ''))
+            except Exception as e:
+                app.logger.error(f'Login equipo: {e}')
+                error = 'No se pudo iniciar sesión. Intentá de nuevo.'
+            if not error:
+                return redirect(url_for('agenda'))
+    equipo = equipo_con_acceso()
+    if not equipo and request.method == 'GET' and not request.args.get('modo'):
+        modo = 'admin'
+    return render_template('login.html', error=error, modo=modo, equipo=equipo,
+                           colab_sel=request.form.get('colaboradora_id', ''))
 
 
 @app.route('/logout')
@@ -1421,7 +1541,7 @@ def api_slots():
             servicio_ids=servicio_ids,
             servicio_id=request.args.get('servicio_id'),
             duracion_total=request.args.get('duracion_total'),
-            respetar_anticipacion=not (request.args.get('admin') and session.get('admin_logged_in')),
+            respetar_anticipacion=not (request.args.get('admin') and (es_admin() or equipo_valido())),
         ))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1564,7 +1684,7 @@ def api_reservar():
 
 
 @app.route('/api/cita', methods=['POST'])
-@require_admin
+@require_equipo
 def api_cita():
     """Cita cargada por la recepción desde la agenda (con o sin seña)."""
     try:
@@ -1581,6 +1701,9 @@ def api_cita():
                           respetar_anticipacion=False)
         colab = sb.table('colaboradoras').select('nombre').eq('id', r['colaboradora_id']).limit(1).execute().data
         r['colaboradora'] = colab[0]['nombre'] if colab else ''
+        for tid in r['turno_ids']:
+            registrar_cambio(tid, 'creado', f"Creó la cita para el {data['fecha']} a las {data['hora']}"
+                                            f" con {r['colaboradora']}")
         r.pop('init_point', None)
         r['hold_min'] = hold_min('recepcion')
         return jsonify({'success': True, **r})
@@ -1824,26 +1947,117 @@ def api_reembolso_sena(pid):
 
 # ── SISTEMA DE TURNOS — INTERNO ─────────────────────────────────────────────────
 
+ESTADOS_TURNO = {
+    'esperando_pago', 'pendiente', 'confirmado', 'en_espera', 'llegó', 'en_servicio',
+    'finalizado', 'cancelado_cliente', 'cancelado_salon', 'no_show', 'reprogramado',
+}
+ESTACION_LABEL = {'manicura': 'mesa de manicure', 'pedicura': 'tarima de pedicure', 'estetica': 'camilla'}
+
+
+def _min(h):
+    """'HH:MM' o 'HH:MM:SS' → minutos desde las 00:00."""
+    return int(h[:2]) * 60 + int(h[3:5])
+
+
+def _hhmm(m):
+    return f'{m // 60:02d}:{m % 60:02d}'
+
+
+def cadena_de_turno(turnos_dia, turno):
+    """Los servicios de una misma cita: misma clienta, día y colaboradora, encadenados
+    (cada uno empieza cuando termina el anterior). Incluye al turno; ordenados por hora."""
+    if not turno_ocupa(turno):
+        return [turno]
+    mismos = sorted(
+        [t for t in turnos_dia
+         if t['cliente_id'] == turno['cliente_id'] and t['colaboradora_id'] == turno['colaboradora_id']
+         and t['fecha'] == turno['fecha'] and turno_ocupa(t)],
+        key=lambda t: t['hora_inicio'])
+    idx = next((i for i, t in enumerate(mismos) if t['id'] == turno['id']), None)
+    if idx is None:
+        return [turno]
+    ini = fin = idx
+    while ini > 0 and mismos[ini - 1]['hora_fin'][:5] == mismos[ini]['hora_inicio'][:5]:
+        ini -= 1
+    while fin < len(mismos) - 1 and mismos[fin]['hora_fin'][:5] == mismos[fin + 1]['hora_inicio'][:5]:
+        fin += 1
+    return mismos[ini:fin + 1]
+
+
+def choques_movimiento(movidos, otros, colab_nombre, horario, bloqueada):
+    """Avisos al mover turnos a una colaboradora/día. No bloquean: la UI pregunta "¿mover igual?".
+    movidos: [{hora_inicio, hora_fin, tipo_estacion}] en la posición nueva (minutos).
+    otros:   turnos que ocupan ese día, sin los movidos
+             [{colaboradora_id, hora_inicio, hora_fin, tipo_estacion, cliente, es_de_colab}].
+    horario: [(ini, fin)] en minutos de la colaboradora ese día de la semana ([] = no trabaja).
+    bloqueada: tiene el día bloqueado."""
+    avisos = []
+    if bloqueada:
+        avisos.append(f'{colab_nombre} tiene el día bloqueado.')
+    elif not horario:
+        avisos.append(f'{colab_nombre} no trabaja ese día.')
+    else:
+        ini, fin = movidos[0]['hora_inicio'], movidos[-1]['hora_fin']
+        if not any(h_ini <= ini and fin <= h_fin for h_ini, h_fin in horario):
+            rangos = ', '.join(f'{_hhmm(a)}–{_hhmm(b)}' for a, b in horario)
+            avisos.append(f'Queda fuera del horario de {colab_nombre} ({rangos}).')
+    for m in movidos:
+        for o in otros:
+            if o['es_de_colab'] and o['hora_inicio'] < m['hora_fin'] and o['hora_fin'] > m['hora_inicio']:
+                aviso = (f"{colab_nombre} ya tiene a {o['cliente']} de "
+                         f"{_hhmm(o['hora_inicio'])} a {_hhmm(o['hora_fin'])}.")
+                if aviso not in avisos:
+                    avisos.append(aviso)
+        est = m.get('tipo_estacion')
+        if est in CAPACIDAD_ESTACIONES:
+            ocupadas = sum(1 for o in otros if o['tipo_estacion'] == est
+                           and o['hora_inicio'] < m['hora_fin'] and o['hora_fin'] > m['hora_inicio'])
+            if ocupadas >= CAPACIDAD_ESTACIONES[est]:
+                avisos.append(f"No queda {ESTACION_LABEL.get(est, est)} libre de "
+                              f"{_hhmm(m['hora_inicio'])} a {_hhmm(m['hora_fin'])}.")
+    return avisos
+
+
+def registrar_cambio(turno_id, accion, detalle, antes=None, despues=None):
+    """Deja constancia de quién hizo qué. Nunca rompe la operación principal."""
+    autor, autor_id = autor_actual()
+    try:
+        sb_service().table('turno_cambios').insert({
+            'turno_id': turno_id, 'autor': autor, 'autor_colaboradora_id': autor_id,
+            'accion': accion, 'detalle': detalle, 'antes': antes, 'despues': despues,
+        }).execute()
+    except Exception as e:
+        app.logger.error(f'turno_cambios {turno_id}: {e}')
+
+
+def _fecha_corta(iso):
+    d = datetime.strptime(iso, '%Y-%m-%d')
+    return f"{['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'][d.weekday()]} {d.day} {MESES_ES[d.month]}"
+
+
 @app.route('/agenda')
-@require_admin
+@require_equipo
 def agenda():
     return render_template('agenda.html', sena_activa=SENA_ACTIVA, sena_mxn=SENA_MXN,
-                           hold_recepcion_min=hold_min('recepcion'))
+                           hold_recepcion_min=hold_min('recepcion'),
+                           es_admin=es_admin(), equipo_id=session.get('equipo_id'),
+                           equipo_nombre=session.get('equipo_nombre', ''))
 
 
 @app.route('/api/agenda')
-@require_admin
+@require_equipo
 def api_agenda():
     try:
         sb = get_sb()
         desde = request.args.get('desde')
         hasta = request.args.get('hasta')
-        fecha = request.args.get('fecha', date.today().isoformat())
+        fecha = request.args.get('fecha', ahora_salon().date().isoformat())
         query = sb.table('turnos').select(
             'id,fecha,hora_inicio,hora_fin,estado,precio,notas,canal,created_at,pago_sena_id,'
+            'cliente_id,colaboradora_id,servicio_id,'
             'clientes_reservas(id,nombre,apellido,telefono),'
             'colaboradoras(nombre),'
-            'servicios(nombre,duracion_min)'
+            'servicios(nombre,duracion_min,categoria)'
         )
         if desde and hasta:
             query = query.gte('fecha', desde).lte('fecha', hasta)
@@ -1866,7 +2080,7 @@ def api_agenda():
 
 
 @app.route('/api/cliente/<int:cid>/historial')
-@require_admin
+@require_equipo
 def api_cliente_historial(cid):
     try:
         sb = get_sb()
@@ -1884,19 +2098,169 @@ def api_cliente_historial(cid):
 
 
 @app.route('/api/turno/<int:tid>/estado', methods=['POST'])
-@require_admin
+@require_equipo
 def cambiar_estado_turno(tid):
     try:
         sb = get_sb()
-        estado = request.json.get('estado')
+        estado = (request.json or {}).get('estado')
+        if estado not in ESTADOS_TURNO:
+            return jsonify({'error': 'Estado inválido'}), 400
+        prev = sb.table('turnos').select('estado').eq('id', tid).limit(1).execute().data
+        if not prev:
+            return jsonify({'error': 'Turno no encontrado'}), 404
         sb.table('turnos').update({'estado': estado}).eq('id', tid).execute()
+        if prev[0]['estado'] != estado:
+            registrar_cambio(tid, 'estado', f"Cambió el estado de {prev[0]['estado']} a {estado}",
+                             {'estado': prev[0]['estado']}, {'estado': estado})
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/turno/<int:tid>', methods=['PUT'])
+@require_equipo
+def api_mover_turno(tid):
+    """Mover (fecha, hora, colaboradora) o editar (servicio, notas) un turno.
+    mover_grupo: arrastra también los otros servicios encadenados de la misma cita.
+    Si hay choques y no viene forzar → 409 con los avisos para que la UI pregunte."""
+    try:
+        sb = get_sb()
+        d = request.json or {}
+        cols = 'id,cliente_id,colaboradora_id,servicio_id,fecha,hora_inicio,hora_fin,estado,canal,created_at'
+        rows = sb.table('turnos').select(cols).eq('id', tid).limit(1).execute().data
+        if not rows:
+            return jsonify({'error': 'Turno no encontrado'}), 404
+        t = rows[0]
+
+        fecha = d.get('fecha') or t['fecha']
+        hora  = (d.get('hora_inicio') or t['hora_inicio'])[:5]
+        if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', fecha) or not re.fullmatch(r'\d{2}:\d{2}', hora):
+            return jsonify({'error': 'Fecha u hora inválida'}), 400
+        colab_id    = int(d.get('colaboradora_id') or t['colaboradora_id'] or 0)
+        servicio_id = int(d.get('servicio_id') or t['servicio_id'])
+        if not colab_id:
+            return jsonify({'error': 'Elegí la colaboradora'}), 400
+
+        colab = sb.table('colaboradoras').select('id,nombre').eq('id', colab_id).limit(1).execute().data
+        if not colab:
+            return jsonify({'error': 'Colaboradora no encontrada'}), 400
+        colab_nombre = colab[0]['nombre']
+
+        grupo = [t]
+        if d.get('mover_grupo'):
+            dia_orig = sb.table('turnos').select(cols).eq('fecha', t['fecha']).eq(
+                'cliente_id', t['cliente_id']).execute().data
+            grupo = cadena_de_turno(dia_orig, t)
+
+        serv_ids = list({g['servicio_id'] for g in grupo} | {servicio_id})
+        servs = {s['id']: s for s in sb.table('servicios').select(
+            'id,nombre,duracion_min,precio_desde,categoria').in_('id', serv_ids).execute().data}
+        if servicio_id not in servs:
+            return jsonify({'error': 'Servicio no encontrado'}), 400
+
+        # Se reubican en secuencia desde el nuevo inicio, conservando la duración de cada uno.
+        # Si cambia el servicio, ese turno toma la duración del nuevo y los siguientes se corren.
+        cursor = _min(hora) - (_min(t['hora_inicio']) - _min(grupo[0]['hora_inicio']))
+        nuevos = []
+        for g in grupo:
+            sid = servicio_id if g['id'] == tid else g['servicio_id']
+            dur = (servs[sid]['duracion_min'] if sid != g['servicio_id']
+                   else _min(g['hora_fin']) - _min(g['hora_inicio']))
+            nuevos.append({'turno': g, 'servicio_id': sid, 'hora_inicio': cursor, 'hora_fin': cursor + dur,
+                           'tipo_estacion': estacion_de_categoria(servs[sid].get('categoria'))})
+            cursor += dur
+        if nuevos[0]['hora_inicio'] < 0 or nuevos[-1]['hora_fin'] > 24 * 60:
+            return jsonify({'error': 'El horario se sale del día'}), 400
+
+        if not d.get('forzar'):
+            ids = {g['id'] for g in grupo}
+            dia_dest = sb.table('turnos').select(
+                'id,colaboradora_id,hora_inicio,hora_fin,estado,canal,created_at,'
+                'clientes_reservas(nombre,apellido),servicios(categoria)'
+            ).eq('fecha', fecha).execute().data
+            otros = []
+            for o in dia_dest:
+                if o['id'] in ids or not turno_ocupa(o):
+                    continue
+                cli = o.get('clientes_reservas') or {}
+                otros.append({
+                    'es_de_colab':   o['colaboradora_id'] == colab_id,
+                    'hora_inicio':   _min(o['hora_inicio']),
+                    'hora_fin':      _min(o['hora_fin']),
+                    'tipo_estacion': estacion_de_categoria((o.get('servicios') or {}).get('categoria')),
+                    'cliente':       f"{cli.get('nombre') or ''} {cli.get('apellido') or ''}".strip() or 'otra clienta',
+                })
+            dia_semana = datetime.strptime(fecha, '%Y-%m-%d').weekday()
+            horario = [(_min(h['hora_inicio']), _min(h['hora_fin'])) for h in sb.table('disponibilidad').select(
+                'hora_inicio,hora_fin').eq('colaboradora_id', colab_id).eq('dia_semana', dia_semana).execute().data]
+            bloqueada = bool(sb.table('bloqueos').select('id').eq('colaboradora_id', colab_id).eq(
+                'fecha', fecha).eq('todo_el_dia', True).execute().data)
+            choques = choques_movimiento(nuevos, otros, colab_nombre, horario, bloqueada)
+            if choques:
+                return jsonify({'error': 'Hay choques', 'conflictos': choques}), 409
+
+        nombres_colab = {colab_id: colab_nombre}
+        viejos_ids = {g['colaboradora_id'] for g in grupo if g['colaboradora_id'] and g['colaboradora_id'] != colab_id}
+        if viejos_ids:
+            nombres_colab.update({c['id']: c['nombre'] for c in sb.table('colaboradoras').select(
+                'id,nombre').in_('id', list(viejos_ids)).execute().data})
+
+        for n in nuevos:
+            g = n['turno']
+            cambios = {'fecha': fecha, 'hora_inicio': _hhmm(n['hora_inicio']),
+                       'hora_fin': _hhmm(n['hora_fin']), 'colaboradora_id': colab_id}
+            if n['servicio_id'] != g['servicio_id']:
+                cambios['servicio_id'] = n['servicio_id']
+                cambios['precio'] = servs[n['servicio_id']]['precio_desde']
+            if g['id'] == tid and 'notas' in d:
+                cambios['notas'] = (d.get('notas') or '').strip()
+            antes = {'fecha': g['fecha'], 'hora_inicio': g['hora_inicio'][:5],
+                     'colaboradora_id': g['colaboradora_id'], 'servicio_id': g['servicio_id']}
+            despues = {'fecha': fecha, 'hora_inicio': cambios['hora_inicio'],
+                       'colaboradora_id': colab_id, 'servicio_id': n['servicio_id']}
+            sb.table('turnos').update(cambios).eq('id', g['id']).execute()
+
+            partes = []
+            if antes['fecha'] != fecha or antes['hora_inicio'] != despues['hora_inicio'] or antes['colaboradora_id'] != colab_id:
+                partes.append(
+                    f"Movió de {_fecha_corta(antes['fecha'])} {antes['hora_inicio']} "
+                    f"({nombres_colab.get(antes['colaboradora_id'], 'sin asignar')}) a "
+                    f"{_fecha_corta(fecha)} {despues['hora_inicio']} ({colab_nombre})")
+            if 'servicio_id' in cambios:
+                partes.append(f"Cambió el servicio a {servs[n['servicio_id']]['nombre']}")
+            if 'notas' in cambios:
+                partes.append('Editó las notas')
+            if partes:
+                registrar_cambio(g['id'], 'movido' if partes[0].startswith('Movió') else 'editado',
+                                 '. '.join(partes), antes, despues)
+
+        cli = sb.table('clientes_reservas').select('nombre,telefono').eq('id', t['cliente_id']).limit(1).execute().data
+        return jsonify({
+            'success':      True,
+            'turno_ids':    [n['turno']['id'] for n in nuevos],
+            'fecha':        fecha,
+            'hora':         _hhmm(nuevos[0]['hora_inicio']),
+            'colaboradora': colab_nombre,
+            'servicios':    [servs[n['servicio_id']]['nombre'] for n in nuevos],
+            'cliente':      cli[0] if cli else None,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/turno/<int:tid>/cambios')
+@require_equipo
+def api_turno_cambios(tid):
+    try:
+        rows = sb_service().table('turno_cambios').select('autor,accion,detalle,created_at').eq(
+            'turno_id', tid).order('created_at', desc=True).limit(20).execute().data
+        return jsonify(rows)
+    except Exception:
+        return jsonify([])
+
+
 @app.route('/api/walkin', methods=['POST'])
-@require_admin
+@require_equipo
 def api_walkin():
     try:
         sb = get_sb()
@@ -1905,9 +2269,9 @@ def api_walkin():
         telefono  = (data.get('telefono') or '').strip()
         serv_id   = data.get('servicio_id')
         colab_id  = data.get('colaboradora_id')
-        hora_ini  = data.get('hora') or datetime.now().strftime('%H:%M')
+        hora_ini  = data.get('hora') or ahora_salon().strftime('%H:%M')
         notas     = data.get('notas', '').strip()
-        fecha_hoy = date.today().isoformat()
+        fecha_hoy = ahora_salon().date().isoformat()
 
         if not serv_id or not colab_id:
             return jsonify({'error': 'Servicio y colaboradora son obligatorios'}), 400
@@ -1953,6 +2317,7 @@ def api_walkin():
             'canal':          'walk-in',
         }).execute()
 
+        registrar_cambio(turno.data[0]['id'], 'creado', f'Registró el walk-in a las {hora_ini}')
         return jsonify({'success': True, 'turno_id': turno.data[0]['id']})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2038,13 +2403,44 @@ def admin_api_colaboradoras_full():
     try:
         sb = get_sb()
         colabs = sb.table('colaboradoras').select('*').order('nombre').execute()
+        try:
+            con_pin = {r['colaboradora_id'] for r in
+                       sb_service().table('equipo_acceso').select('colaboradora_id').execute().data}
+        except Exception:
+            con_pin = set()
         result = []
         for c in colabs.data:
             cs = sb.table('colaboradora_servicios').select('servicio_id').eq(
                 'colaboradora_id', c['id']).execute()
             c['servicio_ids'] = [r['servicio_id'] for r in cs.data]
+            c['tiene_pin'] = c['id'] in con_pin
             result.append(c)
         return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/colaboradora/<int:cid>/pin', methods=['PUT', 'DELETE'])
+@require_admin
+def admin_pin_colaboradora(cid):
+    """Carga/cambia el PIN de acceso a la agenda (PUT) o le quita el acceso (DELETE).
+    Cambiarlo o quitarlo cierra la sesión que tenga abierta (cambia updated_at)."""
+    try:
+        tabla = sb_service().table('equipo_acceso')
+        if request.method == 'DELETE':
+            tabla.delete().eq('colaboradora_id', cid).execute()
+            return jsonify({'success': True})
+        pin = str((request.json or {}).get('pin', ''))
+        if not re.fullmatch(r'\d{4}', pin):
+            return jsonify({'error': 'El PIN tiene que ser de 4 números.'}), 400
+        tabla.upsert({
+            'colaboradora_id':   cid,
+            'pin_hash':          generate_password_hash(pin),
+            'intentos_fallidos': 0,
+            'bloqueado_hasta':   None,
+            'updated_at':        datetime.now(timezone.utc).isoformat(),
+        }).execute()
+        return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2092,6 +2488,12 @@ def admin_toggle_colaboradora(cid):
         cur = sb.table('colaboradoras').select('activa').eq('id', cid).limit(1).execute()
         nuevo = not cur.data[0]['activa']
         sb.table('colaboradoras').update({'activa': nuevo}).eq('id', cid).execute()
+        if not nuevo:
+            # Si se va del equipo, pierde el acceso a la agenda
+            try:
+                sb_service().table('equipo_acceso').delete().eq('colaboradora_id', cid).execute()
+            except Exception as e:
+                app.logger.error(f'equipo_acceso {cid}: {e}')
         return jsonify({'activa': nuevo})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2309,7 +2711,7 @@ def api_agregar_espera():
 
 
 @app.route('/api/lista-espera/<int:eid>/estado', methods=['POST'])
-@require_admin
+@require_equipo
 def api_estado_espera(eid):
     try:
         sb    = get_sb()
@@ -2322,7 +2724,7 @@ def api_estado_espera(eid):
 
 # ── CLIENTE — PERFIL (alergias / bloqueo) ─────────────────────────────────────
 @app.route('/api/cliente/<int:cid>/perfil', methods=['POST'])
-@require_admin
+@require_equipo
 def api_actualizar_perfil_cliente(cid):
     try:
         sb  = get_sb()

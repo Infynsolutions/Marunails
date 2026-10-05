@@ -679,13 +679,37 @@ function renderEquipo() {
                 </label>
             </div>
             <div class="colab-meta">Comisión: ${Math.round(c.comision * 100)}% · ${c.servicio_ids.length} servicios asignados</div>
+            <div class="colab-meta">Agenda: ${c.tiene_pin ? 'entra con PIN ✓' : 'sin acceso'}</div>
             <div class="colab-actions">
                 <button class="btn-sm" onclick="editarColab(${c.id})">Editar</button>
                 <button class="btn-sm" onclick="abrirServColab(${c.id})">Servicios</button>
+                ${c.activa ? `<button class="btn-sm" onclick="pinColab(${c.id})">${c.tiene_pin ? 'Cambiar PIN' : 'Dar acceso'}</button>` : ''}
             </div>
         </div>`).join('') +
         `</div>`;
     document.getElementById('equipoContent').innerHTML = html;
+}
+
+// PIN para que la colaboradora entre a la agenda desde su celular
+async function pinColab(id) {
+    const c = allColabs.find(x => x.id === id);
+    if (!c) return;
+    const pin = prompt(
+        `PIN de 4 números para ${c.nombre}.` + (c.tiene_pin ? '\n\nDejalo vacío para quitarle el acceso.' : ''), '');
+    if (pin === null) return;
+    if (pin === '' && c.tiene_pin) {
+        if (!confirm(`¿Quitarle el acceso a la agenda a ${c.nombre}?`)) return;
+        await fetch(`/admin/api/colaboradora/${id}/pin`, { method: 'DELETE' });
+    } else {
+        const r = await fetch(`/admin/api/colaboradora/${id}/pin`, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ pin: pin.trim() })
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!d.success) { alert(d.error || 'No se pudo guardar el PIN.'); return; }
+        alert(`Listo. ${c.nombre} entra en marunailstulum.com/login → Equipo, con su nombre y el PIN ${pin.trim()}.`);
+    }
+    allColabs = [];
+    await cargarEquipo();
 }
 
 async function toggleColab(id, el) {
@@ -693,9 +717,8 @@ async function toggleColab(id, el) {
     const d = await r.json();
     if (d.error) { el.checked = !el.checked; alert(d.error); return; }
     const c = allColabs.find(x => x.id === id);
-    if (c) { c.activa = d.activa; }
-    const card = document.getElementById(`card-colab-${id}`);
-    if (card) card.classList.toggle('inactiva', !d.activa);
+    if (c) { c.activa = d.activa; if (!d.activa) c.tiene_pin = false; }  // desactivarla le quita el acceso
+    renderEquipo();
 }
 
 function abrirModalColab() {
