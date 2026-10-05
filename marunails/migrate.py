@@ -1,10 +1,11 @@
 import csv
+import os
 import re
 import sys
 from supabase import create_client
 
 SUPABASE_URL = 'https://dbhxrboacqppximbcokz.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHhyYm9hY3FwcHhpbWJjb2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Mjg1NDMsImV4cCI6MjA5OTAwNDU0M30.fcVl9hwRTACJrp4BH7CZdj5ZzPa7-VaAqJlUdHH-NKs'
+SUPABASE_KEY = os.environ['SUPABASE_SERVICE_KEY']  # las tablas no se leen con la key anon
 
 MESES_ES = {
     'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,

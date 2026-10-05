@@ -204,3 +204,12 @@ def test_cambiar_servicio_toma_duracion_y_precio_nuevos(monkeypatch):
     t1, t2 = data['turnos'][0], data['turnos'][1]
     assert (t1['servicio_id'], t1['precio'], t1['hora_fin']) == (2, 600, '10:45')
     assert (t2['hora_inicio'], t2['hora_fin']) == ('10:45', '11:30')   # el siguiente se corre
+
+
+def test_sin_admin_password_cargada_nadie_entra_como_admin(monkeypatch):
+    import app as m
+    monkeypatch.setattr(m, 'ADMIN_PASSWORD', '')
+    c = app.test_client()
+    c.post('/login', data={'modo': 'admin', 'password': ''})
+    with c.session_transaction() as s:
+        assert not s.get('admin_logged_in')

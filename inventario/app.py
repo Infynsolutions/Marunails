@@ -3,7 +3,7 @@ import sqlite3
 import os
 
 app = Flask(__name__)
-app.secret_key = 'punadosano_secret_2024'
+app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
 
 _DATA_DIR = os.environ.get('DATA_DIR', os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(_DATA_DIR, 'inventario.db')

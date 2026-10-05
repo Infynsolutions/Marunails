@@ -6,10 +6,10 @@ import os
 from supabase import create_client
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'marunails_secret_2026')
+app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://dbhxrboacqppximbcokz.supabase.co')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHhyYm9hY3FwcHhpbWJjb2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Mjg1NDMsImV4cCI6MjA5OTAwNDU0M30.fcVl9hwRTACJrp4BH7CZdj5ZzPa7-VaAqJlUdHH-NKs')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
 
 TC_USD = 17
 

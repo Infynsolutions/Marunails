@@ -15,15 +15,17 @@ from supabase import create_client
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'marunails_secret_2026')
+# Sin valores por defecto: el repo es público. Sin SECRET_KEY la sesión usa una clave al azar
+# (no se puede falsificar, pero no sobrevive entre instancias): en Vercel tiene que estar cargada.
+app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
 # Las chicas del equipo quedan logueadas 30 días en su celular
 app.permanent_session_lifetime = timedelta(days=30)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://dbhxrboacqppximbcokz.supabase.co')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHhyYm9hY3FwcHhpbWJjb2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Mjg1NDMsImV4cCI6MjA5OTAwNDU0M30.fcVl9hwRTACJrp4BH7CZdj5ZzPa7-VaAqJlUdHH-NKs')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')  # anon: solo para correr local sin service key
 
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Marunailstulum123')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')   # sin cargar = nadie entra como admin
 
 TC_USD = 17
 
@@ -152,6 +154,10 @@ def autor_actual():
 
 
 def get_sb():
+    """Todas las tablas tienen RLS cerrado a la key anon (migración 006): el server lee y
+    escribe con la service key. La anon queda solo para desarrollo local."""
+    if SUPABASE_SERVICE_KEY:
+        return sb_service()
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
@@ -159,7 +165,7 @@ _sb_admin = None
 
 
 def sb_service():
-    """Cliente con la service key (bypassea RLS): pagos_sena, equipo_acceso, turno_cambios."""
+    """Cliente con la service key (bypassea RLS)."""
     global _sb_admin
     if _sb_admin is None:
         _sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -730,7 +736,7 @@ def login():
     error, modo = None, request.form.get('modo') or request.args.get('modo') or 'equipo'
     if request.method == 'POST':
         if modo == 'admin':
-            if request.form.get('password') == ADMIN_PASSWORD:
+            if ADMIN_PASSWORD and hmac.compare_digest(request.form.get('password', ''), ADMIN_PASSWORD):
                 session.clear()
                 session['admin_logged_in'] = True
                 session.permanent = False
