@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tu reserva — Maru Nails</title>
+<meta name="theme-color" content="#3E2418">
+<meta name="robots" content="noindex">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-icon.png') }}">
+<link rel="shortcut icon" href="{{ url_for('static', filename='favicon-white.png') }}">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+    --brown:      #5C3826;
+    --brown-dark: #3E2418;
+    --brown-pale: #F5EDE6;
+    --cream:      #FAF6F0;
+    --bg:         #F2EBE3;
+    --sand:       #E2D5CB;
+    --text:       #2A1F1A;
+    --muted:      #9E8878;
+    --radius:     10px;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+.header {
+    background: var(--brown-dark);
+    padding: 18px 24px;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 2px 20px rgba(62,36,24,0.30);
+}
+.header img { height: 48px; width: auto; }
+.wrap { max-width: 520px; margin: 0 auto; padding: 28px 16px 48px; }
+.confirm-box { text-align: center; padding: 40px 8px; }
+.confirm-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px;
+}
+.icon-ok   { background: #edf7ee; }
+.icon-warn { background: #fdf3e7; }
+.confirm-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--brown-dark);
+    margin-bottom: 10px;
+}
+.confirm-sub { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.confirm-sub strong { color: var(--text); }
+.btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    margin-top: 12px;
+}
+.btn-primary { background: var(--brown-dark); color: var(--cream); }
+.btn-back { background: none; color: var(--muted); border: 1px solid var(--sand); }
+.btn-whatsapp { background: #25D366; color: #fff; font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <img src="{{ url_for('static', filename='Logotipo principal_Mesa de trabajo 1.PNG') }}" alt="Maru Nails">
+</div>
+
+<div class="wrap">
+    <div class="confirm-box">
+    {% if estado == 'aprobado' %}
+        <div class="confirm-icon icon-ok">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4a8c5c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="confirm-title">¡Cita confirmada!</div>
+        <div class="confirm-sub">
+            {% if nombre %}Gracias, {{ nombre }}. {% endif %}Recibimos tu seña de <strong>${{ monto }} MXN</strong>.<br>
+            Tu cita para <strong>{{ servicios|join(', ') }}</strong> es el<br>
+            <strong><span id="fechaTxt">{{ fecha }}</span> a las {{ hora }} hs</strong>.<br><br>
+            La seña se descuenta del total. Si necesitas cancelar, avísanos con 24 horas de anticipación y te la devolvemos.<br><br>
+            Te esperamos en Maru Nails — 27 Itzamna 12, Tulum.
+        </div>
+        <a id="btnWhatsapp" href="#" target="_blank" class="btn btn-whatsapp">Escríbenos por WhatsApp</a>
+        <a class="btn btn-primary" href="{{ url_for('reservar') }}">Hacer otra reserva</a>
+
+    {% elif estado == 'reembolsado' %}
+        <div class="confirm-icon icon-warn">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c07a2c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="confirm-title">Ese horario ya no está disponible</div>
+        <div class="confirm-sub">
+            Tu pago llegó después de que venció la reserva y otra persona tomó el horario.<br>
+            <strong>Ya te devolvimos la seña</strong> a tu medio de pago. Puede tardar unos días en verse reflejada.
+        </div>
+        <a class="btn btn-primary" href="{{ url_for('reservar') }}">Elegir otro horario</a>
+
+    {% else %}
+        <div class="confirm-icon icon-warn">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c07a2c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="confirm-title">El pago no se completó</div>
+        <div class="confirm-sub">
+            {% if reintento_url %}
+            Tu horario sigue reservado por unos minutos. Puedes intentar de nuevo con otra tarjeta.
+            {% else %}
+            La reserva venció sin el pago de la seña, así que el horario quedó libre. Puedes reservar de nuevo.
+            {% endif %}
+        </div>
+        {% if reintento_url %}
+        <a class="btn btn-primary" href="{{ reintento_url }}">Intentar de nuevo</a>
+        <a class="btn btn-back" href="{{ url_for('reservar') }}">Elegir otro horario</a>
+        {% else %}
+        <a class="btn btn-primary" href="{{ url_for('reservar') }}">Reservar de nuevo</a>
+        {% endif %}
+    {% endif %}
+    </div>
+</div>
+
+{% if estado == 'aprobado' %}
+<script>
+const SALON_WA = '529842084998';
+const fechaIso = {{ fecha|tojson }};
+const fechaStr = new Date(fechaIso + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+document.getElementById('fechaTxt').textContent = fechaStr;
+const waMsg = encodeURIComponent(
+    `Hola! Reservé y pagué la seña para *${ {{ servicios|join(', ')|tojson }} }* el ${fechaStr} a las {{ hora }} hs. Gracias! 💅`
+);
+document.getElementById('btnWhatsapp').href = `https://wa.me/${SALON_WA}?text=${waMsg}`;
+</script>
+{% endif %}
+</body>
+</html>

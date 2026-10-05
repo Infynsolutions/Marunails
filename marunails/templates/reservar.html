@@ -364,6 +364,25 @@ body {
 }
 .confirm-sub { font-size: 13px; color: var(--muted); line-height: 1.6; }
 
+/* ─── SEÑA ─── */
+.sena-box {
+    background: var(--brown-pale);
+    border: 1px solid var(--sand);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin: 6px 0 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+}
+.sena-box strong { color: var(--brown-dark); }
+.sena-monto {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--brown);
+}
+
 /* ─── BUTTONS ─── */
 .btn {
     width: 100%;
@@ -562,12 +581,26 @@ body {
             <label class="form-label">Notas (opcional)</label>
             <input class="form-input" id="fNotas" type="text" placeholder="Alergias, preferencias, etc.">
         </div>
+        {% if sena_activa %}
+        <div class="sena-box">
+            <div class="sena-monto">Seña ${{ sena_mxn }} MXN</div>
+            Para confirmar tu cita pedimos una seña de <strong>${{ sena_mxn }} MXN</strong> con Mercado Pago, que se descuenta del total de tu servicio.<br>
+            Si cancelas con <strong>24 horas o más</strong> de anticipación, te la devolvemos. Si cancelas con menos tiempo o no te presentas, la seña no es reembolsable.
+        </div>
+        <div class="checkbox-row">
+            <input type="checkbox" id="fPoliticas">
+            <label for="fPoliticas">Acepto las políticas del salón y la política de la seña.</label>
+        </div>
+
+        <button class="btn btn-primary" id="btnConfirmar" onclick="confirmar()">Pagar seña y confirmar</button>
+        {% else %}
         <div class="checkbox-row">
             <input type="checkbox" id="fPoliticas">
             <label for="fPoliticas">Acepto las políticas del salón y entiendo que la reserva puede cancelarse con 24 hs de anticipación.</label>
         </div>
 
         <button class="btn btn-primary" id="btnConfirmar" onclick="confirmar()">Confirmar reserva</button>
+        {% endif %}
         <button class="btn btn-back" onclick="goStep(4)">Volver</button>
     </div>
 
@@ -881,6 +914,7 @@ async function confirmar() {
     if (!politicas) { alert('Necesitas aceptar las políticas del salón.'); return; }
 
     const btn = document.getElementById('btnConfirmar');
+    const btnLabel = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Confirmando...';
 
@@ -904,6 +938,18 @@ async function confirmar() {
             })
         });
         const data = await res.json();
+        if (data.success && data.init_point) {
+            btn.textContent = 'Te llevamos a Mercado Pago...';
+            window.location.href = data.init_point;
+            return;
+        }
+        if (data.horario_tomado) {
+            alert(data.error);
+            btn.disabled = false;
+            btn.textContent = btnLabel;
+            goStep(4);
+            return;
+        }
         if (data.success) {
             const fecha = new Date(state.fechaSel + 'T12:00:00');
             const fechaStr = fecha.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -920,12 +966,12 @@ async function confirmar() {
         } else {
             alert('Ocurrió un error: ' + (data.error || 'intentá nuevamente.'));
             btn.disabled = false;
-            btn.textContent = 'Confirmar reserva';
+            btn.textContent = btnLabel;
         }
     } catch {
         alert('Error de conexión. Intentá nuevamente.');
         btn.disabled = false;
-        btn.textContent = 'Confirmar reserva';
+        btn.textContent = btnLabel;
     }
 }
 

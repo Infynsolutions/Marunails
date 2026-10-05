@@ -2,3 +2,4 @@ flask
 gunicorn
 supabase
 anthropic
+httpx

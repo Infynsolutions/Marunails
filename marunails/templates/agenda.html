@@ -130,6 +130,30 @@
 .badge-no_show     { background: #fef2f2; color: #dc2626; }
 .badge-reprogramado { background: #fff7ed; color: #c2410c; }
 .badge-en_espera   { background: #f0f9ff; color: #0369a1; }
+.badge-esperando_pago { background: #fdf3e7; color: #a15c12; }
+
+.sena-chip {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.sena-aprobado    { background: #edf7ee; color: #2a6635; }
+.sena-reembolsado { background: #f1f5f9; color: #475569; }
+.btn-devolver {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #a15c12;
+    background: #fff;
+    color: #a15c12;
+    cursor: pointer;
+    font-family: inherit;
+}
+.btn-devolver:disabled { opacity: 0.5; cursor: wait; }
 
 .estado-select {
     font-size: 11px;
@@ -577,6 +601,7 @@ const MESES_LL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agos
 const DIAS_L   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const DIAS_C   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const ESTADOS = [
+    ['esperando_pago','Esperando seña'],
     ['pendiente','Pendiente'],
     ['confirmado','Confirmado'],
     ['en_espera','En espera'],
@@ -660,7 +685,12 @@ function renderTurnos(turnos) {
         </div>`;
         return;
     }
+    const senaVista = new Set();  // una seña cubre varios servicios: botón una sola vez
     el.innerHTML = turnos.map(t => {
+        const sena = t.sena;
+        const senaPrimera = sena && !senaVista.has(sena.id);
+        if (sena) senaVista.add(sena.id);
+        const cancelado = ['cancelado_cliente','cancelado_salon'].includes(t.estado);
         const cli = t.clientes_reservas;
         const colab = t.colaboradoras;
         const serv = t.servicios;
@@ -687,7 +717,11 @@ function renderTurnos(turnos) {
             <div class="turno-right">
                 <span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span>
                 ${t.precio ? `<div class="turno-precio">$${t.precio.toLocaleString()}</div>` : ''}
-                <select class="estado-select" onchange="cambiarEstado(${t.id}, this.value)">
+                ${sena && sena.estado === 'aprobado' ? `<span class="sena-chip sena-aprobado">Seña $${sena.monto.toLocaleString('es-MX')} ✓</span>` : ''}
+                ${sena && sena.estado === 'reembolsado' ? `<span class="sena-chip sena-reembolsado">Seña devuelta</span>` : ''}
+                ${senaPrimera && sena.estado === 'aprobado' && cancelado
+                    ? `<button class="btn-devolver" onclick="devolverSena(this, ${sena.id}, ${sena.monto}, '${t.fecha}', '${hora}')">Devolver seña</button>` : ''}
+                <select class="estado-select" onchange="cambiarEstado(${t.id}, this.value, ${sena ? 'true' : 'false'})">
                     ${ESTADOS.map(([val, lbl]) => `<option value="${val}" ${t.estado === val ? 'selected' : ''}>${lbl}</option>`).join('')}
                 </select>
             </div>
@@ -701,12 +735,14 @@ function estadoLabel(e) {
     return map[e] || e;
 }
 
-async function cambiarEstado(id, estado) {
+async function cambiarEstado(id, estado, tieneSena) {
     await fetch(`/api/turno/${id}/estado`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado })
     });
+    // Con seña, re-renderizar para mostrar/ocultar "Devolver seña"
+    if (tieneSena) { cargarAgenda(); return; }
     // Refrescar badge sin recargar toda la lista
     const card = document.getElementById(`card${id}`);
     if (card) {
@@ -714,6 +750,26 @@ async function cambiarEstado(id, estado) {
         badge.className = `badge badge-${estado}`;
         badge.textContent = estadoLabel(estado);
     }
+}
+
+async function devolverSena(btn, pagoId, monto, fecha, hora) {
+    const horasAntes = (new Date(`${fecha}T${hora}:00`) - new Date()) / 36e5;
+    let msg = `¿Devolver la seña de $${monto.toLocaleString('es-MX')} por Mercado Pago?\n\nEl reembolso no se puede deshacer.`;
+    if (horasAntes < 24) {
+        msg = `⚠️ Faltan menos de 24 hs para la cita: según la política la seña NO se devuelve.\n\n` + msg;
+    }
+    if (!confirm(msg)) return;
+    btn.disabled = true;
+    btn.textContent = 'Devolviendo...';
+    const res = await fetch(`/api/pago-sena/${pagoId}/reembolso`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+        alert(data.error || 'No se pudo devolver la seña.');
+        btn.disabled = false;
+        btn.textContent = 'Devolver seña';
+        return;
+    }
+    cargarAgenda();
 }
 
 function waLink(tel, nombre, servicio, hora, fecha) {

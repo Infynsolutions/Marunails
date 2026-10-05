@@ -1,9 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from functools import wraps
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from collections import defaultdict
+from zoneinfo import ZoneInfo
 import os
+import re
+import hmac
+import hashlib
 import base64
+import httpx
 import anthropic as _anthropic
 
 from supabase import create_client
@@ -17,6 +22,21 @@ SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Marunailstulum123')
 
 TC_USD = 17
+
+# ── Seña de reserva (Mercado Pago Checkout Pro) ──
+# Sin MP_ACCESS_TOKEN la reserva web funciona como antes (sin seña).
+MP_ACCESS_TOKEN     = os.environ.get('MP_ACCESS_TOKEN', '')
+MP_WEBHOOK_SECRET   = os.environ.get('MP_WEBHOOK_SECRET', '')
+PUBLIC_BASE_URL     = os.environ.get('PUBLIC_BASE_URL', 'https://www.marunailstulum.com').rstrip('/')
+MP_NOTIFICATION_URL = os.environ.get('MP_NOTIFICATION_URL', f'{PUBLIC_BASE_URL}/api/mp/webhook')
+SENA_MXN            = int(os.environ.get('SENA_MXN', '300'))
+SENA_ACTIVA         = bool(MP_ACCESS_TOKEN)
+MP_EXPIRA_MIN       = 15   # el link de pago vence a los 15 min
+HOLD_MIN            = 20   # el horario queda retenido 20 min (margen para que llegue el webhook)
+TZ_SALON            = ZoneInfo('America/Cancun')
+
+# Estados de turno que NO ocupan el horario
+ESTADOS_LIBERAN = {'cancelado_cliente', 'cancelado_salon', 'no_show', 'reprogramado'}
 
 STAFF = [
     {'nombre': 'FLOR',            'comision': 0.4},
@@ -79,6 +99,39 @@ def require_admin(f):
 
 def get_sb():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+def ahora_salon():
+    """Hora local de Tulum, naive (el server de Vercel corre en UTC)."""
+    return datetime.now(TZ_SALON).replace(tzinfo=None)
+
+
+def _parse_ts(s):
+    """Timestamptz de PostgREST → datetime aware (tolera fracciones de 1-6 dígitos)."""
+    s  = re.sub(r'\.\d+', '', s.replace('Z', '+00:00'))
+    dt = datetime.fromisoformat(s)
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def hold_vencido(t):
+    """Turno web que esperaba la seña y no se pagó a tiempo."""
+    return (t.get('estado') == 'esperando_pago' and bool(t.get('created_at'))
+            and _parse_ts(t['created_at']) < datetime.now(timezone.utc) - timedelta(minutes=HOLD_MIN))
+
+
+def turno_ocupa(t):
+    """¿Este turno bloquea el horario de la colaboradora / estación?"""
+    return t.get('estado') not in ESTADOS_LIBERAN and not hold_vencido(t)
+
+
+def mp_request(method, path, json=None, idempotency_key=None):
+    headers = {'Authorization': f'Bearer {MP_ACCESS_TOKEN}'}
+    if idempotency_key:
+        headers['X-Idempotency-Key'] = idempotency_key
+    r = httpx.request(method, f'https://api.mercadopago.com{path}',
+                      json=json, headers=headers, timeout=15)
+    r.raise_for_status()
+    return r.json()
 
 
 def format_fecha(d):
@@ -1103,7 +1156,7 @@ def borrar_gasto(gid):
 
 @app.route('/reservar')
 def reservar():
-    return render_template('reservar.html')
+    return render_template('reservar.html', sena_activa=SENA_ACTIVA, sena_mxn=SENA_MXN)
 
 
 @app.route('/api/servicios')
@@ -1193,145 +1246,154 @@ def api_colaboradoras():
         return jsonify({'error': str(e)}), 500
 
 
+def calcular_slots(sb, colaboradora_id, fecha_str, servicio_ids=None,
+                   servicio_id=None, duracion_total=None, respetar_anticipacion=True):
+    """Horarios libres para una fecha. colaboradora_id = id o 'any'.
+    Devuelve [{colaboradora_id, hora, hora_fin}] (con 'any', uno por hora)."""
+    servicios_info = []  # [{duracion_min, tipo_estacion}, ...]
+    duracion = 0
+
+    if servicio_ids:
+        for sid in servicio_ids:
+            srv = sb.table('servicios').select('duracion_min,categoria').eq('id', int(sid)).limit(1).execute()
+            if srv.data:
+                cat = srv.data[0]['categoria']
+                servicios_info.append({
+                    'duracion_min':   srv.data[0]['duracion_min'],
+                    'tipo_estacion':  estacion_de_categoria(cat),
+                })
+                duracion += srv.data[0]['duracion_min']
+    elif duracion_total:
+        duracion = int(duracion_total)
+    elif servicio_id:
+        srv = sb.table('servicios').select('duracion_min,categoria').eq('id', servicio_id).limit(1).execute()
+        if not srv.data:
+            return []
+        cat = srv.data[0]['categoria']
+        servicios_info = [{'duracion_min': srv.data[0]['duracion_min'], 'tipo_estacion': estacion_de_categoria(cat)}]
+        duracion = srv.data[0]['duracion_min']
+    else:
+        return []
+
+    if not duracion:
+        return []
+
+    fecha_dt   = datetime.strptime(fecha_str, '%Y-%m-%d')
+    dia_semana = fecha_dt.weekday()
+
+    # Turnos del día que ocupan lugar (sin cancelados ni señas vencidas)
+    turnos_dia = [
+        t for t in sb.table('turnos').select(
+            'colaboradora_id,hora_inicio,hora_fin,estado,created_at,servicios(categoria)'
+        ).eq('fecha', fecha_str).execute().data
+        if turno_ocupa(t)
+    ]
+
+    # Ocupación por estación (para el chequeo de capacidad)
+    all_turnos_dia = []
+    if servicios_info:
+        for t in turnos_dia:
+            cat = t.get('servicios', {}).get('categoria') if t.get('servicios') else None
+            all_turnos_dia.append({
+                'hora_inicio':    t['hora_inicio'][:5],
+                'hora_fin':       t['hora_fin'][:5],
+                'tipo_estacion':  estacion_de_categoria(cat) if cat else None,
+            })
+
+    if colaboradora_id == 'any':
+        colabs    = sb.table('colaboradoras').select('id').eq('activa', True).execute().data
+        colab_ids = [c['id'] for c in colabs]
+    else:
+        colab_ids = [int(colaboradora_id)]
+
+    now      = ahora_salon()
+    min_hora = now + timedelta(hours=2) if respetar_anticipacion and fecha_dt.date() == now.date() else None
+
+    slots = []
+    for colab_id in colab_ids:
+        schedule = sb.table('disponibilidad').select('hora_inicio,hora_fin').eq(
+            'colaboradora_id', colab_id).eq('dia_semana', dia_semana).execute()
+        if not schedule.data:
+            continue
+
+        bloqueos = sb.table('bloqueos').select('*').eq(
+            'colaboradora_id', colab_id).eq('fecha', fecha_str).execute()
+        if bloqueos.data and any(b.get('todo_el_dia') for b in bloqueos.data):
+            continue
+
+        ocupados = [(t['hora_inicio'][:5], t['hora_fin'][:5])
+                    for t in turnos_dia if t.get('colaboradora_id') == colab_id]
+
+        for sched in schedule.data:
+            h_start  = sched['hora_inicio'][:5]
+            h_end    = sched['hora_fin'][:5]
+            cur      = datetime.strptime(f"{fecha_str} {h_start}", '%Y-%m-%d %H:%M')
+            end      = datetime.strptime(f"{fecha_str} {h_end}",   '%Y-%m-%d %H:%M')
+            slot_dur = timedelta(minutes=duracion)
+            interval = timedelta(minutes=30)
+
+            while cur + slot_dur <= end:
+                s_str = cur.strftime('%H:%M')
+                e_str = (cur + slot_dur).strftime('%H:%M')
+
+                if min_hora and cur < min_hora:
+                    cur += interval
+                    continue
+
+                # 1. Colaboradora libre durante toda la franja
+                if any(s_str < o_fin and e_str > o_ini for o_ini, o_fin in ocupados):
+                    cur += interval
+                    continue
+
+                # 2. Estaciones disponibles para cada servicio en secuencia
+                station_ok   = True
+                hora_cursor  = cur
+                for srv_info in servicios_info:
+                    srv_s   = hora_cursor.strftime('%H:%M')
+                    hora_cursor += timedelta(minutes=srv_info['duracion_min'])
+                    srv_e   = hora_cursor.strftime('%H:%M')
+                    estacion = srv_info['tipo_estacion']
+                    if estacion and estacion in CAPACIDAD_ESTACIONES:
+                        cap       = CAPACIDAD_ESTACIONES[estacion]
+                        ocupacion = sum(
+                            1 for t in all_turnos_dia
+                            if t['tipo_estacion'] == estacion
+                            and t['hora_inicio'] < srv_e
+                            and t['hora_fin']    > srv_s
+                        )
+                        if ocupacion >= cap:
+                            station_ok = False
+                            break
+
+                if station_ok:
+                    slots.append({'colaboradora_id': colab_id, 'hora': s_str, 'hora_fin': e_str})
+                cur += interval
+
+    if colaboradora_id == 'any':
+        seen, unique = set(), []
+        for s in sorted(slots, key=lambda x: x['hora']):
+            if s['hora'] not in seen:
+                seen.add(s['hora'])
+                unique.append(s)
+        return unique
+    return sorted(slots, key=lambda x: x['hora'])
+
+
 @app.route('/api/slots')
 def api_slots():
     try:
-        sb = get_sb()
-        colaboradora_id = request.args.get('colaboradora_id', 'any')
         fecha_str = request.args.get('fecha')
-
         if not fecha_str:
             return jsonify([])
-
-        # Parse services: prefer servicio_ids list, fallback to legacy params
-        servicio_ids_str = request.args.get('servicio_ids', '')
-        servicio_id      = request.args.get('servicio_id')
-        duracion_total_p = request.args.get('duracion_total')
-
-        servicios_info = []  # [{duracion_min, tipo_estacion}, ...]
-        duracion = 0
-
-        if servicio_ids_str:
-            for sid in (int(x) for x in servicio_ids_str.split(',') if x.strip()):
-                srv = sb.table('servicios').select('duracion_min,categoria').eq('id', sid).limit(1).execute()
-                if srv.data:
-                    cat = srv.data[0]['categoria']
-                    servicios_info.append({
-                        'duracion_min':   srv.data[0]['duracion_min'],
-                        'tipo_estacion':  estacion_de_categoria(cat),
-                    })
-                    duracion += srv.data[0]['duracion_min']
-        elif duracion_total_p:
-            duracion = int(duracion_total_p)
-        elif servicio_id:
-            srv = sb.table('servicios').select('duracion_min,categoria').eq('id', servicio_id).limit(1).execute()
-            if not srv.data:
-                return jsonify([])
-            cat = srv.data[0]['categoria']
-            servicios_info = [{'duracion_min': srv.data[0]['duracion_min'], 'tipo_estacion': estacion_de_categoria(cat)}]
-            duracion = srv.data[0]['duracion_min']
-        else:
-            return jsonify([])
-
-        if not duracion:
-            return jsonify([])
-
-        fecha_dt   = datetime.strptime(fecha_str, '%Y-%m-%d')
-        dia_semana = fecha_dt.weekday()
-
-        # Fetch all turnos for this date with their station type (for capacity check)
-        all_turnos_dia = []
-        if servicios_info:
-            raw = sb.table('turnos').select('hora_inicio,hora_fin,servicios(categoria)').eq('fecha', fecha_str).execute().data
-            for t in raw:
-                cat = t.get('servicios', {}).get('categoria') if t.get('servicios') else None
-                all_turnos_dia.append({
-                    'hora_inicio':    t['hora_inicio'][:5],
-                    'hora_fin':       t['hora_fin'][:5],
-                    'tipo_estacion':  estacion_de_categoria(cat) if cat else None,
-                })
-
-        if colaboradora_id == 'any':
-            colabs    = sb.table('colaboradoras').select('id').eq('activa', True).execute().data
-            colab_ids = [c['id'] for c in colabs]
-        else:
-            colab_ids = [int(colaboradora_id)]
-
-        slots = []
-        for colab_id in colab_ids:
-            schedule = sb.table('disponibilidad').select('hora_inicio,hora_fin').eq(
-                'colaboradora_id', colab_id).eq('dia_semana', dia_semana).execute()
-            if not schedule.data:
-                continue
-
-            bloqueos = sb.table('bloqueos').select('*').eq(
-                'colaboradora_id', colab_id).eq('fecha', fecha_str).execute()
-            if bloqueos.data and any(b.get('todo_el_dia') for b in bloqueos.data):
-                continue
-
-            turnos_colab = sb.table('turnos').select('hora_inicio,hora_fin').eq(
-                'colaboradora_id', colab_id).eq('fecha', fecha_str).execute()
-            ocupados = [(t['hora_inicio'][:5], t['hora_fin'][:5]) for t in turnos_colab.data]
-
-            now      = datetime.now()
-            min_hora = now + timedelta(hours=2) if fecha_dt.date() == now.date() else None
-
-            for sched in schedule.data:
-                h_start  = sched['hora_inicio'][:5]
-                h_end    = sched['hora_fin'][:5]
-                cur      = datetime.strptime(f"{fecha_str} {h_start}", '%Y-%m-%d %H:%M')
-                end      = datetime.strptime(f"{fecha_str} {h_end}",   '%Y-%m-%d %H:%M')
-                slot_dur = timedelta(minutes=duracion)
-                interval = timedelta(minutes=30)
-
-                while cur + slot_dur <= end:
-                    s_str = cur.strftime('%H:%M')
-                    e_str = (cur + slot_dur).strftime('%H:%M')
-
-                    if min_hora and cur < min_hora:
-                        cur += interval
-                        continue
-
-                    # 1. Colaboradora libre durante toda la franja
-                    if any(s_str < o_fin and e_str > o_ini for o_ini, o_fin in ocupados):
-                        cur += interval
-                        continue
-
-                    # 2. Estaciones disponibles para cada servicio en secuencia
-                    station_ok   = True
-                    hora_cursor  = cur
-                    for srv_info in servicios_info:
-                        srv_s   = hora_cursor.strftime('%H:%M')
-                        hora_cursor += timedelta(minutes=srv_info['duracion_min'])
-                        srv_e   = hora_cursor.strftime('%H:%M')
-                        estacion = srv_info['tipo_estacion']
-                        if estacion and estacion in CAPACIDAD_ESTACIONES:
-                            cap       = CAPACIDAD_ESTACIONES[estacion]
-                            ocupacion = sum(
-                                1 for t in all_turnos_dia
-                                if t['tipo_estacion'] == estacion
-                                and t['hora_inicio'] < srv_e
-                                and t['hora_fin']    > srv_s
-                            )
-                            if ocupacion >= cap:
-                                station_ok = False
-                                break
-
-                    if station_ok:
-                        slots.append({'colaboradora_id': colab_id, 'hora': s_str, 'hora_fin': e_str})
-                    cur += interval
-
-        if colaboradora_id == 'any':
-            seen, unique = set(), []
-            for s in sorted(slots, key=lambda x: x['hora']):
-                if s['hora'] not in seen:
-                    seen.add(s['hora'])
-                    unique.append(s)
-            slots = unique
-        else:
-            slots = sorted(slots, key=lambda x: x['hora'])
-
-        return jsonify(slots)
+        servicio_ids = [int(x) for x in request.args.get('servicio_ids', '').split(',') if x.strip()]
+        return jsonify(calcular_slots(
+            get_sb(),
+            request.args.get('colaboradora_id', 'any'),
+            fecha_str,
+            servicio_ids=servicio_ids,
+            servicio_id=request.args.get('servicio_id'),
+            duracion_total=request.args.get('duracion_total'),
+        ))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1344,10 +1406,34 @@ def api_reservar():
 
         existing = sb.table('clientes_reservas').select('id,bloqueado').eq(
             'telefono', data['telefono']).limit(1).execute()
-        es_recurrente = bool(existing.data)
+        if existing.data and existing.data[0].get('bloqueado'):
+            return jsonify({'error': 'No es posible completar la reserva online. Por favor contactá directamente al salón.'}), 403
+
+        servicio_ids = data.get('servicio_ids') or []
+        if not servicio_ids and data.get('servicio_id'):
+            servicio_ids = [data['servicio_id']]
+        if not servicio_ids:
+            return jsonify({'error': 'Servicio requerido'}), 400
+
+        servicios_data = []
+        for sid in servicio_ids:
+            srv = sb.table('servicios').select('nombre,precio_desde,duracion_min').eq('id', sid).limit(1).execute()
+            if not srv.data:
+                return jsonify({'error': f'Servicio {sid} no encontrado'}), 400
+            servicios_data.append(srv.data[0])
+
+        # Revalidar el horario en el server: otra clienta pudo tomarlo mientras ésta completaba sus datos
+        hora_ini = data['hora']
+        pedida   = data.get('colaboradora_id')
+        pedida   = 'any' if not pedida or pedida == 'any' else int(pedida)
+        libres   = calcular_slots(sb, pedida, data['fecha'], servicio_ids=servicio_ids)
+        slot     = next((s for s in libres if s['hora'] == hora_ini), None)
+        if not slot:
+            return jsonify({'error': 'Ese horario ya no está disponible. Por favor elige otro.',
+                            'horario_tomado': True}), 409
+        colaboradora_id = slot['colaboradora_id']
+
         if existing.data:
-            if existing.data[0].get('bloqueado'):
-                return jsonify({'error': 'No es posible completar la reserva online. Por favor contactá directamente al salón.'}), 403
             cliente_id = existing.data[0]['id']
         else:
             insert_data = {
@@ -1365,62 +1451,260 @@ def api_reservar():
             cliente = sb.table('clientes_reservas').insert(insert_data).execute()
             cliente_id = cliente.data[0]['id']
 
-        servicio_ids = data.get('servicio_ids') or []
-        if not servicio_ids and data.get('servicio_id'):
-            servicio_ids = [data['servicio_id']]
-        if not servicio_ids:
-            return jsonify({'error': 'Servicio requerido'}), 400
-
-        servicios_data = []
-        duracion_total = 0
-        for sid in servicio_ids:
-            srv = sb.table('servicios').select('precio_desde,duracion_min').eq('id', sid).limit(1).execute()
-            if not srv.data:
-                return jsonify({'error': f'Servicio {sid} no encontrado'}), 400
-            servicios_data.append(srv.data[0])
-            duracion_total += srv.data[0]['duracion_min']
-
-        hora_ini = data['hora']
-        hora_fin_total_dt = datetime.strptime(hora_ini, '%H:%M') + timedelta(minutes=duracion_total)
-        hora_fin_total = hora_fin_total_dt.strftime('%H:%M')
-
-        colaboradora_id = data.get('colaboradora_id')
-        if not colaboradora_id or colaboradora_id == 'any':
-            colab_slots = sb.table('disponibilidad').select('colaboradora_id').eq(
-                'dia_semana', datetime.strptime(data['fecha'], '%Y-%m-%d').weekday()
-            ).execute()
-            for row in colab_slots.data:
-                cid = row['colaboradora_id']
-                conflicto = sb.table('turnos').select('id').eq(
-                    'colaboradora_id', cid).eq('fecha', data['fecha']).execute()
-                ocupados = [(t['hora_inicio'][:5], t['hora_fin'][:5]) for t in conflicto.data]
-                if not any(hora_ini < o_fin and hora_fin_total < o_ini or hora_fin_total > o_fin and hora_ini > o_fin for o_ini, o_fin in ocupados):
-                    if not any(hora_ini < o_fin and hora_fin_total > o_ini for o_ini, o_fin in ocupados):
-                        colaboradora_id = cid
-                        break
+        pago = None
+        if SENA_ACTIVA:
+            pago = sb.table('pagos_sena').insert({
+                'cliente_id': cliente_id,
+                'monto':      SENA_MXN,
+                'estado':     'pendiente',
+            }).execute().data[0]
 
         turnos_creados = []
         hora_cursor = datetime.strptime(hora_ini, '%H:%M')
         for i, sid in enumerate(servicio_ids):
-            srv_dur = servicios_data[i]['duracion_min']
             t_ini = hora_cursor.strftime('%H:%M')
-            hora_cursor += timedelta(minutes=srv_dur)
+            hora_cursor += timedelta(minutes=servicios_data[i]['duracion_min'])
             t_fin = hora_cursor.strftime('%H:%M')
-            turno = sb.table('turnos').insert({
+            row = {
                 'cliente_id': cliente_id,
                 'colaboradora_id': colaboradora_id,
                 'servicio_id': int(sid),
                 'fecha': data['fecha'],
                 'hora_inicio': t_ini,
                 'hora_fin': t_fin,
-                'estado': 'pendiente',
+                'estado': 'esperando_pago' if pago else 'pendiente',
                 'precio': servicios_data[i]['precio_desde'],
                 'notas': data.get('notas', ''),
                 'canal': 'web',
-            }).execute()
+            }
+            if pago:
+                row['pago_sena_id'] = pago['id']
+            turno = sb.table('turnos').insert(row).execute()
             turnos_creados.append(turno.data[0]['id'])
 
-        return jsonify({'success': True, 'turno_ids': turnos_creados})
+        if not pago:
+            return jsonify({'success': True, 'turno_ids': turnos_creados})
+
+        try:
+            pref = crear_preferencia_sena(pago, data, [s['nombre'] for s in servicios_data])
+        except Exception:
+            # Sin link de pago no hay reserva: liberar el horario
+            sb.table('turnos').delete().eq('pago_sena_id', pago['id']).execute()
+            sb.table('pagos_sena').delete().eq('id', pago['id']).execute()
+            return jsonify({'error': 'No pudimos generar el pago de la seña. Intenta de nuevo en unos minutos.'}), 502
+
+        sb.table('pagos_sena').update({'mp_preference_id': pref['id']}).eq('id', pago['id']).execute()
+        return jsonify({'success': True, 'turno_ids': turnos_creados, 'init_point': pref['init_point']})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── SEÑA — MERCADO PAGO ─────────────────────────────────────────────────────────
+
+def crear_preferencia_sena(pago, cliente, servicios_nombres):
+    ahora = datetime.now(TZ_SALON)
+    vence = ahora + timedelta(minutes=MP_EXPIRA_MIN)
+    url_resultado = f"{PUBLIC_BASE_URL}/reservar/resultado?t={pago['token']}"
+    body = {
+        'items': [{
+            'id':          f"sena-{pago['id']}",
+            'title':       'Seña cita Maru Nails',
+            'description': ', '.join(servicios_nombres)[:250],
+            'quantity':    1,
+            'currency_id': 'MXN',
+            'unit_price':  pago['monto'],
+        }],
+        'payer': {
+            'name':    cliente.get('nombre', ''),
+            'surname': cliente.get('apellido', ''),
+        },
+        'external_reference':   str(pago['id']),
+        'notification_url':     MP_NOTIFICATION_URL,
+        'back_urls':            {'success': url_resultado, 'failure': url_resultado, 'pending': url_resultado},
+        'auto_return':          'approved',
+        'binary_mode':          True,   # aprobado o rechazado al instante, sin pendientes
+        'expires':              True,
+        'expiration_date_from': ahora.isoformat(timespec='milliseconds'),
+        'expiration_date_to':   vence.isoformat(timespec='milliseconds'),
+        'payment_methods': {
+            # Sin OXXO / efectivo / cajero: se acreditan tarde y no sirven para retener un horario
+            'excluded_payment_types': [{'id': 'ticket'}, {'id': 'atm'}],
+            'installments': 1,
+        },
+        'statement_descriptor': 'MARU NAILS',
+    }
+    if cliente.get('email'):
+        body['payer']['email'] = cliente['email']
+    return mp_request('POST', '/checkout/preferences', json=body)
+
+
+def turnos_de_pago(sb, pago_id):
+    return sb.table('turnos').select(
+        'id,colaboradora_id,servicio_id,fecha,hora_inicio,hora_fin,estado,created_at'
+    ).eq('pago_sena_id', pago_id).order('hora_inicio').execute().data
+
+
+def horario_sigue_libre(sb, turnos):
+    """Para una seña pagada con la retención ya vencida: ¿nadie tomó el horario?"""
+    if not turnos:
+        return False
+    if not any(hold_vencido(t) for t in turnos):
+        return True
+    primero = turnos[0]
+    libres = calcular_slots(sb, primero['colaboradora_id'], primero['fecha'],
+                            servicio_ids=[t['servicio_id'] for t in turnos],
+                            respetar_anticipacion=False)
+    return any(s['hora'] == primero['hora_inicio'][:5] for s in libres)
+
+
+def procesar_pago(payment_id):
+    """Sincroniza un pago de MP con la reserva. Idempotente: lo llaman el webhook y
+    la página de resultado. Siempre consulta el pago a la API (no confía en el payload)."""
+    sb = get_sb()
+    p = mp_request('GET', f'/v1/payments/{payment_id}')
+    ref = str(p.get('external_reference') or '')
+    if not ref.isdigit():
+        return None
+    rows = sb.table('pagos_sena').select('*').eq('id', int(ref)).limit(1).execute().data
+    if not rows:
+        return None
+    pago = rows[0]
+    if pago['estado'] in ('aprobado', 'reembolsado'):
+        return pago['estado']
+
+    status = p.get('status')
+    if status == 'approved':
+        if p.get('currency_id') != 'MXN' or float(p.get('transaction_amount') or 0) < pago['monto']:
+            sb.table('pagos_sena').update({
+                'notas': f"Pago {payment_id} aprobado con monto inesperado — revisar",
+            }).eq('id', pago['id']).execute()
+            return pago['estado']
+
+        turnos = turnos_de_pago(sb, pago['id'])
+        sb.table('pagos_sena').update({
+            'estado':        'aprobado',
+            'mp_payment_id': str(payment_id),
+            'pagado_at':     datetime.now(timezone.utc).isoformat(),
+        }).eq('id', pago['id']).execute()
+
+        if horario_sigue_libre(sb, turnos):
+            sb.table('turnos').update({'estado': 'confirmado'}).eq(
+                'pago_sena_id', pago['id']).eq('estado', 'esperando_pago').execute()
+            return 'aprobado'
+
+        # Pagó tarde y el horario ya lo tomó otra clienta: devolver automáticamente
+        mp_request('POST', f'/v1/payments/{payment_id}/refunds', json={},
+                   idempotency_key=f'refund-{payment_id}')
+        sb.table('pagos_sena').update({
+            'estado':         'reembolsado',
+            'reembolsado_at': datetime.now(timezone.utc).isoformat(),
+            'notas':          'Pagó con la reserva vencida y el horario ya estaba tomado. Devolución automática.',
+        }).eq('id', pago['id']).execute()
+        sb.table('turnos').update({'estado': 'cancelado_salon'}).eq('pago_sena_id', pago['id']).execute()
+        return 'reembolsado'
+
+    if status in ('rejected', 'cancelled') and pago['estado'] == 'pendiente':
+        # El horario sigue retenido hasta que venza: puede reintentar con otra tarjeta
+        sb.table('pagos_sena').update({'estado': 'rechazado'}).eq('id', pago['id']).execute()
+        return 'rechazado'
+    return pago['estado']
+
+
+def firma_webhook_valida(data_id):
+    """Valida x-signature de Mercado Pago (si hay secret configurado y viene el header)."""
+    firma = request.headers.get('x-signature', '')
+    if not MP_WEBHOOK_SECRET or not firma:
+        return True  # igual es seguro: procesar_pago consulta el pago a la API con nuestro token
+    partes = dict(p.strip().split('=', 1) for p in firma.split(',') if '=' in p)
+    manifest = f"id:{str(data_id).lower()};request-id:{request.headers.get('x-request-id', '')};ts:{partes.get('ts', '')};"
+    esperado = hmac.new(MP_WEBHOOK_SECRET.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(esperado, partes.get('v1', ''))
+
+
+@app.route('/api/mp/webhook', methods=['POST'])
+def mp_webhook():
+    body    = request.get_json(silent=True) or {}
+    tipo    = request.args.get('type') or request.args.get('topic') or body.get('type') or body.get('topic')
+    data_id = request.args.get('data.id') or (body.get('data') or {}).get('id') or request.args.get('id')
+    if tipo != 'payment' or not data_id:
+        return '', 200
+    if not firma_webhook_valida(data_id):
+        return '', 401
+    try:
+        procesar_pago(data_id)
+    except Exception as e:
+        # 500 → MP reintenta la notificación más tarde
+        app.logger.error(f'Webhook MP {data_id}: {e}')
+        return '', 500
+    return '', 200
+
+
+@app.route('/reservar/resultado')
+def reservar_resultado():
+    sb    = get_sb()
+    token = request.args.get('t', '')
+    if not re.fullmatch(r'[0-9a-fA-F-]{36}', token):
+        return redirect(url_for('reservar'))
+    rows = sb.table('pagos_sena').select('*').eq('token', token).limit(1).execute().data
+    if not rows:
+        return redirect(url_for('reservar'))
+    pago = rows[0]
+
+    # Por si el webhook todavía no llegó
+    payment_id = request.args.get('payment_id') or request.args.get('collection_id')
+    if payment_id and payment_id.isdigit() and pago['estado'] not in ('aprobado', 'reembolsado'):
+        try:
+            procesar_pago(payment_id)
+            pago = sb.table('pagos_sena').select('*').eq('id', pago['id']).limit(1).execute().data[0]
+        except Exception as e:
+            app.logger.error(f'Resultado MP {payment_id}: {e}')
+
+    turnos = turnos_de_pago(sb, pago['id'])
+    serv_ids = list({t['servicio_id'] for t in turnos})
+    nombres = {s['id']: s['nombre'] for s in
+               sb.table('servicios').select('id,nombre').in_('id', serv_ids).execute().data} if serv_ids else {}
+    cliente = sb.table('clientes_reservas').select('nombre').eq('id', pago['cliente_id']).limit(1).execute().data
+
+    reintento_url = None
+    if pago['estado'] in ('pendiente', 'rechazado') and turnos and not any(hold_vencido(t) for t in turnos) \
+            and pago.get('mp_preference_id'):
+        try:
+            reintento_url = mp_request('GET', f"/checkout/preferences/{pago['mp_preference_id']}")['init_point']
+        except Exception:
+            pass
+
+    return render_template('reservar_resultado.html',
+                           estado=pago['estado'],
+                           monto=pago['monto'],
+                           nombre=(cliente[0]['nombre'] if cliente else ''),
+                           servicios=[nombres.get(t['servicio_id'], '') for t in turnos],
+                           fecha=turnos[0]['fecha'] if turnos else None,
+                           hora=turnos[0]['hora_inicio'][:5] if turnos else None,
+                           reintento_url=reintento_url)
+
+
+@app.route('/api/pago-sena/<int:pid>/reembolso', methods=['POST'])
+@require_admin
+def api_reembolso_sena(pid):
+    try:
+        sb = get_sb()
+        rows = sb.table('pagos_sena').select('*').eq('id', pid).limit(1).execute().data
+        if not rows:
+            return jsonify({'error': 'Seña no encontrada'}), 404
+        pago = rows[0]
+        if pago['estado'] == 'reembolsado':
+            return jsonify({'success': True})
+        if pago['estado'] != 'aprobado' or not pago.get('mp_payment_id'):
+            return jsonify({'error': 'Esta seña no está pagada'}), 400
+        mp_request('POST', f"/v1/payments/{pago['mp_payment_id']}/refunds", json={},
+                   idempotency_key=f"refund-{pago['mp_payment_id']}")
+        sb.table('pagos_sena').update({
+            'estado':         'reembolsado',
+            'reembolsado_at': datetime.now(timezone.utc).isoformat(),
+        }).eq('id', pid).execute()
+        return jsonify({'success': True})
+    except httpx.HTTPStatusError as e:
+        return jsonify({'error': f'Mercado Pago rechazó la devolución: {e.response.text[:200]}'}), 502
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1442,7 +1726,7 @@ def api_agenda():
         hasta = request.args.get('hasta')
         fecha = request.args.get('fecha', date.today().isoformat())
         query = sb.table('turnos').select(
-            'id,fecha,hora_inicio,hora_fin,estado,precio,notas,canal,'
+            'id,fecha,hora_inicio,hora_fin,estado,precio,notas,canal,created_at,pago_sena_id,'
             'clientes_reservas(id,nombre,apellido,telefono),'
             'colaboradoras(nombre),'
             'servicios(nombre,duracion_min)'
@@ -1451,8 +1735,16 @@ def api_agenda():
             query = query.gte('fecha', desde).lte('fecha', hasta)
         else:
             query = query.eq('fecha', fecha)
-        data = query.order('fecha').order('hora_inicio').execute()
-        return jsonify(data.data)
+        turnos = [t for t in query.order('fecha').order('hora_inicio').execute().data
+                  if not hold_vencido(t)]
+
+        # Señas: query aparte y merge en código
+        pago_ids = list({t['pago_sena_id'] for t in turnos if t.get('pago_sena_id')})
+        pagos = {p['id']: p for p in sb.table('pagos_sena').select(
+            'id,monto,estado').in_('id', pago_ids).execute().data} if pago_ids else {}
+        for t in turnos:
+            t['sena'] = pagos.get(t.get('pago_sena_id'))
+        return jsonify(turnos)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1466,10 +1758,11 @@ def api_cliente_historial(cid):
         if not cliente.data:
             return jsonify({'error': 'Cliente no encontrado'}), 404
         turnos = sb.table('turnos').select(
-            'id,fecha,hora_inicio,hora_fin,estado,precio,notas,'
+            'id,fecha,hora_inicio,hora_fin,estado,precio,notas,created_at,'
             'colaboradoras(nombre),servicios(nombre)'
         ).eq('cliente_id', cid).order('fecha', desc=True).execute()
-        return jsonify({'cliente': cliente.data[0], 'turnos': turnos.data})
+        return jsonify({'cliente': cliente.data[0],
+                        'turnos': [t for t in turnos.data if not hold_vencido(t)]})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1798,11 +2091,12 @@ def api_turnos_reportes():
         hasta = request.args.get('hasta', date.today().isoformat())
 
         turnos = sb.table('turnos').select(
-            'id,fecha,hora_inicio,estado,precio,canal,'
+            'id,fecha,hora_inicio,estado,precio,canal,created_at,'
             'clientes_reservas(id),'
             'colaboradoras(nombre),'
             'servicios(nombre)'
         ).gte('fecha', desde).lte('fecha', hasta).execute().data
+        turnos = [t for t in turnos if not hold_vencido(t)]
 
         por_estado   = defaultdict(int)
         por_servicio = defaultdict(int)
