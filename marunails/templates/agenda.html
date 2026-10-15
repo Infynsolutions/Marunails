@@ -494,6 +494,7 @@ main { max-width: 1480px; padding: 28px 24px; }
         <label class="chk-inline"><input type="checkbox" id="verCancelados" onchange="cargarVista()"> Ver cancelados</label>
         <button class="btn-hoy btn-oscuro" onclick="abrirNuevaCita()">+ Nueva cita</button>
         <button class="btn-hoy btn-medio" onclick="abrirWalkin()">+ Walk-in</button>
+        <button class="btn-hoy" onclick="abrirOrigen()">Clientas por canal</button>
     </div>
 </div>
 
@@ -604,6 +605,21 @@ main { max-width: 1480px; padding: 28px 24px; }
     </div>
 </div>
 
+<!-- Clientas nuevas por canal -->
+<div class="walkin-overlay" id="origenOverlay">
+    <div class="walkin-panel" style="width:380px">
+        <h2>Clientas nuevas por canal</h2>
+        <div class="wi-row">
+            <div class="wi-field"><label>Desde</label><input type="date" id="orDesde" onchange="cargarOrigen()"></div>
+            <div class="wi-field"><label>Hasta</label><input type="date" id="orHasta" onchange="cargarOrigen()"></div>
+        </div>
+        <div id="orTabla" style="font-size:13px;margin:8px 0"></div>
+        <div class="wi-actions">
+            <button class="btn-walkin-cancel" onclick="document.getElementById('origenOverlay').classList.remove('open')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal nueva cita (recepción) -->
 <div class="walkin-overlay" id="citaOverlay">
     <div class="walkin-panel" style="width:460px;max-height:92vh;overflow-y:auto">
@@ -644,6 +660,18 @@ main { max-width: 1480px; padding: 28px 24px; }
             <div class="wi-field">
                 <label>Horario *</label>
                 <div id="ncSlots"><div class="nc-hint">Elegí servicio y fecha.</div></div>
+            </div>
+            <div class="wi-field" id="ncOrigenBox">
+                <label>¿Cómo nos conoció?</label>
+                <select id="ncOrigen">
+                    <option value="">Elegí una opción</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="google_maps">Google/Maps</option>
+                    <option value="meta_ads">Anuncio de Meta</option>
+                    <option value="recomendacion">Recomendación</option>
+                    <option value="paso_por_el_local">Pasaba por el local</option>
+                    <option value="otro">Otro</option>
+                </select>
             </div>
             <div class="wi-field">
                 <label>Notas</label>
@@ -1464,6 +1492,7 @@ function resetBuscador(p) {
 function buscarClienta(p) {
     const [nom, , sug, eleg] = BUSCADOR[p];
     clientaSel[p] = null;
+    if (p === 'nc') document.getElementById('ncOrigenBox').style.display = '';
     document.getElementById(eleg).textContent = '';
     const q = document.getElementById(nom).value;
     const t = sinAcentos(q).trim(), dig = q.replace(/\D/g, '');
@@ -1485,12 +1514,34 @@ function elegirClienta(p, i) {
     const box = document.getElementById(sug);
     const c = box._hits[i];
     clientaSel[p] = c;
+    if (p === 'nc') document.getElementById('ncOrigenBox').style.display = c.tiene_origen ? 'none' : '';
     document.getElementById(nom).value = c.nombre;
     if (c.telefono) document.getElementById(tel).value = c.telefono;
     box.classList.remove('open');
     document.getElementById(eleg).textContent =
         `✓ ${c.nombre}${c.visitas ? ` · ${c.visitas} visitas` : ''} — la cita se suma a su ficha`;
     if (!document.getElementById(tel).value) document.getElementById(tel).focus();
+}
+
+// ─── CLIENTAS NUEVAS POR CANAL ───
+function abrirOrigen() {
+    const hoy = isoFecha(new Date());
+    document.getElementById('orDesde').value = hoy.slice(0, 8) + '01';
+    document.getElementById('orHasta').value = hoy;
+    document.getElementById('origenOverlay').classList.add('open');
+    cargarOrigen();
+}
+
+async function cargarOrigen() {
+    const box = document.getElementById('orTabla');
+    const desde = document.getElementById('orDesde').value, hasta = document.getElementById('orHasta').value;
+    if (!desde || !hasta) return;
+    const d = await (await fetch(`/api/clientas/origen?desde=${desde}&hasta=${hasta}`)).json().catch(() => ({}));
+    if (!d.filas) { box.textContent = d.error || 'No se pudo cargar.'; return; }
+    box.innerHTML = d.filas.map(f => `<div style="display:flex;justify-content:space-between;padding:4px 0">` +
+        `<span>${esc(f.nombre)}</span><b>${f.cantidad}</b></div>`).join('') +
+        `<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #ddd;margin-top:4px">` +
+        `<span>Total clientas nuevas</span><b>${d.total}</b></div>`;
 }
 
 // ─── WALK-IN ───
@@ -1624,6 +1675,8 @@ async function abrirNuevaCita(pre) {
     ncPre = pre || {};
     ['ncNombre','ncTel','ncNotas'].forEach(id => document.getElementById(id).value = '');
     resetBuscador('nc');
+    document.getElementById('ncOrigen').value = '';
+    document.getElementById('ncOrigenBox').style.display = '';
     document.getElementById('ncError').textContent = '';
     document.getElementById('ncFecha').value = ncPre.fecha || isoFecha(fechaActual);
     const chk = document.getElementById('ncSena');
@@ -1738,6 +1791,7 @@ async function guardarNuevaCita() {
         body: JSON.stringify({
             nombre, telefono: tel,
             cliente_id: clientaSel.nc?.id || null,
+            origen: document.getElementById('ncOrigen').value,
             servicio_ids: ncServs.map(s => s.id),
             colaboradora_id: document.getElementById('ncColab').value,
             fecha, hora: ncHora,

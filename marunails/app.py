@@ -1640,10 +1640,40 @@ def buscar_clienta(clientas, nombre='', apellido='', telefono='', email=''):
     return None
 
 
+ORIGENES = {
+    'instagram':         'Instagram',
+    'google_maps':       'Google/Maps',
+    'meta_ads':          'Anuncio de Meta',
+    'recomendacion':     'Recomendación',
+    'paso_por_el_local': 'Pasaba por el local',
+    'otro':              'Otro',
+}
+
+
+def normalizar_origen(valor):
+    """Código de «¿Cómo nos conociste?» o None si viene vacío o no es una opción válida."""
+    v = (valor or '').strip() if isinstance(valor, str) else ''
+    return v if v in ORIGENES else None
+
+
+def nuevas_por_origen(clientas, desde, hasta):
+    """Clientas dadas de alta entre dos fechas (ISO, ambas inclusive, hora del salón), contadas
+    por origen. Las que no respondieron van en 'sin_dato'."""
+    conteo = {k: 0 for k in ORIGENES}
+    conteo['sin_dato'] = 0
+    for c in clientas:
+        if not c.get('created_at'):
+            continue
+        dia = _parse_ts(c['created_at']).astimezone(TZ_SALON).date().isoformat()
+        if desde <= dia <= hasta:
+            conteo[normalizar_origen(c.get('origen')) or 'sin_dato'] += 1
+    return conteo
+
+
 def clienta_para_reserva(sb, data, rechazar_bloqueada=False):
     """La clienta de una cita: la elegida en el buscador (cliente_id), una ya cargada que
     coincida, o una nueva. A una existente solo se le completan teléfono/email vacíos."""
-    clientas = fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido,telefono,email,bloqueado')
+    clientas = fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido,telefono,email,bloqueado,origen')
     if data.get('cliente_id'):
         c = next((x for x in clientas if str(x['id']) == str(data['cliente_id'])), None)
         if not c:
@@ -1658,6 +1688,9 @@ def clienta_para_reserva(sb, data, rechazar_bloqueada=False):
                                'Por favor contactá directamente al salón.', 403)
         faltan = {k: data[k].strip() for k in ('telefono', 'email')
                   if (data.get(k) or '').strip() and not (c.get(k) or '').strip()}
+        origen = normalizar_origen(data.get('origen'))
+        if origen and not c.get('origen'):      # se pregunta una sola vez: nunca se pisa
+            faltan['origen'] = origen
         if faltan:
             sb.table('clientes_reservas').update(faltan).eq('id', c['id']).execute()
         return c['id']
@@ -1674,6 +1707,8 @@ def clienta_para_reserva(sb, data, rechazar_bloqueada=False):
     }
     if data.get('fecha_nacimiento'):
         nueva['fecha_nacimiento'] = data['fecha_nacimiento']
+    if normalizar_origen(data.get('origen')):
+        nueva['origen'] = normalizar_origen(data['origen'])
     return sb.table('clientes_reservas').insert(nueva).execute().data[0]['id']
 
 
@@ -1691,6 +1726,7 @@ def directorio_clientas(clientas, cortes, tel_fichas):
         cubiertas.add(key)
         lista.append({'id': c['id'], 'key': key, 'telefono': c.get('telefono') or '',
                       'nombre': f"{c.get('nombre') or ''} {c.get('apellido') or ''}".strip(),
+                      'tiene_origen': bool(c.get('origen')),
                       'visitas': f.get('visitas', 0), 'ultima': f.get('ultima')})
     for key, f in fichas.items():
         if key not in cubiertas:
@@ -2232,9 +2268,30 @@ def api_clientas():
         sb = get_sb()
         tel_fichas = {r['key']: r.get('telefono') for r in fetch_all(sb, 'clientes_info', 'key,telefono')}
         return jsonify(directorio_clientas(
-            fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido,telefono'),
+            fetch_all(sb, 'clientes_reservas', 'id,nombre,apellido,telefono,origen'),
             fetch_all(sb, 'cortes', 'cliente,fecha,total_mxn,propina_mxn,staff,servicio'),
             tel_fichas))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/clientas/origen')
+@require_equipo
+def api_clientas_origen():
+    """Conteo de clientas nuevas por «¿Cómo nos conociste?» en un rango de fechas."""
+    try:
+        hoy = ahora_salon().date()
+        desde = request.args.get('desde') or hoy.replace(day=1).isoformat()
+        hasta = request.args.get('hasta') or hoy.isoformat()
+        try:
+            date.fromisoformat(desde), date.fromisoformat(hasta)
+        except ValueError:
+            return jsonify({'error': 'Fechas inválidas.'}), 400
+        clientas = fetch_all(get_sb(), 'clientes_reservas', 'id,created_at,origen')
+        conteo = nuevas_por_origen(clientas, desde, hasta)
+        filas = [{'origen': k, 'nombre': ORIGENES.get(k, 'Sin dato'), 'cantidad': n}
+                 for k, n in conteo.items()]
+        return jsonify({'desde': desde, 'hasta': hasta, 'total': sum(conteo.values()), 'filas': filas})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
