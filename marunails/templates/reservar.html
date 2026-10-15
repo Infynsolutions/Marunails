@@ -563,6 +563,18 @@ body {
             <label class="form-label">Email</label>
             <input class="form-input" id="fEmail" type="email" placeholder="tu@email.com">
         </div>
+        <div class="form-group">
+            <label class="form-label">¿Cómo nos conociste?</label>
+            <select class="form-input" id="fOrigen">
+                <option value="">Elegí una opción</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="google_maps">Google/Maps</option>
+                    <option value="meta_ads">Anuncio de Meta</option>
+                    <option value="recomendacion">Recomendación</option>
+                    <option value="paso_por_el_local">Pasaba por el local</option>
+                    <option value="otro">Otro</option>
+            </select>
+        </div>
         <div class="form-row">
             <div class="form-group">
                 <label class="form-label">Idioma / Language</label>
@@ -927,6 +939,7 @@ async function confirmar() {
                 apellido: document.getElementById('fApellido').value.trim(),
                 telefono: tel,
                 email: document.getElementById('fEmail').value.trim(),
+                origen: document.getElementById('fOrigen').value,
                 idioma: document.getElementById('fIdioma').value,
                 fecha_nacimiento: document.getElementById('fNacimiento').value || null,
                 notas: document.getElementById('fNotas').value.trim(),

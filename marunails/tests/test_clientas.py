@@ -127,3 +127,83 @@ def test_directorio_junta_agenda_y_fichas_de_cortes_sin_duplicar():
     d = directorio_clientas(agenda, cortes, {'raquel': '9841112222'})
     assert [(c['id'], c['nombre'], c['visitas']) for c in d] == [(3, 'Juli', 2), (None, 'Raquel', 1)]
     assert d[0]['ultima'] == '2026-07-20' and d[1]['telefono'] == '9841112222'
+
+
+# ── «¿Cómo nos conociste?» ──
+
+from app import normalizar_origen, nuevas_por_origen  # noqa: E402
+
+
+class _Tabla:
+    def __init__(self, filas, log):
+        self.filas, self.log, self.vals = filas, log, None
+
+    def select(self, *a):
+        return self
+
+    def range(self, *a):
+        return self
+
+    def order(self, *a):
+        return self
+
+    def update(self, vals):
+        self.vals = vals
+        return self
+
+    def insert(self, vals):
+        self.log.append(('insert', vals))
+        self.filas = [{'id': 99}]
+        return self
+
+    def eq(self, *a):
+        return self
+
+    def execute(self):
+        if self.vals is not None:
+            self.log.append(('update', self.vals))
+        return type('R', (), {'data': self.filas})()
+
+
+class _SB:
+    def __init__(self, filas):
+        self.filas, self.log = filas, []
+
+    def table(self, nombre):
+        return _Tabla(self.filas, self.log)
+
+
+def test_origen_valido_o_nada():
+    assert normalizar_origen(' instagram ') == 'instagram'
+    assert normalizar_origen('tiktok') is None
+    assert normalizar_origen('') is None and normalizar_origen(None) is None and normalizar_origen(5) is None
+
+
+def test_clienta_nueva_guarda_el_origen():
+    sb = _SB([])
+    clienta_para_reserva(sb, {'nombre': 'Nueva', 'telefono': '9840009999', 'origen': 'meta_ads'})
+    assert sb.log[0][0] == 'insert' and sb.log[0][1]['origen'] == 'meta_ads'
+
+
+def test_clienta_sin_origen_lo_completa():
+    sb = _SB([{'id': 1, 'nombre': 'Ana', 'apellido': '', 'telefono': '9840000001', 'email': '', 'origen': None}])
+    clienta_para_reserva(sb, {'nombre': 'Ana', 'telefono': '9840000001', 'origen': 'recomendacion'})
+    assert sb.log == [('update', {'origen': 'recomendacion'})]
+
+
+def test_clienta_con_origen_no_se_pisa():
+    sb = _SB([{'id': 1, 'nombre': 'Ana', 'apellido': '', 'telefono': '9840000001', 'email': '', 'origen': 'instagram'}])
+    clienta_para_reserva(sb, {'nombre': 'Ana', 'telefono': '9840000001', 'origen': 'otro'})
+    assert sb.log == []
+
+
+def test_conteo_nuevas_por_origen_en_rango():
+    cl = [
+        {'created_at': '2026-10-05T15:00:00+00:00', 'origen': 'instagram'},
+        {'created_at': '2026-10-06T15:00:00+00:00', 'origen': 'instagram'},
+        {'created_at': '2026-10-07T15:00:00+00:00', 'origen': None},
+        {'created_at': '2026-09-30T15:00:00+00:00', 'origen': 'otro'},      # fuera del rango
+        {'created_at': '2026-11-01T01:00:00+00:00', 'origen': 'otro'},      # 31/10 en Cancún: dentro
+    ]
+    r = nuevas_por_origen(cl, '2026-10-01', '2026-10-31')
+    assert r['instagram'] == 2 and r['sin_dato'] == 1 and r['otro'] == 1 and r['meta_ads'] == 0
